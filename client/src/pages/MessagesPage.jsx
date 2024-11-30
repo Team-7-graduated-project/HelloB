@@ -158,11 +158,11 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 h-screen flex flex-col">
       <AccountNav />
-      <div className="container mx-auto p-4">
+      <div className="container mx-auto flex-grow flex flex-col">
         <h1 className="text-2xl font-bold mb-4">Messages</h1>
-        <div className="grid grid-cols-3 gap-4 h-[calc(100vh-200px)]">
+        <div className="grid grid-cols-3 gap-4 flex-grow">
           {/* Chat List */}
           <div className="col-span-1 border rounded-lg overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
             {chats.map((chat) => {
@@ -227,47 +227,49 @@ export default function MessagesPage() {
 
                 {/* Messages */}
                 <div className="flex-grow p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
-                  {selectedChat.messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`flex items-end gap-2 mb-4 ${
-                        message.sender === user?._id
-                          ? "justify-end"
-                          : "justify-start"
-                      }`}
-                    >
-                      {message.sender !== user?._id && (
-                        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                          <img
-                            src={
-                              getOtherParticipant(selectedChat)?.photo ||
-                              "/default-avatar.png"
-                            }
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
+                  <div className="flex flex-col-reverse">
+                    {selectedChat.messages.map((message, index) => (
                       <div
-                        className={`max-w-[70%] p-3 rounded-xl ${
+                        key={index}
+                        className={`flex items-end gap-2 mb-4 ${
                           message.sender === user?._id
-                            ? `${rightBubbleStyle} bg-primary text-white`
-                            : `${leftBubbleStyle} bg-gray-100`
+                            ? "justify-end"
+                            : "justify-start"
                         }`}
                       >
-                        <p className="break-words">{message.content}</p>
+                        {message.sender !== user?._id && (
+                          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                            <img
+                              src={
+                                getOtherParticipant(selectedChat)?.photo ||
+                                "/default-avatar.png"
+                              }
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
                         <div
-                          className={`text-xs mt-1 ${
+                          className={`max-w-[70%] p-3 rounded-xl ${
                             message.sender === user?._id
-                              ? "text-white/70"
-                              : "text-gray-500"
+                              ? `${rightBubbleStyle} bg-primary text-white`
+                              : `${leftBubbleStyle} bg-gray-100`
                           }`}
                         >
-                          {format(new Date(message.timestamp), "h:mm a")}
+                          <p className="break-words">{message.content}</p>
+                          <div
+                            className={`text-xs mt-1 ${
+                              message.sender === user?._id
+                                ? "text-white/70"
+                                : "text-gray-500"
+                            }`}
+                          >
+                            {format(new Date(message.timestamp), "h:mm a")}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
 
                 {/* Message Input */}
