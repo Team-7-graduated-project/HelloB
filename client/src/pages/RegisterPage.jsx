@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { TextInput } from "../TextInput";
-import "../app.css";
 import { GoogleLogin } from "@react-oauth/google";
 import TermsModal from "../components/TermsModal";
 import PrivacyModal from "../components/PrivacyModal";
