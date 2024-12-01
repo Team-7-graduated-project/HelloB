@@ -1,0 +1,75 @@
+/* YourHome.css */
+
+/* Đảm bảo phần header được chia đều và căn chỉnh đúng */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 50px;
+  margin-bottom: 40px;
+}
+
+/* Phần header-left nằm bên trái */
+.header-left {
+  flex: 1;
+  padding: 16px;
+}
+
+/* Phần header-right nằm bên phải với bản đồ */
+.header-right {
+  flex: 1;
+  height: 300px; /* Chiều cao nhất quán cho map */
+}
+
+.link-setup-button {
+  display: inline-block; /* Đảm bảo Link có thể nhận chiều rộng và padding */
+  padding: 10px 24px; /* Thêm padding để mở rộng kích thước */
+  background-color: #ec4899; /* Màu nền hồng */
+  color: white; /* Màu chữ trắng */
+  border-radius: 9999px; /* Làm tròn button */
+  text-align: center;
+  text-decoration: none; /* Xóa gạch chân */
+  width: 500px; /* Thiết lập chiều rộng tùy ý */
+}
+
+/* Banner Section */
+.banner {
+  background-color: #607d8b; /* Màu nền hồng đậm */
+  padding: 40px 0;
+  text-align: center;
+  margin-top: 32px;
+}
+
+.banner-content {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.banner h2 {
+  color: white;
+  font-size: 2rem;
+  margin-bottom: 16px;
+}
+
+.banner p {
+  color: white;
+  font-size: 1.125rem;
+  margin-bottom: 24px;
+}
+
+.banner-button {
+  display: inline-block;
+  padding: 12px 24px;
+  background-color: #fff;
+  color: #607d8b;
+  border-radius: 9999px;
+  font-weight: bold;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.banner-button:hover {
+  background-color: #607d8b; /* Màu tối hơn khi hover */
+  color: white;
+}
