@@ -62,7 +62,7 @@ app.use(cookieParser());
 app.use("/uploads", express.static(path.join(__dirname, "/uploads")));
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: process.env.CLIENT_URL,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -129,8 +129,8 @@ function authorizeRole(...allowedRoles) {
 // Routes
 
 // Test route
-app.get("/", (req, res) => {
-  res.json("MAIN BACK-END");
+app.get("/test", (req, res) => {
+  res.json("test ok");
 });
 
 // Register route for user
