@@ -6,7 +6,10 @@
   "routes":[
     {
       "src": "/(.*)",
-      "dest": "/"
+      "dest": "/",
+      "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "allowedHeaders": ["Content-Type", "Authorization"],
+    "exposedHeaders": ["Set-Cookie"],
     }
   ]
 }
