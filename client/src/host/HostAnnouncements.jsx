@@ -45,11 +45,17 @@ function HostAnnouncements() {
   useEffect(() => {
     fetchAnnouncements();
   }, [fetchAnnouncements]);
+  const handleCreateAnnouncement = () => {
+    setLoading;
+  };
 
   return (
     <div className="p-6">
       {canCreateAnnouncement && (
-        <button className="mb-4 max-w-32 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+        <button
+          onClick={handleCreateAnnouncement}
+          className="mb-4 max-w-32 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+        >
           <FaPlus className="mr-2" /> Create Announcement
         </button>
       )}
