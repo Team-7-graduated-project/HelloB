@@ -43,7 +43,7 @@ const jwtSecret = process.env.JWT_SECRET;
 const Report = require("./models/Report");
 const Announcement = require("./models/Announcement");
 
-// Add after existing imports123213
+// Add after existing imports
 const Chat = mongoose.model("Chat", {
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   messages: [
@@ -4877,6 +4877,15 @@ app.get("/api/host/announcements", authenticateToken, async (req, res) => {
     });
   }
 });
+app.listen(3000, () => {
+  console.log("Server is running on http://localhost:3000");
+});
+const PORT = process.env.PORT || 4000;
+
+// Start the server (update this)
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
 
 // Add this function after your imports
 
@@ -5156,6 +5165,8 @@ app.get("/api/chats/:chatId", authenticateToken, async (req, res) => {
   }
 });
 
+// Add this with other admin routes
+
 // Get user by ID
 app.get("/users/:userId", async (req, res) => {
   try {
@@ -5172,7 +5183,4 @@ app.get("/users/:userId", async (req, res) => {
     console.error("Error fetching user:", error);
     res.status(500).json({ error: "Error fetching user data" });
   }
-});
-app.listen(3000, () => {
-  console.log("Server is running on http://localhost:3000");
 });
