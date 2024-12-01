@@ -129,8 +129,8 @@ function authorizeRole(...allowedRoles) {
 // Routes
 
 // Test route
-app.get("/test", (req, res) => {
-  res.json("test ok");
+app.get("/", (req, res) => {
+  res.json("MAIN BACK-END");
 });
 
 // Register route for user
