@@ -59,7 +59,7 @@ export default function MessagesPage() {
     let websocket;
     if (selectedChat?._id && user?._id) {
       websocket = new WebSocket(
-        `ws://localhost:4000?userId=${user._id}&chatId=${selectedChat._id}`
+        `wss://hellob-be.onrender.com?userId=${user._id}&chatId=${selectedChat._id}`
       );
 
       websocket.onopen = () => setWs(websocket);
