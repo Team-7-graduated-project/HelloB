@@ -62,7 +62,7 @@ app.use(cookieParser());
 app.use("/uploads", express.static(path.join(__dirname, "/uploads")));
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: "http://localhost:5173",
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -100,7 +100,8 @@ mongoose
   });
 
 const authenticateToken = (req, res, next) => {
-  const token = req.cookies.token;
+  // Check for token in cookies or Authorization header
+  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
   if (!token) {
     return res.status(401).json({ error: "Access denied. No token provided." });
@@ -108,8 +109,8 @@ const authenticateToken = (req, res, next) => {
 
   try {
     const verified = jwt.verify(token, jwtSecret);
-    req.userData = verified;
-    next();
+    req.userData = verified; // Attach the verified user data to the request
+    next(); // Proceed to the next middleware or route handler
   } catch (error) {
     res.status(401).json({ error: "Invalid token", details: error.message });
   }
@@ -129,8 +130,8 @@ function authorizeRole(...allowedRoles) {
 // Routes
 
 // Test route
-app.get("/", (req, res) => {
-  res.json("hello ");
+app.get("/test", (req, res) => {
+  res.json("test ok");
 });
 
 // Register route for user
@@ -315,31 +316,127 @@ app.post("/login", async (req, res) => {
     res.status(500).json({ error: "Login failed. Please try again later." });
   }
 });
+app.post("/forgot-password", async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res
+        .status(404)
+        .json({ error: "No account with that email exists" });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    user.passwordResetToken = resetToken;
+    user.passwordResetExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
+
+    // Create reset URL
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+
+    // Send email
+    await transporter.sendMail({
+      from: {
+        name: "HelloB",
+        address: process.env.EMAIL_USER,
+      },
+      to: user.email,
+      subject: "Password Reset Request - HelloB",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1>Password Reset Request</h1>
+          <p>Hi ${user.name},</p>
+          <p>You requested to reset your password. Click the button below to reset it:</p>
+          <a href="${resetUrl}" 
+             style="display: inline-block; padding: 10px 20px; background-color: #4F46E5; 
+                    color: white; text-decoration: none; border-radius: 5px;">
+            Reset Password
+          </a>
+          <p>Or copy and paste this link in your browser:</p>
+          <p>${resetUrl}</p>
+          <p>This link will expire in 1 hour.</p>
+          <p>If you didn't request this reset, please ignore this email.</p>
+        </div>
+      `,
+    });
+
+    res.json({
+      message: "Password reset link sent to your email",
+    });
+  } catch (error) {
+    console.error("Password reset error:", error);
+    res.status(500).json({
+      error: "Failed to process password reset request",
+    });
+  }
+});
+
+// Reset Password route
+app.post("/reset-password/:token", async (req, res) => {
+  try {
+    const user = await User.findOne({
+      passwordResetToken: req.params.token,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        error: "Password reset token is invalid or has expired",
+      });
+    }
+
+    // Set new password
+    user.password = bcrypt.hashSync(req.body.password, bcrypt.genSaltSync(10));
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+
+    // Send confirmation email
+    await transporter.sendMail({
+      from: {
+        name: "HelloB",
+        address: process.env.EMAIL_USER,
+      },
+      to: user.email,
+      subject: "Password Reset Successful - HelloB",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1>Password Reset Successful</h1>
+          <p>Hi ${user.name},</p>
+          <p>Your password has been successfully reset.</p>
+          <p>If you didn't make this change, please contact our support team immediately.</p>
+        </div>
+      `,
+    });
+
+    res.json({
+      message:
+        "Password has been reset successfully. You can now login with your new password.",
+    });
+  } catch (error) {
+    console.error("Password reset error:", error);
+    res.status(500).json({
+      error: "Failed to reset password",
+    });
+  }
+});
 
 // Profile route
-app.get("/profile", async (req, res) => {
+app.get("/profile", authenticateToken, async (req, res) => {
   try {
-    // Get token from cookie or Authorization header
-    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
-
-    if (!token) {
-      return res.status(401).json({ error: "No token provided" });
-    }
-
-    // Verify token
-    const decoded = jwt.verify(token, jwtSecret);
-
-    // Get user data
-    const userDoc = await User.findById(decoded.id).select("-password").exec();
+    // Since the token is verified in the middleware, you can directly use req.userData
+    const userDoc = await User.findById(req.userData.id).select("-password").exec();
 
     if (!userDoc) {
-      return res.status(401).json({ error: "User not found" });
+      return res.status(404).json({ error: "User not found" });
     }
 
-    res.json(userDoc);
+    res.json(userDoc); // Send the user data as a response
   } catch (error) {
     console.error("Profile error:", error);
-    res.status(401).json({ error: "Invalid token" });
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -640,6 +737,124 @@ app.get(
     }
   }
 );
+app.post("/vouchers/validate", authenticateToken, async (req, res) => {
+  try {
+    const { voucherCode, bookingId } = req.body;
+    const userId = req.userData.id;
+
+    // Find the voucher
+    const voucher = await Voucher.findOne({ code: voucherCode });
+    if (!voucher) {
+      return res.status(404).json({ error: "Voucher not found" });
+    }
+
+    // Get booking details to check place
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+    // Validate voucher
+    if (!voucher.active) {
+      return res.status(400).json({ error: "Voucher is not active" });
+    }
+
+    if (voucher.expirationDate < new Date()) {
+      return res.status(400).json({ error: "Voucher has expired" });
+    }
+
+    if (voucher.usedCount >= voucher.usageLimit) {
+      return res.status(400).json({ error: "Voucher usage limit reached" });
+    }
+
+    // Check if user has claimed this voucher
+    const hasClaimed = voucher.claims?.some(
+      (claim) => claim.userId.toString() === userId.toString()
+    );
+    if (!hasClaimed) {
+      return res
+        .status(400)
+        .json({ error: "You need to claim this voucher first" });
+    }
+
+    // Check if voucher is applicable for this place
+    const isApplicable =
+      voucher.applicablePlaces.length === 0 ||
+      voucher.applicablePlaces.includes(booking.place);
+    if (!isApplicable) {
+      return res
+        .status(400)
+        .json({ error: "Voucher not applicable for this booking" });
+    }
+
+    // Check if voucher has already been used by this user
+    const hasUsed = voucher.usedBy?.some(
+      (use) => use.userId.toString() === userId.toString()
+    );
+    if (hasUsed) {
+      return res
+        .status(400)
+        .json({ error: "You have already used this voucher" });
+    }
+
+    res.json({
+      valid: true,
+      discount: voucher.discount,
+      description: voucher.description,
+    });
+  } catch (error) {
+    console.error("Error validating voucher:", error);
+    res.status(500).json({ error: "Failed to validate voucher" });
+  }
+});
+
+// Update the claim voucher endpoint
+app.post("/vouchers/:id/claim", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userData.id;
+
+    // Find the voucher and populate necessary fields
+    const voucher = await Voucher.findById(id);
+
+    if (!voucher) {
+      return res.status(404).json({ error: "Voucher not found" });
+    }
+
+    // Check if user has already claimed this voucher
+    if (voucher.isClaimedByUser(userId)) {
+      return res.status(400).json({
+        error: "You have already claimed this voucher",
+        alreadyClaimed: true,
+      });
+    }
+
+    // Add the claim
+    voucher.claims.push({
+      userId,
+      claimedAt: new Date(),
+    });
+
+    await voucher.save();
+
+    // Return the updated voucher info
+    res.json({
+      success: true,
+      message: "Voucher claimed successfully",
+      voucher: {
+        _id: voucher._id,
+        code: voucher.code,
+        discount: voucher.discount,
+        description: voucher.description,
+        expirationDate: voucher.expirationDate,
+        claims: voucher.claims,
+        isClaimed: true,
+      },
+    });
+  } catch (error) {
+    console.error("Server error while claiming voucher:", error);
+    res.status(500).json({ error: "Failed to claim voucher" });
+  }
+});
 
 // Validate voucher for use
 app.post("/vouchers/validate", authenticateToken, async (req, res) => {
@@ -1102,9 +1317,138 @@ app.get("/places/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch place details" });
   }
 });
+app.post("/api/host/announcements", authenticateToken, async (req, res) => {
+  try {
+    const today = new Date();
+    const currentDay = today.getDay(); // 0 = Sunday, 6 = Saturday
+    const currentDate = today.getDate();
 
-// Route accessible only to 'admin' users
-// Modified delete route allowing hosts to delete their own places
+    // Only allow announcements on Sundays or the 1st of each month
+    if (currentDay !== 0 && currentDate !== 1) {
+      return res.status(403).json({
+        error: "Not allowed",
+        details:
+          "Announcements can only be created on Sundays or the 1st of each month",
+      });
+    }
+
+    const { type, period, metrics } = req.body;
+    const hostId = req.userData._id;
+
+    // Check if announcement already exists for this period
+    const existingAnnouncement = await Announcement.findOne({
+      host: hostId,
+      "period.startDate": new Date(period.startDate),
+      "period.endDate": new Date(period.endDate),
+    });
+
+    if (existingAnnouncement) {
+      return res.status(400).json({
+        error: "An announcement for this period already exists",
+      });
+    }
+
+    const announcement = await Announcement.create({
+      host: hostId,
+      type,
+      period: {
+        startDate: new Date(period.startDate),
+        endDate: new Date(period.endDate),
+      },
+      metrics,
+      status: "pending",
+    });
+
+    res.status(201).json(announcement);
+  } catch (error) {
+    console.error("Error creating announcement:", error);
+    res.status(500).json({
+      error: "Failed to create announcement",
+      details: error.message,
+    });
+  }
+});
+
+// Get host metrics for a specific period
+app.get("/api/host/metrics", authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const hostId = req.userData._id;
+
+    // First get all places owned by this host
+    const hostPlaces = await Place.find({ owner: hostId });
+
+    if (!hostPlaces.length) {
+      return res.json({
+        totalBookings: 0,
+        totalRevenue: 0,
+        completedBookings: 0,
+        cancelledBookings: 0,
+      });
+    }
+
+    const placeIds = hostPlaces.map((place) => place._id);
+
+    // Find bookings for these places
+    const bookings = await Booking.find({
+      place: { $in: placeIds },
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      },
+    });
+
+    const metrics = {
+      totalBookings: bookings.length,
+      totalRevenue: bookings.reduce(
+        (sum, booking) => sum + (Number(booking.price) || 0),
+        0
+      ),
+      completedBookings: bookings.filter((b) => b.status === "completed")
+        .length,
+      cancelledBookings: bookings.filter((b) => b.status === "cancelled")
+        .length,
+    };
+
+    res.json(metrics);
+  } catch (error) {
+    console.error("Detailed error in metrics endpoint:", {
+      message: error.message,
+      stack: error.stack,
+      userData: req.userData,
+      query: req.query,
+    });
+    res.status(500).json({
+      error: "Failed to fetch metrics",
+      details: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+// Get host announcements
+app.get("/api/host/announcements", authenticateToken, async (req, res) => {
+  try {
+    const hostId = req.userData._id;
+
+    const announcements = await Announcement.find({ host: hostId }).sort(
+      "-createdAt"
+    );
+
+    res.json(announcements);
+  } catch (error) {
+    console.error("Error fetching announcements:", {
+      message: error.message,
+      stack: error.stack,
+      userData: req.userData,
+    });
+    res.status(500).json({
+      error: "Failed to fetch announcements",
+      details: error.message,
+    });
+  }
+});
+
 app.delete("/places/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const place = await Place.findById(id);
@@ -1225,21 +1569,6 @@ app.get("/places/:id/bookings", authenticateToken, async (req, res) => {
 });
 
 // Add this function to check availability
-const checkAvailability = async (placeId, checkIn, checkOut) => {
-  const overlappingBookings = await Booking.find({
-    place: placeId,
-    status: { $ne: "cancelled" }, // Exclude cancelled bookings
-    $or: [
-      // Check if the new booking overlaps with existing bookings
-      {
-        check_in: { $lte: checkOut },
-        check_out: { $gte: checkIn },
-      },
-    ],
-  });
-
-  return overlappingBookings.length === 0;
-};
 
 // Modify your booking creation endpoint
 app.post("/bookings", authenticateToken, async (req, res) => {
@@ -1435,157 +1764,6 @@ app.post("/reviews", authenticateToken, async (req, res) => {
 });
 
 // Get all users (Admin only)
-app.get(
-  "/admin/users",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    try {
-      const users = await User.find({ role: "user" });
-      res.json(users);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to retrieve users" });
-    }
-  }
-);
-
-// Get all hosts (Admin only)
-app.get(
-  "/admin/hosts",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    try {
-      const hosts = await User.find({ role: "host" });
-      res.json(hosts);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to retrieve hosts" });
-    }
-  }
-);
-
-// Delete user by ID (Admin only)
-app.delete(
-  "/admin/users/:id",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    try {
-      await User.findByIdAndDelete(req.params.id);
-      res.status(200).json({ message: "User deleted successfully" });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete user" });
-    }
-  }
-);
-app.put(
-  "/api/admin/users/:id/status",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    const { id } = req.params;
-    const { isActive, reason } = req.body;
-
-    try {
-      // Find the user first
-      const user = await User.findById(id);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      // If user is a host, update related data
-      if (user.role === "host") {
-        const success = await updateHostDataVisibility(id, isActive);
-        if (!success) {
-          return res.status(500).json({ error: "Failed to update host data" });
-        }
-      }
-
-      // Update user status
-      const updatedUser = await User.findByIdAndUpdate(
-        id,
-        {
-          isActive,
-          reason: isActive ? "" : reason || "Account deactivated by admin",
-        },
-        { new: true }
-      );
-
-      // Send email notification
-      try {
-        await transporter.sendMail({
-          from: {
-            name: "HelloB",
-            address: process.env.EMAIL_USER,
-          },
-          to: user.email,
-          subject: `Account ${isActive ? "Activated" : "Deactivated"} - HelloB`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h1>Account ${isActive ? "Activated" : "Deactivated"}</h1>
-              <p>Dear ${user.name},</p>
-              <p>Your account has been ${
-                isActive ? "activated" : "deactivated"
-              }.</p>
-              ${!isActive && reason ? `<p>Reason: ${reason}</p>` : ""}
-              <p>If you have any questions, please contact our support team.</p>
-            </div>
-          `,
-        });
-      } catch (emailError) {
-        console.error("Failed to send email notification:", emailError);
-        // Continue execution even if email fails
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: `User ${isActive ? "activated" : "deactivated"} successfully`,
-        reason: isActive ? "" : reason,
-        user: updatedUser,
-      });
-    } catch (error) {
-      console.error("Error updating user status:", error);
-      return res.status(500).json({
-        success: false,
-        error: "Failed to update user status",
-        details: error.message,
-      });
-    }
-  }
-);
-
-// Delete host by ID (Admin only)
-app.delete(
-  "/admin/hosts/:id",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    try {
-      await User.findByIdAndDelete(req.params.id);
-      res.status(200).json({ message: "Host deleted successfully" });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete host" });
-    }
-  }
-);
-// Get all places for admin
-app.get(
-  "/admin/places",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    try {
-      const places = await Place.find()
-        .populate("owner", "name email phone") // Make sure to populate owner field
-        .sort({ createdAt: -1 });
-
-      res.json(places);
-    } catch (error) {
-      console.error("Error fetching places:", error);
-      res.status(500).json({ error: "Failed to fetch places" });
-    }
-  }
-);
 
 // Route to get all bookings for the host's places
 app.get(
@@ -1744,6 +1922,31 @@ app.post("/host/register", async (req, res) => {
     res.status(422).json({ error: e.message });
   }
 });
+app.get("/places/:id/host-places", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const currentPlace = await Place.findById(id);
+
+    if (!currentPlace) {
+      return res.status(404).json({ error: "Place not found" });
+    }
+
+    const hostPlaces = await Place.find({
+      owner: currentPlace.owner,
+      _id: { $ne: id }, // Exclude current place
+      isActive: true,
+    })
+      .limit(3)
+      .select("title address photos price rating reviews")
+      .exec();
+
+    res.json(hostPlaces);
+  } catch (error) {
+    console.error("Error fetching host places:", error);
+    res.status(500).json({ error: "Failed to fetch host places" });
+  }
+});
+
 app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
     const {
@@ -1840,138 +2043,6 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     });
   }
 });
-
-// Search endpoint for places
-app.get("/api/places/search", async (req, res) => {
-  try {
-    const {
-      location,
-      checkIn,
-      checkOut,
-      guests,
-      type,
-      sort = "createdAt",
-      page = 1,
-      limit = 12,
-    } = req.query;
-
-    // Build the query object
-    let query = { isActive: true };
-
-    if (type && type !== "all") {
-      query.property_type = type;
-    }
-
-    if (location) {
-      query.address = { $regex: location, $options: "i" };
-    }
-
-    if (guests) {
-      query.max_guests = { $gte: parseInt(guests) };
-    }
-
-    // Calculate skip value for pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    // Get total count for pagination
-    const totalCount = await Place.countDocuments(query);
-
-    // Determine sort order
-    let sortOption = {};
-    switch (sort) {
-      case "price_low":
-        sortOption = { price: 1 };
-        break;
-      case "price_high":
-        sortOption = { price: -1 };
-        break;
-      case "rating":
-        sortOption = { rating: -1 };
-        break;
-      default:
-        sortOption = { createdAt: -1 };
-    }
-
-    const places = await Place.find(query)
-      .populate("owner", "name email phone photo")
-      .sort(sortOption)
-      .skip(skip)
-      .limit(parseInt(limit))
-      .exec();
-
-    res.json({
-      places: places || [], // Ensure it's always an array
-      pagination: {
-        total: totalCount,
-        pages: Math.ceil(totalCount / parseInt(limit)),
-        currentPage: parseInt(page),
-        limit: parseInt(limit),
-      },
-    });
-  } catch (error) {
-    console.error("Search error:", error);
-    res.status(500).json({
-      error: "Failed to fetch places",
-      details: error.message,
-    });
-  }
-});
-
-// Quick search endpoint for autocomplete
-app.get("/api/places/quick-search", async (req, res) => {
-  try {
-    const { q } = req.query;
-
-    if (!q) {
-      return res.json([]);
-    }
-
-    const query = {
-      isActive: true,
-      $or: [
-        { title: { $regex: q, $options: "i" } },
-        { address: { $regex: q, $options: "i" } },
-      ],
-    };
-
-    const places = await Place.find(query)
-      .select("title address photos")
-      .limit(5)
-      .exec();
-
-    res.json(places);
-  } catch (error) {
-    console.error("Quick search error:", error);
-    res.status(500).json({
-      error: "Failed to fetch suggestions",
-      details: error.message,
-    });
-  }
-});
-
-// Get place details
-app.get("/api/places/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const place = await Place.findById(id)
-      .populate({
-        path: "owner",
-        select: "name email phone createdAt avatar languages", // Select the fields you want
-      })
-      .populate("reviews");
-
-    if (!place) {
-      return res.status(404).json({ error: "Place not found" });
-    }
-
-    res.json(place);
-  } catch (error) {
-    console.error("Error fetching place:", error);
-    res.status(500).json({ error: "Failed to fetch place details" });
-  }
-});
-
-// MoMo Payment Route
 app.post("/payment-options/momo", authenticateToken, async (req, res) => {
   try {
     const { bookingId, userId, amount } = req.body;
@@ -2151,6 +2222,247 @@ app.post("/payment/momo/notify/:bookingId", async (req, res) => {
   }
 });
 
+app.post("/payment-options/card", authenticateToken, async (req, res) => {
+  try {
+    const {
+      bookingId,
+      userId,
+      amount,
+      cardDetails,
+      voucherCode,
+      discountAmount,
+    } = req.body;
+
+    // Validate required fields
+    if (!bookingId || !userId || !amount || !cardDetails) {
+      return res.status(400).json({
+        message: "Missing required fields",
+      });
+    }
+
+    // Validate card details
+    const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
+
+    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
+      return res.status(400).json({
+        message: "Invalid card details",
+      });
+    }
+
+    // Basic card validation
+    const cardValidation = validateCardDetails(cardDetails);
+    if (!cardValidation.isValid) {
+      return res.status(400).json({
+        message: cardValidation.error,
+      });
+    }
+
+    // Create payment record
+    const payment = await PaymentOption.create({
+      booking: bookingId,
+      user: userId,
+      method: "card",
+      amount: Number(amount),
+      cardDetails: {
+        cardNumber,
+        cardHolder,
+        expiryDate,
+        cvv,
+      },
+      status: "pending",
+      ...(voucherCode && {
+        voucherCode,
+        discountAmount: Number(discountAmount),
+      }),
+    });
+
+    // Simulate payment processing
+    const isPaymentSuccessful = await processCardPayment(cardDetails, amount);
+
+    if (isPaymentSuccessful) {
+      // Update payment status
+      payment.status = "completed";
+      await payment.save();
+
+      // Update booking status
+      await Booking.findByIdAndUpdate(bookingId, {
+        paymentStatus: "paid",
+        paymentMethod: "card",
+        status: "confirmed",
+      });
+
+      // Update voucher usage if applicable
+      if (voucherCode) {
+        await Voucher.findOneAndUpdate(
+          { code: voucherCode },
+          {
+            $inc: { usedCount: 1 },
+            $push: {
+              usedBy: {
+                userId,
+                bookingId,
+                usedAt: new Date(),
+              },
+            },
+          }
+        );
+      }
+
+      res.json({
+        success: true,
+        message: "Payment processed successfully",
+        payment: {
+          id: payment._id,
+          status: "completed",
+          method: "card",
+          last4: payment.cardDetails.last4,
+        },
+      });
+    } else {
+      payment.status = "failed";
+      await payment.save();
+      throw new Error("Payment processing failed");
+    }
+  } catch (error) {
+    console.error("Card payment error:", error);
+    res.status(400).json({
+      success: false,
+      message: error.message || "Failed to process card payment",
+    });
+  }
+});
+// Search endpoint for places
+app.get("/api/places/search", async (req, res) => {
+  try {
+    const {
+      location,
+      checkIn,
+      checkOut,
+      guests,
+      type,
+      sort = "createdAt",
+      page = 1,
+      limit = 12,
+    } = req.query;
+
+    // Build the query object
+    let query = { isActive: true };
+
+    if (type && type !== "all") {
+      query.property_type = type;
+    }
+
+    if (location) {
+      query.address = { $regex: location, $options: "i" };
+    }
+
+    if (guests) {
+      query.max_guests = { $gte: parseInt(guests) };
+    }
+
+    // Calculate skip value for pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get total count for pagination
+    const totalCount = await Place.countDocuments(query);
+
+    // Determine sort order
+    let sortOption = {};
+    switch (sort) {
+      case "price_low":
+        sortOption = { price: 1 };
+        break;
+      case "price_high":
+        sortOption = { price: -1 };
+        break;
+      case "rating":
+        sortOption = { rating: -1 };
+        break;
+      default:
+        sortOption = { createdAt: -1 };
+    }
+
+    const places = await Place.find(query)
+      .populate("owner", "name email phone photo")
+      .sort(sortOption)
+      .skip(skip)
+      .limit(parseInt(limit))
+      .exec();
+
+    res.json({
+      places: places || [], // Ensure it's always an array
+      pagination: {
+        total: totalCount,
+        pages: Math.ceil(totalCount / parseInt(limit)),
+        currentPage: parseInt(page),
+        limit: parseInt(limit),
+      },
+    });
+  } catch (error) {
+    console.error("Search error:", error);
+    res.status(500).json({
+      error: "Failed to fetch places",
+      details: error.message,
+    });
+  }
+});
+
+// Quick search endpoint for autocomplete
+app.get("/api/places/quick-search", async (req, res) => {
+  try {
+    const { q } = req.query;
+
+    if (!q) {
+      return res.json([]);
+    }
+
+    const query = {
+      isActive: true,
+      $or: [
+        { title: { $regex: q, $options: "i" } },
+        { address: { $regex: q, $options: "i" } },
+      ],
+    };
+
+    const places = await Place.find(query)
+      .select("title address photos")
+      .limit(5)
+      .exec();
+
+    res.json(places);
+  } catch (error) {
+    console.error("Quick search error:", error);
+    res.status(500).json({
+      error: "Failed to fetch suggestions",
+      details: error.message,
+    });
+  }
+});
+
+// Get place details
+app.get("/api/places/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const place = await Place.findById(id)
+      .populate({
+        path: "owner",
+        select: "name email phone createdAt avatar languages", // Select the fields you want
+      })
+      .populate("reviews");
+
+    if (!place) {
+      return res.status(404).json({ error: "Place not found" });
+    }
+
+    res.json(place);
+  } catch (error) {
+    console.error("Error fetching place:", error);
+    res.status(500).json({ error: "Failed to fetch place details" });
+  }
+});
+
+// MoMo Payment Route
+
 // Get notifications
 app.get("/notifications", authenticateToken, async (req, res) => {
   try {
@@ -2233,6 +2545,214 @@ app.get("/places/:id/similar", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch similar places" });
   }
 });
+app.get(
+  "/admin/users",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const users = await User.find({ role: "user" });
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to retrieve users" });
+    }
+  }
+);
+
+// Get all hosts (Admin only)
+app.get(
+  "/admin/hosts",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const hosts = await User.find({ role: "host" });
+      res.json(hosts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to retrieve hosts" });
+    }
+  }
+);
+
+// Delete user by ID (Admin only)
+app.delete(
+  "/admin/users/:id",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      await User.findByIdAndDelete(req.params.id);
+      res.status(200).json({ message: "User deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  }
+);
+app.put(
+  "/api/admin/users/:id/status",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    const { id } = req.params;
+    const { isActive, reason } = req.body;
+
+    try {
+      // Find the user first
+      const user = await User.findById(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // If user is a host, update related data
+      if (user.role === "host") {
+        const success = await updateHostDataVisibility(id, isActive);
+        if (!success) {
+          return res.status(500).json({ error: "Failed to update host data" });
+        }
+      }
+
+      // Update user status
+      const updatedUser = await User.findByIdAndUpdate(
+        id,
+        {
+          isActive,
+          reason: isActive ? "" : reason || "Account deactivated by admin",
+        },
+        { new: true }
+      );
+
+      // Send email notification
+      try {
+        await transporter.sendMail({
+          from: {
+            name: "HelloB",
+            address: process.env.EMAIL_USER,
+          },
+          to: user.email,
+          subject: `Account ${isActive ? "Activated" : "Deactivated"} - HelloB`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <h1>Account ${isActive ? "Activated" : "Deactivated"}</h1>
+              <p>Dear ${user.name},</p>
+              <p>Your account has been ${
+                isActive ? "activated" : "deactivated"
+              }.</p>
+              ${!isActive && reason ? `<p>Reason: ${reason}</p>` : ""}
+              <p>If you have any questions, please contact our support team.</p>
+            </div>
+          `,
+        });
+      } catch (emailError) {
+        console.error("Failed to send email notification:", emailError);
+        // Continue execution even if email fails
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: `User ${isActive ? "activated" : "deactivated"} successfully`,
+        reason: isActive ? "" : reason,
+        user: updatedUser,
+      });
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to update user status",
+        details: error.message,
+      });
+    }
+  }
+);
+
+// Delete host by ID (Admin only)
+app.delete(
+  "/admin/hosts/:id",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      await User.findByIdAndDelete(req.params.id);
+      res.status(200).json({ message: "Host deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete host" });
+    }
+  }
+);
+// Get all places for admin
+app.get(
+  "/admin/places",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const places = await Place.find()
+        .populate("owner", "name email phone") // Make sure to populate owner field
+        .sort({ createdAt: -1 });
+
+      res.json(places);
+    } catch (error) {
+      console.error("Error fetching places:", error);
+      res.status(500).json({ error: "Failed to fetch places" });
+    }
+  }
+);
+app.delete(
+  "/admin/users/:id",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    try {
+      const user = await User.findById(id);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      if (user.role === "host") {
+        const success = await updateHostDataVisibility(id, false, true);
+        if (!success) {
+          return res.status(500).json({ error: "Failed to delete host data" });
+        }
+      }
+
+      // Update user as deleted
+      await User.findByIdAndUpdate(id, {
+        isActive: false,
+        isDeleted: true,
+        reason: reason || "Account deleted by admin",
+      });
+
+      // Send notification email
+      await transporter.sendMail({
+        from: {
+          name: "HelloB",
+          address: process.env.EMAIL_USER,
+        },
+        to: user.email,
+        subject: "Account Deleted - HelloB",
+        html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1>Account Deleted</h1>
+          <p>Dear ${user.name},</p>
+          <p>Your account has been deleted from our system.</p>
+          ${reason ? `<p>Reason: ${reason}</p>` : ""}
+          <p>All your data has been marked as deleted.</p>
+          <p>If you believe this was done in error, please contact our support team.</p>
+        </div>
+      `,
+      });
+
+      res.status(200).json({
+        message: "User deleted successfully",
+      });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  }
+);
 
 // Admin Stats Endpoint
 app.get("/api/admin/stats", authenticateToken, async (req, res) => {
@@ -2523,6 +3043,97 @@ app.get(
     }
   }
 );
+app.put(
+  "/admin/users/:id",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, email } = req.body;
+
+      // Validate required fields
+      if (!name || !email) {
+        return res.status(400).json({ error: "Name and email are required" });
+      }
+
+      // Check if email is already taken by another user
+      const existingUser = await User.findOne({ email, _id: { $ne: id } });
+      if (existingUser) {
+        return res.status(422).json({ error: "Email is already in use" });
+      }
+
+      const updatedUser = await User.findByIdAndUpdate(
+        id,
+        { name, email },
+        { new: true, runValidators: true }
+      );
+
+      if (!updatedUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  }
+);
+
+// Update host by ID (Admin only)
+app.put(
+  "/admin/hosts/:id",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, email, phone } = req.body;
+
+      // Validate required fields
+      if (!name || !email) {
+        return res.status(400).json({ error: "Name and email are required" });
+      }
+
+      // Check if email is already taken by another user
+      const existingUser = await User.findOne({ email, _id: { $ne: id } });
+      if (existingUser) {
+        return res.status(422).json({ error: "Email is already in use" });
+      }
+
+      // Check if phone is already taken by another user (if phone is provided)
+      if (phone) {
+        const existingPhone = await User.findOne({ phone, _id: { $ne: id } });
+        if (existingPhone) {
+          return res
+            .status(422)
+            .json({ error: "Phone number is already in use" });
+        }
+      }
+
+      const updateData = {
+        name,
+        email,
+        ...(phone && { phone }), // Only include phone if it's provided
+      };
+
+      const updatedHost = await User.findByIdAndUpdate(id, updateData, {
+        new: true,
+        runValidators: true,
+      });
+
+      if (!updatedHost) {
+        return res.status(404).json({ error: "Host not found" });
+      }
+
+      res.json(updatedHost);
+    } catch (error) {
+      console.error("Error updating host:", error);
+      res.status(500).json({ error: "Failed to update host" });
+    }
+  }
+);
 
 // Configure Cloudinary
 
@@ -2645,125 +3256,6 @@ app.get("/places/:id", async (req, res) => {
   } catch (error) {
     console.error("Error fetching place:", error);
     res.status(500).json({ error: "Failed to fetch place" });
-  }
-});
-
-app.post("/vouchers/validate", authenticateToken, async (req, res) => {
-  try {
-    const { voucherCode, bookingId } = req.body;
-    const userId = req.userData.id;
-
-    // Find the voucher
-    const voucher = await Voucher.findOne({ code: voucherCode });
-    if (!voucher) {
-      return res.status(404).json({ error: "Voucher not found" });
-    }
-
-    // Get booking details to check place
-    const booking = await Booking.findById(bookingId);
-    if (!booking) {
-      return res.status(404).json({ error: "Booking not found" });
-    }
-    // Validate voucher
-    if (!voucher.active) {
-      return res.status(400).json({ error: "Voucher is not active" });
-    }
-
-    if (voucher.expirationDate < new Date()) {
-      return res.status(400).json({ error: "Voucher has expired" });
-    }
-
-    if (voucher.usedCount >= voucher.usageLimit) {
-      return res.status(400).json({ error: "Voucher usage limit reached" });
-    }
-
-    // Check if user has claimed this voucher
-    const hasClaimed = voucher.claims?.some(
-      (claim) => claim.userId.toString() === userId.toString()
-    );
-    if (!hasClaimed) {
-      return res
-        .status(400)
-        .json({ error: "You need to claim this voucher first" });
-    }
-
-    // Check if voucher is applicable for this place
-    const isApplicable =
-      voucher.applicablePlaces.length === 0 ||
-      voucher.applicablePlaces.includes(booking.place);
-    if (!isApplicable) {
-      return res
-        .status(400)
-        .json({ error: "Voucher not applicable for this booking" });
-    }
-
-    // Check if voucher has already been used by this user
-    const hasUsed = voucher.usedBy?.some(
-      (use) => use.userId.toString() === userId.toString()
-    );
-    if (hasUsed) {
-      return res
-        .status(400)
-        .json({ error: "You have already used this voucher" });
-    }
-
-    res.json({
-      valid: true,
-      discount: voucher.discount,
-      description: voucher.description,
-    });
-  } catch (error) {
-    console.error("Error validating voucher:", error);
-    res.status(500).json({ error: "Failed to validate voucher" });
-  }
-});
-
-// Update the claim voucher endpoint
-app.post("/vouchers/:id/claim", authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const userId = req.userData.id;
-
-    // Find the voucher and populate necessary fields
-    const voucher = await Voucher.findById(id);
-
-    if (!voucher) {
-      return res.status(404).json({ error: "Voucher not found" });
-    }
-
-    // Check if user has already claimed this voucher
-    if (voucher.isClaimedByUser(userId)) {
-      return res.status(400).json({
-        error: "You have already claimed this voucher",
-        alreadyClaimed: true,
-      });
-    }
-
-    // Add the claim
-    voucher.claims.push({
-      userId,
-      claimedAt: new Date(),
-    });
-
-    await voucher.save();
-
-    // Return the updated voucher info
-    res.json({
-      success: true,
-      message: "Voucher claimed successfully",
-      voucher: {
-        _id: voucher._id,
-        code: voucher.code,
-        discount: voucher.discount,
-        description: voucher.description,
-        expirationDate: voucher.expirationDate,
-        claims: voucher.claims,
-        isClaimed: true,
-      },
-    });
-  } catch (error) {
-    console.error("Server error while claiming voucher:", error);
-    res.status(500).json({ error: "Failed to claim voucher" });
   }
 });
 
@@ -3134,97 +3626,6 @@ app.put("/change-password", authenticateToken, async (req, res) => {
 // Add these routes after the existing admin routes
 
 // Update user by ID (Admin only)
-app.put(
-  "/admin/users/:id",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { name, email } = req.body;
-
-      // Validate required fields
-      if (!name || !email) {
-        return res.status(400).json({ error: "Name and email are required" });
-      }
-
-      // Check if email is already taken by another user
-      const existingUser = await User.findOne({ email, _id: { $ne: id } });
-      if (existingUser) {
-        return res.status(422).json({ error: "Email is already in use" });
-      }
-
-      const updatedUser = await User.findByIdAndUpdate(
-        id,
-        { name, email },
-        { new: true, runValidators: true }
-      );
-
-      if (!updatedUser) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      res.json(updatedUser);
-    } catch (error) {
-      console.error("Error updating user:", error);
-      res.status(500).json({ error: "Failed to update user" });
-    }
-  }
-);
-
-// Update host by ID (Admin only)
-app.put(
-  "/admin/hosts/:id",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { name, email, phone } = req.body;
-
-      // Validate required fields
-      if (!name || !email) {
-        return res.status(400).json({ error: "Name and email are required" });
-      }
-
-      // Check if email is already taken by another user
-      const existingUser = await User.findOne({ email, _id: { $ne: id } });
-      if (existingUser) {
-        return res.status(422).json({ error: "Email is already in use" });
-      }
-
-      // Check if phone is already taken by another user (if phone is provided)
-      if (phone) {
-        const existingPhone = await User.findOne({ phone, _id: { $ne: id } });
-        if (existingPhone) {
-          return res
-            .status(422)
-            .json({ error: "Phone number is already in use" });
-        }
-      }
-
-      const updateData = {
-        name,
-        email,
-        ...(phone && { phone }), // Only include phone if it's provided
-      };
-
-      const updatedHost = await User.findByIdAndUpdate(id, updateData, {
-        new: true,
-        runValidators: true,
-      });
-
-      if (!updatedHost) {
-        return res.status(404).json({ error: "Host not found" });
-      }
-
-      res.json(updatedHost);
-    } catch (error) {
-      console.error("Error updating host:", error);
-      res.status(500).json({ error: "Failed to update host" });
-    }
-  }
-);
 
 // Update place status (Host only)
 app.put(
@@ -3931,138 +4332,8 @@ app.post("/send-host-email", authenticateToken, async (req, res) => {
 });
 
 // Get similar places by the same host
-app.get("/places/:id/host-places", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const currentPlace = await Place.findById(id);
-
-    if (!currentPlace) {
-      return res.status(404).json({ error: "Place not found" });
-    }
-
-    const hostPlaces = await Place.find({
-      owner: currentPlace.owner,
-      _id: { $ne: id }, // Exclude current place
-      isActive: true,
-    })
-      .limit(3)
-      .select("title address photos price rating reviews")
-      .exec();
-
-    res.json(hostPlaces);
-  } catch (error) {
-    console.error("Error fetching host places:", error);
-    res.status(500).json({ error: "Failed to fetch host places" });
-  }
-});
 
 // Forgot Password route
-app.post("/forgot-password", async (req, res) => {
-  const { email } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res
-        .status(404)
-        .json({ error: "No account with that email exists" });
-    }
-
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString("hex");
-    user.passwordResetToken = resetToken;
-    user.passwordResetExpires = Date.now() + 3600000; // 1 hour
-    await user.save();
-
-    // Create reset URL
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
-
-    // Send email
-    await transporter.sendMail({
-      from: {
-        name: "HelloB",
-        address: process.env.EMAIL_USER,
-      },
-      to: user.email,
-      subject: "Password Reset Request - HelloB",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1>Password Reset Request</h1>
-          <p>Hi ${user.name},</p>
-          <p>You requested to reset your password. Click the button below to reset it:</p>
-          <a href="${resetUrl}" 
-             style="display: inline-block; padding: 10px 20px; background-color: #4F46E5; 
-                    color: white; text-decoration: none; border-radius: 5px;">
-            Reset Password
-          </a>
-          <p>Or copy and paste this link in your browser:</p>
-          <p>${resetUrl}</p>
-          <p>This link will expire in 1 hour.</p>
-          <p>If you didn't request this reset, please ignore this email.</p>
-        </div>
-      `,
-    });
-
-    res.json({
-      message: "Password reset link sent to your email",
-    });
-  } catch (error) {
-    console.error("Password reset error:", error);
-    res.status(500).json({
-      error: "Failed to process password reset request",
-    });
-  }
-});
-
-// Reset Password route
-app.post("/reset-password/:token", async (req, res) => {
-  try {
-    const user = await User.findOne({
-      passwordResetToken: req.params.token,
-      passwordResetExpires: { $gt: Date.now() },
-    });
-
-    if (!user) {
-      return res.status(400).json({
-        error: "Password reset token is invalid or has expired",
-      });
-    }
-
-    // Set new password
-    user.password = bcrypt.hashSync(req.body.password, bcrypt.genSaltSync(10));
-    user.passwordResetToken = undefined;
-    user.passwordResetExpires = undefined;
-    await user.save();
-
-    // Send confirmation email
-    await transporter.sendMail({
-      from: {
-        name: "HelloB",
-        address: process.env.EMAIL_USER,
-      },
-      to: user.email,
-      subject: "Password Reset Successful - HelloB",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1>Password Reset Successful</h1>
-          <p>Hi ${user.name},</p>
-          <p>Your password has been successfully reset.</p>
-          <p>If you didn't make this change, please contact our support team immediately.</p>
-        </div>
-      `,
-    });
-
-    res.json({
-      message:
-        "Password has been reset successfully. You can now login with your new password.",
-    });
-  } catch (error) {
-    console.error("Password reset error:", error);
-    res.status(500).json({
-      error: "Failed to reset password",
-    });
-  }
-});
 
 // Function to handle host/user data visibility
 const updateUserDataVisibility = async (userId, isActive) => {
@@ -4258,6 +4529,37 @@ app.delete(
     }
   }
 );
+app.get("/api/admin/announcements", async (req, res) => {
+  try {
+    const announcements = await Announcement.find()
+      .populate("host", "name email")
+      .sort("-createdAt");
+    res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch announcements" });
+  }
+});
+
+// Update announcement status (admin only)
+app.put("/api/admin/announcements/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, adminComment } = req.body;
+
+    const announcement = await Announcement.findByIdAndUpdate(
+      id,
+      {
+        status,
+        ...(adminComment && { adminComment }),
+      },
+      { new: true }
+    );
+
+    res.json(announcement);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update announcement" });
+  }
+});
 
 // Add this route before other routes
 app.post("/check-email", async (req, res) => {
@@ -4448,6 +4750,52 @@ setInterval(autoCompleteBookings, 24 * 60 * 60 * 1000);
 // Run it once when the server starts
 autoCompleteBookings();
 
+// GET Chat Messages
+app.get("/api/chats/:chatId", authenticateToken, async (req, res) => {
+  try {
+    const chat = await Chat.findOne({
+      _id: req.params.chatId,
+      participants: { $in: [req.user._id] },
+    }).populate({
+      path: "participants",
+      match: { isActive: true, isDeleted: false },
+    });
+
+    if (!chat) {
+      return res.status(404).json({ error: "Chat not found" });
+    }
+
+    // Filter out inactive/deleted messages
+    chat.messages = chat.messages.filter(
+      (msg) => msg.isActive && !msg.isDeleted
+    );
+
+    res.json(chat);
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching chat" });
+  }
+});
+
+// Add this with other admin routes
+
+// Get user by ID
+app.get("/users/:userId", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId)
+      .select("-password") // Exclude password from the response
+      .exec();
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    res.status(500).json({ error: "Error fetching user data" });
+  }
+});
+
 // Get user's favorites
 app.get("/user/favorites", authenticateToken, async (req, res) => {
   try {
@@ -4532,115 +4880,6 @@ app.get("/user/favorites/places", authenticateToken, async (req, res) => {
 });
 
 // Card Payment Route
-app.post("/payment-options/card", authenticateToken, async (req, res) => {
-  try {
-    const {
-      bookingId,
-      userId,
-      amount,
-      cardDetails,
-      voucherCode,
-      discountAmount,
-    } = req.body;
-
-    // Validate required fields
-    if (!bookingId || !userId || !amount || !cardDetails) {
-      return res.status(400).json({
-        message: "Missing required fields",
-      });
-    }
-
-    // Validate card details
-    const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
-
-    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
-      return res.status(400).json({
-        message: "Invalid card details",
-      });
-    }
-
-    // Basic card validation
-    const cardValidation = validateCardDetails(cardDetails);
-    if (!cardValidation.isValid) {
-      return res.status(400).json({
-        message: cardValidation.error,
-      });
-    }
-
-    // Create payment record
-    const payment = await PaymentOption.create({
-      booking: bookingId,
-      user: userId,
-      method: "card",
-      amount: Number(amount),
-      cardDetails: {
-        cardNumber,
-        cardHolder,
-        expiryDate,
-        cvv,
-      },
-      status: "pending",
-      ...(voucherCode && {
-        voucherCode,
-        discountAmount: Number(discountAmount),
-      }),
-    });
-
-    // Simulate payment processing
-    const isPaymentSuccessful = await processCardPayment(cardDetails, amount);
-
-    if (isPaymentSuccessful) {
-      // Update payment status
-      payment.status = "completed";
-      await payment.save();
-
-      // Update booking status
-      await Booking.findByIdAndUpdate(bookingId, {
-        paymentStatus: "paid",
-        paymentMethod: "card",
-        status: "confirmed",
-      });
-
-      // Update voucher usage if applicable
-      if (voucherCode) {
-        await Voucher.findOneAndUpdate(
-          { code: voucherCode },
-          {
-            $inc: { usedCount: 1 },
-            $push: {
-              usedBy: {
-                userId,
-                bookingId,
-                usedAt: new Date(),
-              },
-            },
-          }
-        );
-      }
-
-      res.json({
-        success: true,
-        message: "Payment processed successfully",
-        payment: {
-          id: payment._id,
-          status: "completed",
-          method: "card",
-          last4: payment.cardDetails.last4,
-        },
-      });
-    } else {
-      payment.status = "failed";
-      await payment.save();
-      throw new Error("Payment processing failed");
-    }
-  } catch (error) {
-    console.error("Card payment error:", error);
-    res.status(400).json({
-      success: false,
-      message: error.message || "Failed to process card payment",
-    });
-  }
-});
 
 // Helper functions
 function validateCardDetails(cardDetails) {
@@ -4713,179 +4952,8 @@ async function processCardPayment(cardDetails, amount) {
 }
 
 // Get all announcements (admin only)
-app.get("/api/admin/announcements", async (req, res) => {
-  try {
-    const announcements = await Announcement.find()
-      .populate("host", "name email")
-      .sort("-createdAt");
-    res.json(announcements);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch announcements" });
-  }
-});
-
-// Update announcement status (admin only)
-app.put("/api/admin/announcements/:id/status", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, adminComment } = req.body;
-
-    const announcement = await Announcement.findByIdAndUpdate(
-      id,
-      {
-        status,
-        ...(adminComment && { adminComment }),
-      },
-      { new: true }
-    );
-
-    res.json(announcement);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to update announcement" });
-  }
-});
 
 // Create new announcement (host only)
-app.post("/api/host/announcements", authenticateToken, async (req, res) => {
-  try {
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 = Sunday, 6 = Saturday
-    const currentDate = today.getDate();
-
-    // Only allow announcements on Sundays or the 1st of each month
-    if (currentDay !== 0 && currentDate !== 1) {
-      return res.status(403).json({
-        error: "Not allowed",
-        details:
-          "Announcements can only be created on Sundays or the 1st of each month",
-      });
-    }
-
-    const { type, period, metrics } = req.body;
-    const hostId = req.userData._id;
-
-    // Check if announcement already exists for this period
-    const existingAnnouncement = await Announcement.findOne({
-      host: hostId,
-      "period.startDate": new Date(period.startDate),
-      "period.endDate": new Date(period.endDate),
-    });
-
-    if (existingAnnouncement) {
-      return res.status(400).json({
-        error: "An announcement for this period already exists",
-      });
-    }
-
-    const announcement = await Announcement.create({
-      host: hostId,
-      type,
-      period: {
-        startDate: new Date(period.startDate),
-        endDate: new Date(period.endDate),
-      },
-      metrics,
-      status: "pending",
-    });
-
-    res.status(201).json(announcement);
-  } catch (error) {
-    console.error("Error creating announcement:", error);
-    res.status(500).json({
-      error: "Failed to create announcement",
-      details: error.message,
-    });
-  }
-});
-
-// Get host metrics for a specific period
-app.get("/api/host/metrics", authenticateToken, async (req, res) => {
-  try {
-    const { startDate, endDate } = req.query;
-    const hostId = req.userData._id;
-
-    // First get all places owned by this host
-    const hostPlaces = await Place.find({ owner: hostId });
-
-    if (!hostPlaces.length) {
-      return res.json({
-        totalBookings: 0,
-        totalRevenue: 0,
-        completedBookings: 0,
-        cancelledBookings: 0,
-      });
-    }
-
-    const placeIds = hostPlaces.map((place) => place._id);
-
-    // Find bookings for these places
-    const bookings = await Booking.find({
-      place: { $in: placeIds },
-      createdAt: {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
-      },
-    });
-
-    const metrics = {
-      totalBookings: bookings.length,
-      totalRevenue: bookings.reduce(
-        (sum, booking) => sum + (Number(booking.price) || 0),
-        0
-      ),
-      completedBookings: bookings.filter((b) => b.status === "completed")
-        .length,
-      cancelledBookings: bookings.filter((b) => b.status === "cancelled")
-        .length,
-    };
-
-    res.json(metrics);
-  } catch (error) {
-    console.error("Detailed error in metrics endpoint:", {
-      message: error.message,
-      stack: error.stack,
-      userData: req.userData,
-      query: req.query,
-    });
-    res.status(500).json({
-      error: "Failed to fetch metrics",
-      details: error.message,
-      timestamp: new Date().toISOString(),
-    });
-  }
-});
-
-// Get host announcements
-app.get("/api/host/announcements", authenticateToken, async (req, res) => {
-  try {
-    const hostId = req.userData._id;
-
-    const announcements = await Announcement.find({ host: hostId }).sort(
-      "-createdAt"
-    );
-
-    res.json(announcements);
-  } catch (error) {
-    console.error("Error fetching announcements:", {
-      message: error.message,
-      stack: error.stack,
-      userData: req.userData,
-    });
-    res.status(500).json({
-      error: "Failed to fetch announcements",
-      details: error.message,
-    });
-  }
-});
-app.listen(3000, () => {
-  console.log("Server is running on http://localhost:3000");
-});
-const PORT = process.env.PORT || 4000;
-
-// Start the server (update this)
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
 
 // Add this function after your imports
 
@@ -4959,67 +5027,6 @@ const updateHostDataVisibility = async (
     return false;
   }
 };
-
-// Endpoint for toggling user/host status (activate/deactivate)
-
-// Endpoint for deleting user/host
-app.delete(
-  "/admin/users/:id",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    const { id } = req.params;
-    const { reason } = req.body;
-
-    try {
-      const user = await User.findById(id);
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      if (user.role === "host") {
-        const success = await updateHostDataVisibility(id, false, true);
-        if (!success) {
-          return res.status(500).json({ error: "Failed to delete host data" });
-        }
-      }
-
-      // Update user as deleted
-      await User.findByIdAndUpdate(id, {
-        isActive: false,
-        isDeleted: true,
-        reason: reason || "Account deleted by admin",
-      });
-
-      // Send notification email
-      await transporter.sendMail({
-        from: {
-          name: "HelloB",
-          address: process.env.EMAIL_USER,
-        },
-        to: user.email,
-        subject: "Account Deleted - HelloB",
-        html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h1>Account Deleted</h1>
-          <p>Dear ${user.name},</p>
-          <p>Your account has been deleted from our system.</p>
-          ${reason ? `<p>Reason: ${reason}</p>` : ""}
-          <p>All your data has been marked as deleted.</p>
-          <p>If you believe this was done in error, please contact our support team.</p>
-        </div>
-      `,
-      });
-
-      res.status(200).json({
-        message: "User deleted successfully",
-      });
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      res.status(500).json({ error: "Failed to delete user" });
-    }
-  }
-);
 
 // GET Places
 app.get("/api/places", async (req, res) => {
@@ -5138,49 +5145,6 @@ app.get("/api/announcements", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error fetching announcements" });
   }
 });
-
-// GET Chat Messages
-app.get("/api/chats/:chatId", authenticateToken, async (req, res) => {
-  try {
-    const chat = await Chat.findOne({
-      _id: req.params.chatId,
-      participants: { $in: [req.user._id] },
-    }).populate({
-      path: "participants",
-      match: { isActive: true, isDeleted: false },
-    });
-
-    if (!chat) {
-      return res.status(404).json({ error: "Chat not found" });
-    }
-
-    // Filter out inactive/deleted messages
-    chat.messages = chat.messages.filter(
-      (msg) => msg.isActive && !msg.isDeleted
-    );
-
-    res.json(chat);
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching chat" });
-  }
-});
-
-// Add this with other admin routes
-
-// Get user by ID
-app.get("/users/:userId", async (req, res) => {
-  try {
-    const user = await User.findById(req.params.userId)
-      .select("-password") // Exclude password from the response
-      .exec();
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json(user);
-  } catch (error) {
-    console.error("Error fetching user:", error);
-    res.status(500).json({ error: "Error fetching user data" });
-  }
+app.listen(3000, () => {
+  console.log("Server is running on http://localhost:3000");
 });
