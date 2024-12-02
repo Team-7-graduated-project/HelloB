@@ -300,9 +300,9 @@ app.post("/login", async (req, res) => {
     // Send response with cookie
     res
       .cookie("token", token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
+        secure: process.env.NODE_ENV === "production", // Use secure cookies in production
+        sameSite: "None", // Allow cross-origin requests
       })
       .json({
         user: {
