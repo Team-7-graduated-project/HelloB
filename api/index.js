@@ -62,7 +62,7 @@ app.use(cookieParser());
 app.use("/uploads", express.static(path.join(__dirname, "/uploads")));
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: ["http://localhost:5173", "https://hello-b.vercel.app"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -427,7 +427,9 @@ app.post("/reset-password/:token", async (req, res) => {
 app.get("/profile", authenticateToken, async (req, res) => {
   try {
     // Since the token is verified in the middleware, you can directly use req.userData
-    const userDoc = await User.findById(req.userData.id).select("-password").exec();
+    const userDoc = await User.findById(req.userData.id)
+      .select("-password")
+      .exec();
 
     if (!userDoc) {
       return res.status(404).json({ error: "User not found" });
