@@ -4273,9 +4273,8 @@ wss.on("connection", (ws, req) => {
       }
     }
   });
-
   // Handle client disconnection
-  ws.on("close", () => {
+ ws.on("close", () => {
     if (clients.has(chatId)) {
       clients.get(chatId).delete(userId);
       if (clients.get(chatId).size === 0) {
