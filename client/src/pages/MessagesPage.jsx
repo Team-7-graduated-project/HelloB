@@ -157,7 +157,7 @@ export default function MessagesPage() {
     );
   }
 
-  return (
+ return (
     <div className="p-8 h-screen flex flex-col">
       <AccountNav />
       <div className="container mx-auto flex-grow flex flex-col">
@@ -226,8 +226,11 @@ export default function MessagesPage() {
                 </div>
 
                 {/* Messages */}
+                {/* Messages */}
                 <div className="flex-grow p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
-                  <div className="flex flex-col-reverse">
+                  <div className="flex flex-col">
+                    {" "}
+                    {/* Change here */}
                     {selectedChat.messages.map((message, index) => (
                       <div
                         key={index}
@@ -265,6 +268,18 @@ export default function MessagesPage() {
                             }`}
                           >
                             {format(new Date(message.timestamp), "h:mm a")}
+                          </div>
+                          <div
+                            className={`text-xs ${
+                              message.sender === user?._id
+                                ? "text-white/70"
+                                : "text-gray-500"
+                            }`}
+                          >
+                            {format(
+                              new Date(message.timestamp),
+                              "MMMM d, yyyy"
+                            )}{" "}
                           </div>
                         </div>
                       </div>
