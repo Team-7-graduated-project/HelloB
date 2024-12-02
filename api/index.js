@@ -571,7 +571,7 @@ app.post("/logout", (req, res) => {
       httpOnly: true,
       expires: new Date(0),
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "none",
     })
     .json({ message: "Logged out successfully" });
 });
@@ -3454,7 +3454,7 @@ app.post("/auth/google", async (req, res) => {
       .cookie("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax", // Changed from 'strict' to 'lax' for OAuth redirect
+        sameSite: "none", // Changed from 'strict' to 'none' for OAuth redirect
       })
       .json(user);
   } catch (error) {
@@ -3529,7 +3529,7 @@ app.post("/host/auth/google", async (req, res) => {
       .cookie("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: "none",
       })
       .json(user);
   } catch (error) {
@@ -3577,7 +3577,7 @@ app.post("/host/login", async (req, res) => {
       .cookie("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: "none",
       })
       .json(user);
   } catch (err) {
