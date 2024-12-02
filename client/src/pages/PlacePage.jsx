@@ -528,6 +528,15 @@ export default function PlacePage() {
                             >
                               {format(new Date(msg.timestamp), "h:mm a")}
                             </div>
+                             <div
+                              className={`text-xs ${
+                                msg.sender === user?._id
+                                  ? "text-white/70"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              {format(new Date(msg.timestamp), "MMMM d, yyyy")}{" "}
+                            </div>
                           </div>
                         </div>
                       ))}
