@@ -13,14 +13,7 @@ import {
 
 function HostAnalytics() {
   const [timeFrame, setTimeFrame] = useState("month");
-  const [analyticsData, setAnalyticsData] = useState({
-    data: [],
-    summary: {
-      totalRevenue: 0,
-      totalBookings: 0,
-      averageRevenue: 0,
-    },
-  });
+  const [analytics, setAnalytics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -28,25 +21,13 @@ function HostAnalytics() {
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        setError(null);
         const response = await axios.get(
-          `/host/analytics?timeFrame=${timeFrame}`,
-          {
-            withCredentials: true,
-          }
+          `/host/analytics?timeFrame=${timeFrame}`
         );
-
-        // Ensure we have valid data structure
-        const data = response.data?.data || [];
-        const summary = response.data?.summary || {
-          totalRevenue: 0,
-          totalBookings: 0,
-          averageRevenue: 0,
-        };
-
-        setAnalyticsData({ data, summary });
+        setAnalytics(response.data);
+        setError(null);
       } catch (err) {
-        setError(err.response?.data?.error || "Failed to load analytics data");
+        setError("Failed to load analytics data");
         console.error("Error fetching analytics:", err);
       } finally {
         setLoading(false);
@@ -112,7 +93,7 @@ function HostAnalytics() {
 
       <div className="h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={analyticsData.data || []}>
+          <LineChart data={analytics}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="date" />
             <YAxis />
@@ -134,26 +115,29 @@ function HostAnalytics() {
         </ResponsiveContainer>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          {
-            label: "Total Revenue",
-            value: `$${analyticsData.summary.totalRevenue.toFixed(2)}`,
-          },
-          {
-            label: "Total Bookings",
-            value: analyticsData.summary.totalBookings,
-          },
-          {
-            label: "Average Revenue per Booking",
-            value: `$${analyticsData.summary.averageRevenue.toFixed(2)}`,
-          },
-        ].map(({ label, value }) => (
-          <div key={label} className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-gray-500 text-sm font-medium">{label}</h3>
-            <p className="text-2xl font-bold mt-2">{value}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        <div className="bg-white rounded-lg shadow p-4">
+          <h3 className="text-gray-500 text-sm">Total Revenue</h3>
+          <p className="text-2xl font-bold">
+            ${analytics.reduce((sum, item) => sum + item.revenue, 0).toFixed(2)}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <h3 className="text-gray-500 text-sm">Total Bookings</h3>
+          <p className="text-2xl font-bold">
+            {analytics.reduce((sum, item) => sum + item.bookings, 0)}
+          </p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4">
+          <h3 className="text-gray-500 text-sm">Average Revenue per Booking</h3>
+          <p className="text-2xl font-bold">
+            $
+            {(
+              analytics.reduce((sum, item) => sum + item.revenue, 0) /
+              analytics.reduce((sum, item) => sum + item.bookings, 0)
+            ).toFixed(2)}
+          </p>
+        </div>
       </div>
     </div>
   );
