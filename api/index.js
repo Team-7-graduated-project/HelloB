@@ -4278,6 +4278,31 @@ app.get("/host/analytics", authenticateToken, async (req, res) => {
   }
 });
 
+
+    // Fill in missing dates with zero values
+    const filledAnalytics = fillMissingDates(
+      analytics,
+      startDate,
+      new Date(),
+      timeFrame
+    );
+
+    res.json({
+      data: filledAnalytics,
+      summary: {
+        totalRevenue: totals[0]?.totalRevenue || 0,
+        totalBookings: totals[0]?.totalBookings || 0,
+        averageRevenue: totals[0]
+          ? totals[0].totalRevenue / totals[0].totalBookings
+          : 0,
+      },
+    });
+  } catch (error) {
+    console.error("Analytics error:", error);
+    res.status(500).json({ message: "Error fetching analytics data" });
+  }
+});
+
 // Helper function to fill in missing dates
 function fillMissingDates(data, startDate, endDate, timeFrame) {
   const filledData = [];
