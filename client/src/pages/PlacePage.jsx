@@ -152,7 +152,7 @@ export default function PlacePage() {
     if (currentChat?._id && user?._id) {
       // Connect to WebSocket server
       ws = new WebSocket(
-        `wss://hellob-be.onrender.com?userId=${user._id}&chatId=${currentChat._id}`
+        `ws://hellob-be.onrender.com?userId=${user._id}&chatId=${currentChat._id}`
       );
 
       ws.onopen = () => {
@@ -190,6 +190,18 @@ export default function PlacePage() {
       new Date(endDate),
       "MMM dd, yyyy"
     )}`;
+  };
+
+  const groupMessagesByDate = (messages) => {
+    const groups = {};
+    messages.forEach((message) => {
+      const date = format(new Date(message.timestamp), "dd/MM/yyyy");
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(message);
+    });
+    return groups;
   };
 
   const renderOwnerSection = () => {
@@ -389,7 +401,7 @@ export default function PlacePage() {
                   {/* Close button */}
                   <button
                     onClick={() => setShowHostInfo(false)}
-                    className="absolute  top-4 max-w-10 right-4 text-gray-500 hover:text-gray-700"
+                    className="absolute  top-4 max-w-8 right-4 text-gray-500 hover:text-gray-700"
                   >
                     <FaTimes size={20} />
                   </button>
@@ -484,62 +496,72 @@ export default function PlacePage() {
                       </div>
                       <button
                         onClick={() => setShowChat(false)}
-                        className="p-2 hover:bg-gray-10 max-w-10 rounded-full transition-colors"
+                        className="p-2 hover:bg-gray-100 max-w-9 rounded-full transition-colors"
                       >
                         <FaTimes className="w-5 h-5 text-gray-500" />
                       </button>
                     </div>
 
                     {/* Messages Container */}
-                    <div className="flex-grow overflow-y-auto py-4 px-2 space-y-4">
-                      {messages.map((msg, i) => (
-                        <div
-                          key={i}
-                          className={`flex items-end gap-2 ${
-                            msg.sender === user._id
-                              ? "justify-end"
-                              : "justify-start"
-                          }`}
-                        >
-                          {msg.sender !== user._id && (
-                            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                              <img
-                                src={place.owner.photo || "/default-avatar.png"}
-                                alt=""
-                                className="w-full h-full object-cover"
-                              />
+                    <div className="flex-grow overflow-y-auto py-4 px-2 space-y-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400 transition-all duration-300">
+                      {Object.entries(groupMessagesByDate(messages)).map(
+                        ([date, msgs]) => (
+                          <div key={date} className="space-y-4">
+                            {/* Date Separator */}
+                            <div className="flex items-center justify-center">
+                              <div className="bg-gray-200 px-3 py-1 rounded-full text-sm text-gray-600">
+                                {date === format(new Date(), "dd/MM/yyyy")
+                                  ? "Today"
+                                  : date}
+                              </div>
                             </div>
-                          )}
 
-                          <div
-                            className={`max-w-[70%] p-3 rounded-2xl ${
-                              msg.sender === user._id
-                                ? `${rightBubbleStyle} bg-primary text-white`
-                                : `${leftBubbleStyle} bg-gray-100`
-                            }`}
-                          >
-                            <p className="break-words">{msg.content}</p>
-                            <div
-                              className={`text-xs mt-1 ${
-                                msg.sender === user._id
-                                  ? "text-white/70"
-                                  : "text-gray-500"
-                              }`}
-                            >
-                              {format(new Date(msg.timestamp), "h:mm a")}
-                            </div>
-                             <div
-                              className={`text-xs ${
-                                msg.sender === user?._id
-                                  ? "text-white/70"
-                                  : "text-gray-500"
-                              }`}
-                            >
-                              {format(new Date(msg.timestamp), "MMMM d, yyyy")}{" "}
-                            </div>
+                            {/* Messages for this date */}
+                            {msgs.map((msg, i) => (
+                              <div
+                                key={i}
+                                className={`flex items-end gap-2 ${
+                                  msg.sender === user._id
+                                    ? "justify-end"
+                                    : "justify-start"
+                                } transition-all duration-300`}
+                              >
+                                {msg.sender !== user._id && (
+                                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                    <img
+                                      src={
+                                        place.owner.photo ||
+                                        "/default-avatar.png"
+                                      }
+                                      alt=""
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                )}
+
+                                <div
+                                  className={`max-w-[70%] p-3 rounded-2xl ${
+                                    msg.sender === user._id
+                                      ? `${rightBubbleStyle} bg-primary text-white`
+                                      : `${leftBubbleStyle} bg-gray-100`
+                                  }`}
+                                >
+                                  <p className="break-words">{msg.content}</p>
+                                  <div
+                                    className={`text-xs mt-1 ${
+                                      msg.sender === user._id
+                                        ? "text-white/70"
+                                        : "text-gray-500"
+                                    }`}
+                                  >
+                                    {format(new Date(msg.timestamp), "h:mm a")}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                        </div>
-                      ))}
+                        )
+                      )}
 
                       {/* Typing Indicator */}
                       {typingUser && typingUser !== user._id && (
@@ -588,17 +610,17 @@ export default function PlacePage() {
                             }
                           }}
                           placeholder="Type your message..."
-                          className="flex-grow p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
+                          className="flex-grow p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all duration-300"
                         />
                         <button
                           type="submit"
                           disabled={!newMessage.trim()}
-                          className={`px-6 max-w-16 py-3 rounded-xl  flex items-center gap-2 transition-all
-                            ${
-                              newMessage.trim()
-                                ? "bg-primary text-white hover:bg-primary-dark"
-                                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                            }`}
+                          className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all duration-300
+                          ${
+                            newMessage.trim()
+                              ? "bg-primary text-white hover:bg-primary-dark"
+                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          }`}
                         >
                           <FaPaperPlane className="w-4 h-4" />
                         </button>
@@ -649,7 +671,7 @@ export default function PlacePage() {
                 {unavailableDates.map((booking, index) => (
                   <div
                     key={index}
-                    className="bg-red-50 text-red-700 px-3 py-2 rounded-md text-sm"
+                    className="bg-red-50 text-red-700 px-3 py-2 rounded-md text-sm transition-all duration-300"
                   >
                     {formatDateRange(booking.check_in, booking.check_out)}
                   </div>
