@@ -4168,9 +4168,10 @@ transporter.verify((error, success) => {
 });
 
 // Host Analytics endpoint
+// Host Analytics endpoint
 app.get("/host/analytics", authenticateToken, async (req, res) => {
   try {
-    const { timeFrame } = req.query;
+    const { timeFrame = 'month' } = req.query;
     const userId = req.userData.id;
 
     let startDate = new Date();
@@ -4196,141 +4197,90 @@ app.get("/host/analytics", authenticateToken, async (req, res) => {
     }
 
     // Get all places owned by this host
-    const hostPlaces = await Place.find({
-      owner: userId,
-      isActive: true,
-      isDeleted: false,
-    }).select("_id");
+    const hostPlaces = await Place.find({ owner: userId }).select("_id");
+    const placeIds = hostPlaces.map(place => place._id);
 
-    const placeIds = hostPlaces.map((place) => place._id);
-
-    const analytics = await Booking.aggregate([
+    // Aggregate bookings data
+    const bookingsData = await Booking.aggregate([
       {
         $match: {
           place: { $in: placeIds },
           checkIn: { $gte: startDate },
-          status: { $in: ["completed", "confirmed"] },
-          isActive: true,
-          isDeleted: false,
-        },
+          status: { $in: ["completed", "confirmed"] }
+        }
       },
       {
         $group: {
           _id: groupBy,
-          revenue: { $sum: { $toDouble: "$price" } }, // Ensure price is converted to number
-          bookings: { $sum: 1 },
-        },
+          revenue: { $sum: { $toDouble: "$price" } },
+          bookings: { $sum: 1 }
+        }
       },
-      {
-        $sort: { _id: 1 },
-      },
-      {
-        $project: {
-          date: "$_id",
-          revenue: { $round: ["$revenue", 2] }, // Round to 2 decimal places
-          bookings: 1,
-          _id: 0,
-        },
-      },
+      { $sort: { _id: 1 } }
     ]);
 
-    // Calculate totals
-    const totals = await Booking.aggregate([
+    // Calculate summary data
+    const summary = await Booking.aggregate([
       {
         $match: {
           place: { $in: placeIds },
           checkIn: { $gte: startDate },
-          status: { $in: ["completed", "confirmed"] },
-          isActive: true,
-          isDeleted: false,
-        },
+          status: { $in: ["completed", "confirmed"] }
+        }
       },
       {
         $group: {
           _id: null,
           totalRevenue: { $sum: { $toDouble: "$price" } },
-          totalBookings: { $sum: 1 },
-        },
-      },
+          totalBookings: { $sum: 1 }
+        }
+      }
     ]);
 
-    // Fill in missing dates with zero values
-    const filledAnalytics = fillMissingDates(
-      analytics,
-      startDate,
-      new Date(),
-      timeFrame
-    );
+    // Fill in missing dates
+    const filledData = fillMissingDates(bookingsData, startDate, new Date(), timeFrame);
 
     res.json({
-      data: filledAnalytics,
+      data: filledData,
       summary: {
-        totalRevenue: totals[0]?.totalRevenue || 0,
-        totalBookings: totals[0]?.totalBookings || 0,
-        averageRevenue: totals[0]
-          ? totals[0].totalRevenue / totals[0].totalBookings
-          : 0,
-      },
+        totalRevenue: summary[0]?.totalRevenue || 0,
+        totalBookings: summary[0]?.totalBookings || 0,
+        averageRevenue: summary[0] ? summary[0].totalRevenue / summary[0].totalBookings : 0
+      }
     });
+
   } catch (error) {
     console.error("Analytics error:", error);
-    res.status(500).json({ message: "Error fetching analytics data" });
+    res.status(500).json({ error: "Failed to fetch analytics data" });
   }
 });
 
-
-    // Fill in missing dates with zero values
-    const filledAnalytics = fillMissingDates(
-      analytics,
-      startDate,
-      new Date(),
-      timeFrame
-    );
-
-    res.json({
-      data: filledAnalytics,
-      summary: {
-        totalRevenue: totals[0]?.totalRevenue || 0,
-        totalBookings: totals[0]?.totalBookings || 0,
-        averageRevenue: totals[0]
-          ? totals[0].totalRevenue / totals[0].totalBookings
-          : 0,
-      },
-    });
-  } catch (error) {
-    console.error("Analytics error:", error);
-    res.status(500).json({ message: "Error fetching analytics data" });
-  }
-});
-
-// Helper function to fill in missing dates
+// Helper function to fill missing dates
 function fillMissingDates(data, startDate, endDate, timeFrame) {
   const filledData = [];
   const current = new Date(startDate);
-
+  
   while (current <= endDate) {
     let dateKey;
-
+    
     switch (timeFrame) {
       case "week":
       case "month":
-        dateKey = current.toLocaleDateString("en-CA"); // YYYY-MM-DD format
+        dateKey = current.toISOString().split('T')[0];
         break;
       case "year":
-        dateKey = `${current.getFullYear()}-${String(
-          current.getMonth() + 1
-        ).padStart(2, "0")}`;
+        dateKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
         break;
       default:
-        dateKey = current.toLocaleDateString("en-CA");
+        dateKey = current.toISOString().split('T')[0];
     }
 
-    const existingData = data.find((item) => item.date === dateKey);
+    const existingData = data.find(item => item._id === dateKey);
 
     filledData.push({
       date: dateKey,
       revenue: existingData ? existingData.revenue : 0,
-      bookings: existingData ? existingData.bookings : 0,
+      bookings: existingData ? existingData.bookings : 0
     });
 
     // Increment date based on timeFrame
