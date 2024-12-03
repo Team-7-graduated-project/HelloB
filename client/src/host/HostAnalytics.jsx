@@ -24,7 +24,7 @@ function HostAnalytics() {
         const response = await axios.get(
           `/host/analytics?timeFrame=${timeFrame}`
         );
-        const analyticsData = response.data || [];
+        const analyticsData = Array.isArray(response.data) ? response.data : [];
         setAnalytics(analyticsData);
         setError(null);
       } catch (err) {
@@ -53,6 +53,10 @@ function HostAnalytics() {
       </div>
     );
   }
+
+  const totalRevenue = analytics.reduce((sum, item) => sum + (item.revenue || 0), 0);
+  const totalBookings = analytics.reduce((sum, item) => sum + (item.bookings || 0), 0);
+  const averageRevenuePerBooking = totalBookings > 0 ? (totalRevenue / totalBookings).toFixed(2) : 0;
 
   return (
     <div className="p-6">
@@ -119,25 +123,15 @@ function HostAnalytics() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
         <div className="bg-white rounded-lg shadow p-4">
           <h3 className="text-gray-500 text-sm">Total Revenue</h3>
-          <p className="text-2xl font-bold">
-            ${analytics.reduce((sum, item) => sum + item.revenue, 0).toFixed(2)}
-          </p>
+          <p className="text-2xl font-bold">${totalRevenue.toFixed(2)}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <h3 className="text-gray-500 text-sm">Total Bookings</h3>
-          <p className="text-2xl font-bold">
-            {analytics.reduce((sum, item) => sum + item.bookings, 0)}
-          </p>
+          <p className="text-2xl font-bold">{totalBookings}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <h3 className="text-gray-500 text-sm">Average Revenue per Booking</h3>
-          <p className="text-2xl font-bold">
-            $
-            {(
-              analytics.reduce((sum, item) => sum + item.revenue, 0) /
-              analytics.reduce((sum, item) => sum + item.bookings, 0)
-            ).toFixed(2)}
-          </p>
+          <p className="text-2xl font-bold">${averageRevenuePerBooking}</p>
         </div>
       </div>
     </div>
