@@ -4179,37 +4179,44 @@ app.get("/host/analytics", authenticateToken, async (req, res) => {
     switch (timeFrame) {
       case "week":
         startDate.setDate(startDate.getDate() - 7);
-        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } };
+        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$checkIn" } };
         break;
       case "month":
         startDate.setMonth(startDate.getMonth() - 1);
-        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } };
+        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$checkIn" } };
         break;
       case "year":
         startDate.setFullYear(startDate.getFullYear() - 1);
-        groupBy = { $dateToString: { format: "%Y-%m", date: "$createdAt" } };
+        groupBy = { $dateToString: { format: "%Y-%m", date: "$checkIn" } };
         break;
       default:
         startDate.setMonth(startDate.getMonth() - 1);
-        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } };
+        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$checkIn" } };
     }
 
-    // First get all places owned by this host
-    const hostPlaces = await Place.find({ owner: userId }).select("_id");
+    // Get all places owned by this host
+    const hostPlaces = await Place.find({
+      owner: userId,
+      isActive: true,
+      isDeleted: false,
+    }).select("_id");
+
     const placeIds = hostPlaces.map((place) => place._id);
 
     const analytics = await Booking.aggregate([
       {
         $match: {
           place: { $in: placeIds },
-          createdAt: { $gte: startDate },
-          status: { $in: ["confirmed", "completed"] },
+          checkIn: { $gte: startDate },
+          status: { $in: ["completed", "confirmed"] },
+          isActive: true,
+          isDeleted: false,
         },
       },
       {
         $group: {
           _id: groupBy,
-          revenue: { $sum: "$price" },
+          revenue: { $sum: { $toDouble: "$price" } }, // Ensure price is converted to number
           bookings: { $sum: 1 },
         },
       },
@@ -4219,9 +4226,29 @@ app.get("/host/analytics", authenticateToken, async (req, res) => {
       {
         $project: {
           date: "$_id",
-          revenue: 1,
+          revenue: { $round: ["$revenue", 2] }, // Round to 2 decimal places
           bookings: 1,
           _id: 0,
+        },
+      },
+    ]);
+
+    // Calculate totals
+    const totals = await Booking.aggregate([
+      {
+        $match: {
+          place: { $in: placeIds },
+          checkIn: { $gte: startDate },
+          status: { $in: ["completed", "confirmed"] },
+          isActive: true,
+          isDeleted: false,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: { $toDouble: "$price" } },
+          totalBookings: { $sum: 1 },
         },
       },
     ]);
@@ -4234,7 +4261,16 @@ app.get("/host/analytics", authenticateToken, async (req, res) => {
       timeFrame
     );
 
-    res.json(filledAnalytics);
+    res.json({
+      data: filledAnalytics,
+      summary: {
+        totalRevenue: totals[0]?.totalRevenue || 0,
+        totalBookings: totals[0]?.totalBookings || 0,
+        averageRevenue: totals[0]
+          ? totals[0].totalRevenue / totals[0].totalBookings
+          : 0,
+      },
+    });
   } catch (error) {
     console.error("Analytics error:", error);
     res.status(500).json({ message: "Error fetching analytics data" });
@@ -4287,7 +4323,6 @@ function fillMissingDates(data, startDate, endDate, timeFrame) {
 
   return filledData;
 }
-
 // Update the profile photo endpoint to use Cloudinary
 app.put(
   "/update-profile-photo",
