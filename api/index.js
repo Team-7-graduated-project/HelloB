@@ -29,7 +29,18 @@ const server = require("http").createServer(app);
 // Create WebSocket server attached to HTTP server (change this line)
 const wss = new WebSocket.Server({ 
   server,
-  path: '/ws'  // Add explicit path
+  path: '/ws',  // Add explicit path
+  clientTracking: true,
+  perMessageDeflate: {
+    zlibDeflateOptions: {
+      chunkSize: 1024,
+      memLevel: 7,
+      level: 3
+    },
+    zlibInflateOptions: {
+      chunkSize: 10 * 1024
+    }
+  }
 });
 
 // Store active connections
