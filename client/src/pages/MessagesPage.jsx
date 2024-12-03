@@ -8,19 +8,19 @@ import AccountNav from "../AccountNav";
 
 const messageBubbleStyle = `
   relative before:content-[''] before:absolute before:bottom-0 
-  before:w-2 before:h-2 before:transform
+  before:w-2 before:h-2 before:transform transition-all duration-300
 `;
 
 const leftBubbleStyle = `
   ${messageBubbleStyle}
   before:-left-1 before:bg-gray-100 
-  before:rotate-45
+  before:rotate-45 shadow-md
 `;
 
 const rightBubbleStyle = `
   ${messageBubbleStyle}
   before:-right-1 before:bg-primary 
-  before:rotate-45
+  before:rotate-45 shadow-md
 `;
 
 export default function MessagesPage() {
@@ -149,6 +149,19 @@ export default function MessagesPage() {
     }
   };
 
+  // Add this helper function at the top of your component
+  const groupMessagesByDate = (messages) => {
+    const groups = {};
+    messages.forEach((message) => {
+      const date = format(new Date(message.timestamp), "dd/MM/yyyy");
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(message);
+    });
+    return groups;
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -157,139 +170,142 @@ export default function MessagesPage() {
     );
   }
 
- return (
-    <div className="p-8 h-screen flex flex-col">
+  return (
+    <div className="h-screen flex flex-col">
       <AccountNav />
-      <div className="container mx-auto flex-grow flex flex-col">
+      <div className="flex-1 container mx-auto p-8 flex flex-col">
         <h1 className="text-2xl font-bold mb-4">Messages</h1>
-        <div className="grid grid-cols-3 gap-4 flex-grow">
-          {/* Chat List */}
-          <div className="col-span-1 border rounded-lg overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
-            {chats.map((chat) => {
-              const otherParticipant = getOtherParticipant(chat);
-              return (
-                <div
-                  key={chat._id}
-                  onClick={() => setSelectedChat(chat)}
-                  className={`p-4 border-b cursor-pointer hover:bg-gray-50 
-                  ${selectedChat?._id === chat._id ? "bg-gray-100" : ""}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                      {otherParticipant?.photo ? (
-                        <img
-                          src={otherParticipant.photo}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <FaUser className="w-full h-full p-2 text-gray-400" />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="font-medium">
-                        {otherParticipant?.name || "Loading..."}
-                      </h3>
-                      <p className="text-sm text-gray-500 truncate">
-                        {chat.messages[chat.messages.length - 1]?.content ||
-                          "No messages yet"}
-                      </p>
+        <div className="flex-1 grid grid-cols-3 gap-4">
+          {/* Chat List - Left sidebar - Fixed */}
+          <div className="col-span-1 border rounded-lg bg-white h-[calc(100vh-200px)] overflow-hidden">
+            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
+              {chats.map((chat) => {
+                const otherParticipant = getOtherParticipant(chat);
+                return (
+                  <div
+                    key={chat._id}
+                    onClick={() => setSelectedChat(chat)}
+                    className={`p-4 border-b cursor-pointer hover:bg-gray-50 
+                    ${selectedChat?._id === chat._id ? "bg-gray-100" : ""}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
+                        {otherParticipant?.photo ? (
+                          <img
+                            src={otherParticipant.photo}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <FaUser className="w-full h-full p-2 text-gray-400" />
+                        )}
+                      </div>
+                      <div className="flex-grow min-w-0">
+                        <h3 className="font-medium truncate">
+                          {otherParticipant?.name || "Loading..."}
+                        </h3>
+                        <p className="text-sm text-gray-500 truncate">
+                          {chat.messages[chat.messages.length - 1]?.content ||
+                            "No messages yet"}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
 
-          {/* Chat Window */}
-          <div className="col-span-2 border rounded-lg flex flex-col">
+          {/* Chat Window - Right side - Fixed structure */}
+          <div className="col-span-2 border rounded-lg bg-white h-[calc(100vh-200px)] flex flex-col">
             {selectedChat ? (
               <>
-                {/* Chat Header */}
-                <div className="p-4 border-b">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                      {getOtherParticipant(selectedChat)?.photo ? (
-                        <img
-                          src={getOtherParticipant(selectedChat).photo}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <FaUser className="w-full h-full p-2 text-gray-400" />
-                      )}
-                    </div>
-                    <h3 className="font-medium">
-                      {getOtherParticipant(selectedChat)?.name || "Loading..."}
-                    </h3>
+                {/* Fixed Header */}
+                <div className="p-4 border-b flex items-center gap-3 bg-white">
+                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
+                    {getOtherParticipant(selectedChat)?.photo ? (
+                      <img
+                        src={getOtherParticipant(selectedChat).photo}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <FaUser className="w-full h-full p-2 text-gray-400" />
+                    )}
                   </div>
+                  <h3 className="font-medium">
+                    {getOtherParticipant(selectedChat)?.name || "Loading..."}
+                  </h3>
                 </div>
 
-                {/* Messages */}
-                {/* Messages */}
-                <div className="flex-grow p-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
-                  <div className="flex flex-col">
+                {/* Scrollable Messages Area */}
+                <div className="flex-1 overflow-y-auto">
+                  <div className="p-4 space-y-6">
                     {" "}
-                    {/* Change here */}
-                    {selectedChat.messages.map((message, index) => (
-                      <div
-                        key={index}
-                        className={`flex items-end gap-2 mb-4 ${
-                          message.sender === user?._id
-                            ? "justify-end"
-                            : "justify-start"
-                        }`}
-                      >
-                        {message.sender !== user?._id && (
-                          <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                            <img
-                              src={
-                                getOtherParticipant(selectedChat)?.photo ||
-                                "/default-avatar.png"
-                              }
-                              alt=""
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                        <div
-                          className={`max-w-[70%] p-3 rounded-xl ${
-                            message.sender === user?._id
-                              ? `${rightBubbleStyle} bg-primary text-white`
-                              : `${leftBubbleStyle} bg-gray-100`
-                          }`}
-                        >
-                          <p className="break-words">{message.content}</p>
-                          <div
-                            className={`text-xs mt-1 ${
-                              message.sender === user?._id
-                                ? "text-white/70"
-                                : "text-gray-500"
-                            }`}
-                          >
-                            {format(new Date(message.timestamp), "h:mm a")}
-                          </div>
-                          <div
-                            className={`text-xs ${
-                              message.sender === user?._id
-                                ? "text-white/70"
-                                : "text-gray-500"
-                            }`}
-                          >
-                            {format(
-                              new Date(message.timestamp),
-                              "MMMM d, yyyy"
-                            )}{" "}
+                    {/* Increased space between groups */}
+                    {Object.entries(
+                      groupMessagesByDate(selectedChat.messages)
+                    ).map(([date, messages]) => (
+                      <div key={date} className="space-y-4">
+                        {/* Date Separator */}
+                        <div className="flex items-center justify-center">
+                          <div className="bg-gray-200 px-3 py-1 rounded-full text-sm text-gray-600">
+                            {date === format(new Date(), "dd/MM/yyyy")
+                              ? "Today"
+                              : date}
                           </div>
                         </div>
+
+                        {/* Messages for this date */}
+                        {messages.map((message, index) => (
+                          <div
+                            key={index}
+                            className={`flex items-end gap-2 ${
+                              message.sender === user?._id
+                                ? "justify-end"
+                                : "justify-start"
+                            }`}
+                          >
+                            {message.sender !== user?._id && (
+                              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                <img
+                                  src={
+                                    getOtherParticipant(selectedChat)?.photo ||
+                                    "/default-avatar.png"
+                                  }
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                            <div
+                              className={`max-w-[70%] p-3 rounded-xl ${
+                                message.sender === user?._id
+                                  ? `${rightBubbleStyle} bg-primary text-white`
+                                  : `${leftBubbleStyle} bg-gray-100`
+                              }`}
+                            >
+                              <p className="break-words">{message.content}</p>
+                              <div
+                                className={`text-xs mt-1 ${
+                                  message.sender === user?._id
+                                    ? "text-white/70"
+                                    : "text-gray-500"
+                                }`}
+                              >
+                                {format(new Date(message.timestamp), "h:mm a")}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Message Input */}
-                <form onSubmit={sendMessage} className="p-4 border-t">
-                  <div className="flex gap-2">
+                {/* Fixed Input Area */}
+                <div className="p-4 border-t bg-white mt-auto">
+                  <form onSubmit={sendMessage} className="flex gap-2">
                     <input
                       type="text"
                       value={newMessage}
@@ -300,7 +316,7 @@ export default function MessagesPage() {
                     <button
                       type="submit"
                       disabled={!newMessage.trim()}
-                      className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all
+                      className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2
                       ${
                         newMessage.trim()
                           ? "bg-primary text-white hover:bg-primary-dark"
@@ -310,11 +326,11 @@ export default function MessagesPage() {
                       <FaPaperPlane className="w-4 h-4" />
                       Send
                     </button>
-                  </div>
-                </form>
+                  </form>
+                </div>
               </>
             ) : (
-              <div className="flex-grow flex items-center justify-center text-gray-500">
+              <div className="flex-1 flex items-center justify-center text-gray-500">
                 Select a chat to start messaging
               </div>
             )}
