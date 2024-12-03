@@ -58,32 +58,34 @@ export default function MessagesPage() {
   // WebSocket connection
 useEffect(() => {
   let websocket;
-  let reconnectAttempts = 0;
-  const maxReconnectAttempts = 5;
-
-  const connectWebSocket = () => {
-    const wsUrl = process.env.NODE_ENV === 'production'
-      ? `wss://hellob-be.onrender.com/ws?userId=${user._id}&chatId=${selectedChat._id}`
-      : `ws://localhost:3000/ws?userId=${user._id}&chatId=${selectedChat._id}`;
-
-    websocket = new WebSocket(wsUrl);
+  if (selectedChat?._id && user?._id) {
+    websocket = new WebSocket(
+      `wss://hellob-be.onrender.com/ws?userId=${user._id}&chatId=${selectedChat._id}`
+    );
 
     websocket.onopen = () => {
       console.log("WebSocket connected");
-      reconnectAttempts = 0;
       setWs(websocket);
     };
 
-    websocket.onclose = (event) => {
-      console.log("WebSocket closed:", event);
-      setWs(null);
-      
-      // Attempt to reconnect
-      if (reconnectAttempts < maxReconnectAttempts) {
-        reconnectAttempts++;
-        setTimeout(connectWebSocket, 1000 * reconnectAttempts);
-      } else {
-        toast.error("Unable to establish connection. Please refresh the page.");
+    websocket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === "chat") {
+        setSelectedChat((prev) => ({
+          ...prev,
+          messages: [...prev.messages, message.data],
+        }));
+        setChats((prevChats) => {
+          return prevChats.map((chat) => {
+            if (chat._id === selectedChat._id) {
+              return {
+                ...chat,
+                messages: [...chat.messages, message.data],
+              };
+            }
+            return chat;
+          });
+        });
       }
     };
 
@@ -91,10 +93,11 @@ useEffect(() => {
       console.error("WebSocket error:", error);
       toast.error("Connection error");
     };
-  };
 
-  if (selectedChat?._id && user?._id) {
-    connectWebSocket();
+    websocket.onclose = (event) => {
+      console.log("WebSocket closed:", event);
+      setWs(null);
+    };
   }
 
   return () => websocket?.close();
