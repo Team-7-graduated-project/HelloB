@@ -8,12 +8,12 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
+  ResponsiveContainer
 } from "recharts";
 
 function HostAnalytics() {
   const [timeFrame, setTimeFrame] = useState("month");
-  const [analytics, setAnalytics] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState({ data: [], summary: {} });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -21,10 +21,10 @@ function HostAnalytics() {
     const fetchAnalytics = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(
-          `/host/analytics?timeFrame=${timeFrame}`
-        );
-        setAnalytics(response.data);
+        const response = await axios.get(`/host/analytics?timeFrame=${timeFrame}`, {
+          withCredentials: true
+        });
+        setAnalyticsData(response.data || { data: [], summary: {} });
         setError(null);
       } catch (err) {
         setError("Failed to load analytics data");
@@ -52,6 +52,11 @@ function HostAnalytics() {
       </div>
     );
   }
+
+  const { data, summary } = analyticsData;
+  const totalRevenue = summary?.totalRevenue || 0;
+  const totalBookings = summary?.totalBookings || 0;
+  const averageRevenuePerBooking = totalBookings > 0 ? (totalRevenue / totalBookings).toFixed(2) : 0;
 
   return (
     <div className="p-6">
@@ -93,19 +98,22 @@ function HostAnalytics() {
 
       <div className="h-[400px]">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={analytics}>
+          <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis dataKey="date" />
-            <YAxis />
+            <YAxis yAxisId="left" />
+            <YAxis yAxisId="right" orientation="right" />
             <Tooltip />
             <Legend />
             <Line
+              yAxisId="left"
               type="monotone"
               dataKey="revenue"
               stroke="#8884d8"
-              name="Revenue"
+              name="Revenue ($)"
             />
             <Line
+              yAxisId="right"
               type="monotone"
               dataKey="bookings"
               stroke="#82ca9d"
@@ -118,25 +126,15 @@ function HostAnalytics() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
         <div className="bg-white rounded-lg shadow p-4">
           <h3 className="text-gray-500 text-sm">Total Revenue</h3>
-          <p className="text-2xl font-bold">
-            ${analytics.reduce((sum, item) => sum + item.revenue, 0).toFixed(2)}
-          </p>
+          <p className="text-2xl font-bold">${totalRevenue.toFixed(2)}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <h3 className="text-gray-500 text-sm">Total Bookings</h3>
-          <p className="text-2xl font-bold">
-            {analytics.reduce((sum, item) => sum + item.bookings, 0)}
-          </p>
+          <p className="text-2xl font-bold">{totalBookings}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
           <h3 className="text-gray-500 text-sm">Average Revenue per Booking</h3>
-          <p className="text-2xl font-bold">
-            $
-            {(
-              analytics.reduce((sum, item) => sum + item.revenue, 0) /
-              analytics.reduce((sum, item) => sum + item.bookings, 0)
-            ).toFixed(2)}
-          </p>
+          <p className="text-2xl font-bold">${averageRevenuePerBooking}</p>
         </div>
       </div>
     </div>
