@@ -1321,20 +1321,7 @@ app.get("/places/:id", async (req, res) => {
 });
 app.post("/api/host/announcements", authenticateToken, async (req, res) => {
   try {
-    const today = new Date();
-    const currentDay = today.getDay(); // 0 = Sunday, 6 = Saturday
-    const currentDate = today.getDate();
-
-    // Only allow announcements on Sundays or the 1st of each month
-    if (currentDay !== 0 && currentDate !== 1) {
-      return res.status(403).json({
-        error: "Not allowed",
-        details:
-          "Announcements can only be created on Sundays or the 1st of each month",
-      });
-    }
-
-    const { type, period, metrics } = req.body;
+    const { title, content, type, period, metrics, autoConfirmAt } = req.body;
     const hostId = req.userData._id;
 
     // Check if announcement already exists for this period
@@ -1352,6 +1339,8 @@ app.post("/api/host/announcements", authenticateToken, async (req, res) => {
 
     const announcement = await Announcement.create({
       host: hostId,
+      title,
+      content,
       type,
       period: {
         startDate: new Date(period.startDate),
@@ -1359,7 +1348,16 @@ app.post("/api/host/announcements", authenticateToken, async (req, res) => {
       },
       metrics,
       status: "pending",
+      autoConfirmAt: new Date(autoConfirmAt),
     });
+
+    // Create notification for admin
+    await createNotification(
+      "admin",
+      "New Announcement",
+      `New announcement created by host: ${title}`,
+      `/admin/announcements/${announcement._id}`
+    );
 
     res.status(201).json(announcement);
   } catch (error) {
@@ -1370,6 +1368,81 @@ app.post("/api/host/announcements", authenticateToken, async (req, res) => {
     });
   }
 });
+// Add this function near your other scheduled tasks
+const autoCreateAnnouncements = async () => {
+  try {
+    // Get all hosts
+    const hosts = await User.find({ role: "host", isActive: true });
+
+    for (const host of hosts) {
+      // Check last announcement
+      const lastAnnouncement = await Announcement.findOne({
+        host: host._id,
+      }).sort("-createdAt");
+
+      const now = new Date();
+      const twelveHoursAgo = new Date(now - 12 * 60 * 60 * 1000);
+
+      // If no announcement in last 12 hours and it's either Sunday or 1st of month
+      if (
+        (!lastAnnouncement || lastAnnouncement.createdAt < twelveHoursAgo) &&
+        (now.getDay() === 0 || now.getDate() === 1)
+      ) {
+        // Get host metrics
+        const hostPlaces = await Place.find({ owner: host._id });
+        const placeIds = hostPlaces.map((place) => place._id);
+
+        const recentBookings = await Booking.find({
+          place: { $in: placeIds },
+          createdAt: { $gte: new Date(now - 30 * 24 * 60 * 60 * 1000) },
+        });
+
+        // Create auto-announcement
+        const announcement = await Announcement.create({
+          host: host._id,
+          type: "auto",
+          title: "Monthly Performance Update",
+          content: "Automatically generated monthly performance report",
+          period: {
+            startDate: now,
+            endDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+          },
+          metrics: {
+            totalBookings: recentBookings.length,
+            totalRevenue: recentBookings.reduce(
+              (sum, booking) => sum + (Number(booking.price) || 0),
+              0
+            ),
+            completedBookings: recentBookings.filter(
+              (b) => b.status === "completed"
+            ).length,
+            cancelledBookings: recentBookings.filter(
+              (b) => b.status === "cancelled"
+            ).length,
+          },
+          status: "pending",
+        });
+
+        // Create notification for host
+        await createNotification(
+          "announcement_auto_created",
+          "Auto-Generated Announcement",
+          "An announcement has been automatically generated for your account",
+          `/host/announcements/${announcement._id}`,
+          host._id
+        );
+      }
+    }
+  } catch (error) {
+    console.error("Error in auto-creating announcements:", error);
+  }
+};
+
+// Run auto-create check every hour
+setInterval(autoCreateAnnouncements, 60 * 60 * 1000);
+
+// Run it once when the server starts
+autoCreateAnnouncements();
 
 // Get host metrics for a specific period
 app.get("/api/host/metrics", authenticateToken, async (req, res) => {
@@ -1377,8 +1450,12 @@ app.get("/api/host/metrics", authenticateToken, async (req, res) => {
     const { startDate, endDate } = req.query;
     const hostId = req.userData._id;
 
-    // First get all places owned by this host
-    const hostPlaces = await Place.find({ owner: hostId });
+    // Get all places owned by the host
+    const hostPlaces = await Place.find({
+      owner: hostId,
+      isActive: true,
+      isDeleted: false,
+    });
 
     if (!hostPlaces.length) {
       return res.json({
@@ -1391,19 +1468,20 @@ app.get("/api/host/metrics", authenticateToken, async (req, res) => {
 
     const placeIds = hostPlaces.map((place) => place._id);
 
-    // Find bookings for these places
+    // Get bookings for the period
     const bookings = await Booking.find({
       place: { $in: placeIds },
-      createdAt: {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
-      },
+      checkIn: { $gte: new Date(startDate) },
+      checkOut: { $lte: new Date(endDate) },
+      isActive: true,
+      isDeleted: false,
     });
 
+    // Calculate metrics
     const metrics = {
       totalBookings: bookings.length,
       totalRevenue: bookings.reduce(
-        (sum, booking) => sum + (Number(booking.price) || 0),
+        (sum, booking) => sum + (booking.price || 0),
         0
       ),
       completedBookings: bookings.filter((b) => b.status === "completed")
@@ -1414,17 +1492,8 @@ app.get("/api/host/metrics", authenticateToken, async (req, res) => {
 
     res.json(metrics);
   } catch (error) {
-    console.error("Detailed error in metrics endpoint:", {
-      message: error.message,
-      stack: error.stack,
-      userData: req.userData,
-      query: req.query,
-    });
-    res.status(500).json({
-      error: "Failed to fetch metrics",
-      details: error.message,
-      timestamp: new Date().toISOString(),
-    });
+    console.error("Error fetching metrics:", error);
+    res.status(500).json({ error: "Failed to fetch metrics" });
   }
 });
 
@@ -1450,6 +1519,7 @@ app.get("/api/host/announcements", authenticateToken, async (req, res) => {
     });
   }
 });
+
 
 app.delete("/places/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
@@ -4096,37 +4166,44 @@ app.get("/host/analytics", authenticateToken, async (req, res) => {
     switch (timeFrame) {
       case "week":
         startDate.setDate(startDate.getDate() - 7);
-        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } };
+        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$checkIn" } };
         break;
       case "month":
         startDate.setMonth(startDate.getMonth() - 1);
-        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } };
+        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$checkIn" } };
         break;
       case "year":
         startDate.setFullYear(startDate.getFullYear() - 1);
-        groupBy = { $dateToString: { format: "%Y-%m", date: "$createdAt" } };
+        groupBy = { $dateToString: { format: "%Y-%m", date: "$checkIn" } };
         break;
       default:
         startDate.setMonth(startDate.getMonth() - 1);
-        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } };
+        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$checkIn" } };
     }
 
-    // First get all places owned by this host
-    const hostPlaces = await Place.find({ owner: userId }).select("_id");
+    // Get all places owned by this host
+    const hostPlaces = await Place.find({
+      owner: userId,
+      isActive: true,
+      isDeleted: false,
+    }).select("_id");
+
     const placeIds = hostPlaces.map((place) => place._id);
 
     const analytics = await Booking.aggregate([
       {
         $match: {
           place: { $in: placeIds },
-          createdAt: { $gte: startDate },
-          status: { $in: ["confirmed", "completed"] },
+          checkIn: { $gte: startDate },
+          status: { $in: ["completed", "confirmed"] },
+          isActive: true,
+          isDeleted: false,
         },
       },
       {
         $group: {
           _id: groupBy,
-          revenue: { $sum: "$price" },
+          revenue: { $sum: { $toDouble: "$price" } }, // Ensure price is converted to number
           bookings: { $sum: 1 },
         },
       },
@@ -4136,9 +4213,29 @@ app.get("/host/analytics", authenticateToken, async (req, res) => {
       {
         $project: {
           date: "$_id",
-          revenue: 1,
+          revenue: { $round: ["$revenue", 2] }, // Round to 2 decimal places
           bookings: 1,
           _id: 0,
+        },
+      },
+    ]);
+
+    // Calculate totals
+    const totals = await Booking.aggregate([
+      {
+        $match: {
+          place: { $in: placeIds },
+          checkIn: { $gte: startDate },
+          status: { $in: ["completed", "confirmed"] },
+          isActive: true,
+          isDeleted: false,
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: { $toDouble: "$price" } },
+          totalBookings: { $sum: 1 },
         },
       },
     ]);
@@ -4151,7 +4248,16 @@ app.get("/host/analytics", authenticateToken, async (req, res) => {
       timeFrame
     );
 
-    res.json(filledAnalytics);
+    res.json({
+      data: filledAnalytics,
+      summary: {
+        totalRevenue: totals[0]?.totalRevenue || 0,
+        totalBookings: totals[0]?.totalBookings || 0,
+        averageRevenue: totals[0]
+          ? totals[0].totalRevenue / totals[0].totalBookings
+          : 0,
+      },
+    });
   } catch (error) {
     console.error("Analytics error:", error);
     res.status(500).json({ message: "Error fetching analytics data" });
