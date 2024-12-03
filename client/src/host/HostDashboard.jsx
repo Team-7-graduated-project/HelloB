@@ -289,7 +289,7 @@ function HostDashboard() {
               <Route path="places" element={<HostPlaces />} />
               <Route path="vouchers" element={<VoucherList />} />
               <Route path="vouchers/new" element={<VoucherFormPage />} />
-              <Route path="vouchers/  :id" element={<VoucherFormPage />} />
+              <Route path="vouchers/:id" element={<VoucherFormPage />} />
               <Route path="analytics" element={<HostAnalytics />} />
               <Route path="announcements" element={<HostAnnouncements />} />
               <Route
