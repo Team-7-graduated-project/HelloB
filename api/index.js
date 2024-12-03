@@ -4195,89 +4195,72 @@ app.get("/host/analytics", authenticateToken, async (req, res) => {
     }
 
     // Get all places owned by this host
-    const hostPlaces = await Place.find({
-      owner: userId,
-      isActive: true,
-      isDeleted: false,
-    }).select("_id");
+    const hostPlaces = await Place.find({ owner: userId }).select("_id");
+    if (!hostPlaces.length) {
+      return res.json({
+        data: [],
+        summary: {
+          totalRevenue: 0,
+          totalBookings: 0,
+          averageRevenue: 0
+        }
+      });
+    }
 
-    const placeIds = hostPlaces.map((place) => place._id);
+    const placeIds = hostPlaces.map(place => place._id);
 
-    const analytics = await Booking.aggregate([
+    // Get analytics data
+    const bookings = await Booking.aggregate([
       {
         $match: {
           place: { $in: placeIds },
           checkIn: { $gte: startDate },
-          status: { $in: ["completed", "confirmed"] },
-          isActive: true,
-          isDeleted: false,
-        },
+          status: { $in: ["completed", "confirmed"] }
+        }
       },
       {
         $group: {
           _id: groupBy,
-          revenue: { $sum: { $toDouble: "$price" } }, // Ensure price is converted to number
-          bookings: { $sum: 1 },
-        },
+          revenue: { $sum: { $toDouble: "$price" } },
+          bookings: { $sum: 1 }
+        }
       },
-      {
-        $sort: { _id: 1 },
-      },
-      {
-        $project: {
-          date: "$_id",
-          revenue: { $round: ["$revenue", 2] }, // Round to 2 decimal places
-          bookings: 1,
-          _id: 0,
-        },
-      },
+      { $sort: { _id: 1 } }
     ]);
 
-    // Calculate totals
-    const totals = await Booking.aggregate([
-      {
-        $match: {
-          place: { $in: placeIds },
-          checkIn: { $gte: startDate },
-          status: { $in: ["completed", "confirmed"] },
-          isActive: true,
-          isDeleted: false,
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          totalRevenue: { $sum: { $toDouble: "$price" } },
-          totalBookings: { $sum: 1 },
-        },
-      },
-    ]);
+    // Fill missing dates and format data
+    const filledData = fillMissingDates(bookings, startDate, new Date(), timeFrame);
 
-    // Fill in missing dates with zero values
-    const filledAnalytics = fillMissingDates(
-      analytics,
-      startDate,
-      new Date(),
-      timeFrame
-    );
+    // Calculate summary
+    const summary = filledData.reduce((acc, day) => ({
+      totalRevenue: acc.totalRevenue + (day.revenue || 0),
+      totalBookings: acc.totalBookings + (day.bookings || 0)
+    }), { totalRevenue: 0, totalBookings: 0 });
 
     res.json({
-      data: filledAnalytics,
+      data: filledData,
       summary: {
-        totalRevenue: totals[0]?.totalRevenue || 0,
-        totalBookings: totals[0]?.totalBookings || 0,
-        averageRevenue: totals[0]
-          ? totals[0].totalRevenue / totals[0].totalBookings
-          : 0,
-      },
+        ...summary,
+        averageRevenue: summary.totalBookings > 0 
+          ? summary.totalRevenue / summary.totalBookings 
+          : 0
+      }
     });
+
   } catch (error) {
     console.error("Analytics error:", error);
-    res.status(500).json({ message: "Error fetching analytics data" });
+    res.status(500).json({ 
+      error: "Failed to fetch analytics data",
+      data: [],
+      summary: {
+        totalRevenue: 0,
+        totalBookings: 0,
+        averageRevenue: 0
+      }
+    });
   }
 });
 
-// Helper function to fill in missing dates
 function fillMissingDates(data, startDate, endDate, timeFrame) {
   const filledData = [];
   const current = new Date(startDate);
