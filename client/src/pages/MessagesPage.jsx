@@ -63,7 +63,10 @@ useEffect(() => {
       `wss://hellob-be.onrender.com/ws?userId=${user._id}&chatId=${selectedChat._id}`
     );
 
-    websocket.onopen = () => setWs(websocket);
+    websocket.onopen = () => {
+      console.log("WebSocket connected");
+      setWs(websocket);
+    };
 
     websocket.onmessage = (event) => {
       const message = JSON.parse(event.data);
@@ -72,8 +75,6 @@ useEffect(() => {
           ...prev,
           messages: [...prev.messages, message.data],
         }));
-
-        // Update chat list to show latest message
         setChats((prevChats) => {
           return prevChats.map((chat) => {
             if (chat._id === selectedChat._id) {
@@ -93,7 +94,10 @@ useEffect(() => {
       toast.error("Connection error");
     };
 
-    websocket.onclose = () => setWs(null);
+    websocket.onclose = (event) => {
+      console.log("WebSocket closed:", event);
+      setWs(null);
+    };
   }
 
   return () => websocket?.close();
