@@ -27,7 +27,10 @@ const momoPayment = require("./services/momoPayment");
 const server = require("http").createServer(app);
 
 // Create WebSocket server attached to HTTP server (change this line)
-const wss = new WebSocket.Server({ server }); // Changed from { server: app.listen(3000) }
+const wss = new WebSocket.Server({ 
+  server,
+  path: '/ws'  // Add explicit path
+});
 
 // Store active connections
 const clients = new Map();
@@ -4350,7 +4353,14 @@ app.put(
 );
 
 wss.on("connection", (ws, req) => {
+    console.log("New WebSocket connection");
   const { userId, chatId } = url.parse(req.url, true).query;
+
+ if (!userId || !chatId) {
+    console.log("Missing userId or chatId");
+    ws.close();
+    return;
+  }
 
   // Store client connection
   if (!clients.has(chatId)) {
