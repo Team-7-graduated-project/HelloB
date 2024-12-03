@@ -24,7 +24,8 @@ function HostAnalytics() {
         const response = await axios.get(
           `/host/analytics?timeFrame=${timeFrame}`
         );
-        setAnalytics(response.data);
+        const analyticsData = response.data || [];
+        setAnalytics(analyticsData);
         setError(null);
       } catch (err) {
         setError("Failed to load analytics data");
