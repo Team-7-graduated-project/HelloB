@@ -17,6 +17,7 @@ import VoucherFormPage from "../pages/VoucherFormPage";
 import HostAnalytics from "./HostAnalytics";
 import HostAnnouncements from "./HostAnnouncements";
 import "./Index.css";
+import AnnouncementFormPage from "../pages/AnnouncementFormPage";
 
 function HostDashboard() {
   const location = useLocation();
@@ -50,6 +51,9 @@ function HostDashboard() {
             axios.get("/host/vouchers"),
           ]);
 
+        // Extract total bookings from the paginated response
+        const totalBookings = bookingsRes.data.totalItems || 0;
+
         // Calculate average rating
         const ratings = reviewsRes.data.map((review) => review.rating);
         const averageRating =
@@ -64,7 +68,7 @@ function HostDashboard() {
         }).length;
 
         setDashboardStats({
-          totalBookings: bookingsRes.data.length,
+          totalBookings,
           activePlaces: placesRes.data.length,
           averageRating,
           activeVouchers,
@@ -288,6 +292,10 @@ function HostDashboard() {
               <Route path="vouchers/  :id" element={<VoucherFormPage />} />
               <Route path="analytics" element={<HostAnalytics />} />
               <Route path="announcements" element={<HostAnnouncements />} />
+              <Route
+                path="announcements/new"
+                element={<AnnouncementFormPage />}
+              />
               <Route
                 path="*"
                 element={
