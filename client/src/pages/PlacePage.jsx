@@ -152,7 +152,7 @@ export default function PlacePage() {
     if (currentChat?._id && user?._id) {
       // Connect to WebSocket server
       ws = new WebSocket(
-        `ws://hellob-be.onrender.com?userId=${user._id}&chatId=${currentChat._id}`
+        `ws://hellob-be.onrender.com/?userId=${user._id}&chatId=${currentChat._id}`
       );
 
       ws.onopen = () => {
