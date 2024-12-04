@@ -4352,54 +4352,62 @@ app.put(
   }
 );
 
-wss.on("connection", (ws, req) => {
-    console.log("New WebSocket connection");
+// In your WebSocket connection handler
+wss.on('connection', (ws, req) => {
   const { userId, chatId } = url.parse(req.url, true).query;
-
- if (!userId || !chatId) {
-    console.log("Missing userId or chatId");
-    ws.close();
-    return;
-  }
-
+  
   // Store client connection
-  if (!clients.has(chatId)) {
-    clients.set(chatId, new Map());
+  if (!clients.has(userId)) {
+    clients.set(userId, new Set());
   }
-  clients.get(chatId).set(userId, ws);
+  clients.get(userId).add(ws);
 
-  // Handle incoming messages
-  ws.on("message", async (message) => {
-    const data = JSON.parse(message);
+  ws.on('message', async (message) => {
+    try {
+      const parsedMessage = JSON.parse(message);
+      
+      if (parsedMessage.type === 'chat') {
+        const messageData = {
+          ...parsedMessage.data,
+          timestamp: new Date().toISOString() // Ensure timestamp is included
+        };
 
-    if (data.type === "chat") {
-      // Broadcast to all clients in the chat except sender
-      const chatClients = clients.get(data.data.chatId);
-      if (chatClients) {
-        chatClients.forEach((clientWs, clientId) => {
-          if (clientId !== userId && clientWs.readyState === WebSocket.OPEN) {
-            clientWs.send(
-              JSON.stringify({
-                type: "chat",
-                data: data.data,
-              })
-            );
-          }
-        });
+        // Save to database
+        const chat = await Chat.findById(chatId);
+        if (chat) {
+          chat.messages.push(messageData);
+          await chat.save();
+
+          // Broadcast to all participants
+          chat.participants.forEach(participantId => {
+            const participantConnections = clients.get(participantId.toString());
+            if (participantConnections) {
+              participantConnections.forEach(clientWs => {
+                if (clientWs.readyState === WebSocket.OPEN) {
+                  clientWs.send(JSON.stringify({
+                    type: 'chat',
+                    data: messageData
+                  }));
+                }
+              });
+            }
+          });
+        }
       }
+    } catch (error) {
+      console.error('Error processing WebSocket message:', error);
     }
   });
-  // Handle client disconnection
- ws.on("close", () => {
-    if (clients.has(chatId)) {
-      clients.get(chatId).delete(userId);
-      if (clients.get(chatId).size === 0) {
-        clients.delete(chatId);
+
+  ws.on('close', () => {
+    if (clients.has(userId)) {
+      clients.get(userId).delete(ws);
+      if (clients.get(userId).size === 0) {
+        clients.delete(userId);
       }
     }
   });
 });
-
 // Move this to the bottom of your file
 
 app.post("/send-host-email", authenticateToken, async (req, res) => {
