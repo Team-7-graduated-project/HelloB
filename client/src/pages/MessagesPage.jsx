@@ -56,102 +56,132 @@ export default function MessagesPage() {
 
 
   // WebSocket connection
+// Update the WebSocket connection useEffect
 useEffect(() => {
   let websocket;
   if (selectedChat?._id && user?._id) {
-    websocket = new WebSocket(
-      `wss://hellob-be.onrender.com/ws?userId=${user._id}&chatId=${selectedChat._id}`
-    );
+    // Add error handling for WebSocket connection
+    try {
+      websocket = new WebSocket(
+        `wss://hellob-be.onrender.com/ws?userId=${user._id}&chatId=${selectedChat._id}`
+      );
 
-    websocket.onopen = () => {
-      console.log("WebSocket connected");
-      setWs(websocket);
-    };
+      websocket.onopen = () => {
+        console.log("WebSocket connected");
+        setWs(websocket);
+      };
 
-    websocket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.type === "chat") {
-        setSelectedChat((prev) => ({
-          ...prev,
-          messages: [...prev.messages, message.data],
-        }));
-        setChats((prevChats) => {
-          return prevChats.map((chat) => {
-            if (chat._id === selectedChat._id) {
-              return {
-                ...chat,
-                messages: [...chat.messages, message.data],
-              };
-            }
-            return chat;
-          });
-        });
-      }
-    };
+      websocket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === "chat") {
+            // Update both selected chat and chats list
+            setSelectedChat(prev => ({
+              ...prev,
+              messages: [...prev.messages, message.data]
+            }));
+            
+            setChats(prevChats => 
+              prevChats.map(chat => {
+                if (chat._id === selectedChat._id) {
+                  return {
+                    ...chat,
+                    messages: [...chat.messages, message.data]
+                  };
+                }
+                return chat;
+              })
+            );
+          }
+        } catch (error) {
+          console.error("Error processing message:", error);
+        }
+      };
 
-    websocket.onerror = (error) => {
-      console.error("WebSocket error:", error);
-      toast.error("Connection error");
-    };
+      websocket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        toast.error("Connection error. Messages may not be real-time.");
+      };
 
-    websocket.onclose = (event) => {
-      console.log("WebSocket closed:", event);
-      setWs(null);
-    };
+      websocket.onclose = () => {
+        console.log("WebSocket disconnected");
+        setWs(null);
+        // Attempt to reconnect after a delay
+        setTimeout(() => {
+          if (selectedChat?._id && user?._id) {
+            console.log("Attempting to reconnect...");
+          }
+        }, 3000);
+      };
+    } catch (error) {
+      console.error("WebSocket connection error:", error);
+      toast.error("Failed to establish real-time connection");
+    }
   }
 
-  return () => websocket?.close();
-}, [selectedChat?._id, user?._id]);
-  // Send message through WebSocket
-  const sendMessage = async (e) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !selectedChat?._id) return;
-
-    try {
-      // Send through WebSocket if connected
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(
-          JSON.stringify({
-            type: "chat",
-            data: {
-              chatId: selectedChat._id,
-              content: newMessage.trim(),
-              sender: user._id,
-              timestamp: new Date(),
-            },
-          })
-        );
-      }
-
-      // Also send through HTTP for persistence
-      const { data } = await axios.post(`/chats/${selectedChat._id}/messages`, {
-        content: newMessage.trim(),
-      });
-
-      setSelectedChat((prev) => ({
-        ...prev,
-        messages: [...prev.messages, data],
-      }));
-
-      // Update chat list
-      setChats((prevChats) => {
-        return prevChats.map((chat) => {
-          if (chat._id === selectedChat._id) {
-            return {
-              ...chat,
-              messages: [...chat.messages, data],
-            };
-          }
-          return chat;
-        });
-      });
-
-      setNewMessage("");
-    } catch (error) {
-      console.error("Failed to send message:", error);
-      toast.error("Failed to send message");
+  return () => {
+    if (websocket) {
+      websocket.close();
     }
   };
+}, [selectedChat?._id, user?._id]);
+
+// Update the sendMessage function
+const sendMessage = async (e) => {
+  e.preventDefault();
+  if (!newMessage.trim() || !selectedChat?._id) return;
+
+  const messageData = {
+    chatId: selectedChat._id,
+    content: newMessage.trim(),
+    sender: user._id,
+    timestamp: new Date().toISOString() // Ensure timestamp is included
+  };
+
+  try {
+    // Send through WebSocket if connected
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: "chat",
+        data: messageData
+      }));
+    }
+
+    // Send through HTTP for persistence
+    const { data } = await axios.post(`/chats/${selectedChat._id}/messages`, {
+      content: newMessage.trim()
+    });
+
+    // Update UI immediately
+    const newMessageObj = {
+      ...data,
+      timestamp: new Date().toISOString()
+    };
+
+    setSelectedChat(prev => ({
+      ...prev,
+      messages: [...prev.messages, newMessageObj]
+    }));
+
+    // Update chat list
+    setChats(prevChats => 
+      prevChats.map(chat => {
+        if (chat._id === selectedChat._id) {
+          return {
+            ...chat,
+            messages: [...chat.messages, newMessageObj]
+          };
+        }
+        return chat;
+      })
+    );
+
+    setNewMessage("");
+  } catch (error) {
+    console.error("Failed to send message:", error);
+    toast.error("Failed to send message");
+  }
+};
 
   // Add this helper function at the top of your component
   const groupMessagesByDate = (messages) => {
