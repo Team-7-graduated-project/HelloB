@@ -32,7 +32,7 @@ export default function VoucherListPage() {
           axios.get("/host/places"),
         ]);
 
-        // Debug logs
+     
 
         setVouchers(vouchersRes.data);
         setPlaces(placesRes.data);
@@ -260,20 +260,17 @@ export default function VoucherListPage() {
         </td>
         <td className="px-6 py-4 text-sm text-gray-500">
           <div className="flex flex-wrap gap-1">
-            {voucher.applicablePlaces?.map((placeId) => {
-              const place = places.find((p) => p._id === placeId);
-              return place ? (
-                <span
-                  key={placeId}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                  title={place.title}
-                >
-                  {place.title.length > 20
-                    ? place.title.substring(0, 20) + "..."
-                    : place.title}
-                </span>
-              ) : null;
-            })}
+            {voucher.applicablePlaces?.map((place) => (
+              <span
+                key={place._id}
+                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                title={place.title}
+              >
+                {place.title?.length > 20
+                  ? place.title.substring(0, 20) + "..."
+                  : place.title || "Unnamed Place"}
+              </span>
+            ))}
             {(!voucher.applicablePlaces ||
               voucher.applicablePlaces.length === 0) && (
               <span className="text-gray-400 italic text-xs">All places</span>
