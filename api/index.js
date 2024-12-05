@@ -1034,6 +1034,7 @@ app.get(
     try {
       const vouchers = await Voucher.find({ owner: req.userData.id })
         .populate("applicablePlaces", "title")
+        .populate("owner", "name")
         .sort({ createdAt: -1 });
 
       res.json(vouchers);
