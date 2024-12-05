@@ -32,8 +32,6 @@ export default function VoucherListPage() {
           axios.get("/host/places"),
         ]);
 
-     
-
         setVouchers(vouchersRes.data);
         setPlaces(placesRes.data);
       } catch (error) {
@@ -115,15 +113,25 @@ export default function VoucherListPage() {
             <input
               type="number"
               value={editingVoucher.discount}
-              onChange={(e) =>
+              onChange={(e) => {
+                const value = Math.max(
+                  0,
+                  Math.min(100, Number(e.target.value))
+                );
                 setEditingVoucher({
                   ...editingVoucher,
-                  discount: e.target.value,
-                })
-              }
+                  discount: value,
+                });
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e") {
+                  e.preventDefault();
+                }
+              }}
               className="w-20 p-1 border rounded"
               min="0"
               max="100"
+              step="1"
             />
           </td>
           <td className="px-6 py-4 whitespace-nowrap">
@@ -438,3 +446,4 @@ export default function VoucherListPage() {
     </div>
   );
 }
+
