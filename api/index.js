@@ -1334,6 +1334,61 @@ app.get("/places/:id", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch place details" });
   }
 });
+app.get("/api/host/metrics", authenticateToken, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const hostId = req.userData._id;
+
+    // First get all places owned by this host
+    const hostPlaces = await Place.find({ owner: hostId });
+
+    if (!hostPlaces.length) {
+      return res.json({
+        totalBookings: 0,
+        totalRevenue: 0,
+        completedBookings: 0,
+        cancelledBookings: 0,
+      });
+    }
+
+    const placeIds = hostPlaces.map((place) => place._id);
+
+    // Find bookings for these places
+    const bookings = await Booking.find({
+      place: { $in: placeIds },
+      createdAt: {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      },
+    });
+
+    const metrics = {
+      totalBookings: bookings.length,
+      totalRevenue: bookings.reduce(
+        (sum, booking) => sum + (Number(booking.price) || 0),
+        0
+      ),
+      completedBookings: bookings.filter((b) => b.status === "completed")
+        .length,
+      cancelledBookings: bookings.filter((b) => b.status === "cancelled")
+        .length,
+    };
+
+    res.json(metrics);
+  } catch (error) {
+    console.error("Detailed error in metrics endpoint:", {
+      message: error.message,
+      stack: error.stack,
+      userData: req.userData,
+      query: req.query,
+    });
+    res.status(500).json({
+      error: "Failed to fetch metrics",
+      details: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
 app.post("/api/host/announcements", authenticateToken, async (req, res) => {
   try {
     const { title, content, type, period, metrics, autoConfirmAt } = req.body;
