@@ -76,6 +76,7 @@ export default function SearchResultsPage() {
         sort: sortBy,
         page: pagination.currentPage,
         limit: pagination.limit,
+        searchFields: ["address", "description", "title"],
       };
 
       const response = await axios.get("/api/places/search", { params });
