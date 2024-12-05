@@ -152,7 +152,7 @@ export default function PlacePage() {
     if (currentChat?._id && user?._id) {
       // Connect to WebSocket server
       ws = new WebSocket(
-        `ws://hellob-be.onrender.com/?userId=${user._id}&chatId=${currentChat._id}`
+        `ws://localhost:4000?userId=${user._id}&chatId=${currentChat._id}`
       );
 
       ws.onopen = () => {
@@ -1130,7 +1130,7 @@ export default function PlacePage() {
                   }}
                   className="block group"
                 >
-                  <div className="relative aspect-w-16 aspect-h-9 mb-2 overflow-hidden rounded-lg">
+                  <div className="relative w-full h-48 mb-2 overflow-hidden rounded-lg">
                     <img
                       src={place.photos[0]}
                       alt={place.title}
