@@ -420,9 +420,18 @@ export default function VoucherFormPage() {
               type="number"
               value={discount}
               onChange={(e) => {
-                setDiscount(e.target.value);
+                const value = Math.max(
+                  0,
+                  Math.min(100, Number(e.target.value))
+                );
+                setDiscount(value);
                 if (touched.discount) {
                   handleBlur("discount");
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e") {
+                  e.preventDefault();
                 }
               }}
               onBlur={() => handleBlur("discount")}
@@ -436,6 +445,7 @@ export default function VoucherFormPage() {
               `}
               min="0"
               max="100"
+              step="1"
             />
             <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
               %
@@ -456,7 +466,7 @@ export default function VoucherFormPage() {
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Enter voucher description"
+            placeholder="Enter voucher description, e.g., at least 20 characters"
             className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -466,15 +476,40 @@ export default function VoucherFormPage() {
         <div>
           <label className="block text-gray-700 font-semibold mb-2">
             Usage Limit
+            <span className="text-red-500 ml-1">*</span>
           </label>
           <input
             type="number"
             value={usageLimit}
-            onChange={(e) => setUsageLimit(e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+            onChange={(e) => {
+              const value = Math.max(1, Number(e.target.value));
+              setUsageLimit(value);
+              if (touched.usageLimit) {
+                handleBlur("usageLimit");
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "-" || e.key === "e") {
+                e.preventDefault();
+              }
+            }}
+            onBlur={() => handleBlur("usageLimit")}
+            className={`w-full p-2 border rounded-lg transition-all duration-200
+              ${
+                formErrors.usageLimit
+                  ? "border-red-500 focus:ring-red-500"
+                  : "border-gray-300 focus:ring-blue-500"
+              }
+            `}
             min="1"
+            step="1"
             required
           />
+          {formErrors.usageLimit && touched.usageLimit && (
+            <p className="mt-1 text-sm text-red-500 transition-all">
+              {formErrors.usageLimit}
+            </p>
+          )}
           <p className="text-sm text-gray-500 mt-1">
             Maximum number of times this voucher can be used
           </p>
