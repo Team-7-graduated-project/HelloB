@@ -60,7 +60,8 @@ export default function SearchEle({
       const response = await axios.get(`/api/places/quick-search`, {
         params: {
           q: query,
-          isActive: true, // Only fetch active places
+          searchFields: ["address", "description", "title"],
+          isActive: true,
         },
       });
 
@@ -146,7 +147,7 @@ export default function SearchEle({
               {searchResults.map((result) => (
                 <div
                   key={result._id}
-                  className="p-3 hover:bg-gray-50 cursor-pointer"
+                  className="p-3 hover:bg-gray-50 cursor-pointer flex gap-3"
                   onClick={() => {
                     window.scrollTo({ top: 0, behavior: "smooth" });
                     setSearchParams((prev) => ({
@@ -156,8 +157,25 @@ export default function SearchEle({
                     setSearchResults([]);
                   }}
                 >
-                  <div className="font-medium">{result.title}</div>
-                  <div className="text-sm text-gray-500">{result.address}</div>
+                  {/* Thumbnail */}
+                  {result.photos?.[0] && (
+                    <img
+                      src={result.photos[0]}
+                      alt={result.title}
+                      className="w-16 h-16 object-cover rounded-lg"
+                    />
+                  )}
+                  <div className="flex-grow">
+                    <div className="font-medium">{result.title}</div>
+                    <div className="text-sm text-gray-500">
+                      {result.address}
+                    </div>
+                    {result.description && (
+                      <div className="text-sm text-gray-600 line-clamp-1">
+                        {result.description}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -285,3 +303,4 @@ SearchEle.propTypes = {
   initialGuests: PropTypes.number,
   onSearch: PropTypes.func,
 };
+
