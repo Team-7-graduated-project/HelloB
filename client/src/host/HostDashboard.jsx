@@ -6,6 +6,7 @@ import {
   FaCalendar,
   FaStar,
   FaTicketAlt,
+  FaChartLine,
   FaBullhorn,
 } from "react-icons/fa";
 import HostBookings from "./HostBooking";
@@ -13,10 +14,10 @@ import HostReviews from "./HostReviews";
 import HostPlaces from "./HostPlaces";
 import VoucherList from "./VoucherList";
 import VoucherFormPage from "../pages/VoucherFormPage";
-
+import HostAnalytics from "./HostAnalytics";
 import HostAnnouncements from "./HostAnnouncements";
 import "./Index.css";
-import AnnouncementFormPage from "../pages/AnnouncementFormPage";
+import AnnouncementFormPage from "./AnnouncementFormPage";
 
 function HostDashboard() {
   const location = useLocation();
@@ -50,9 +51,6 @@ function HostDashboard() {
             axios.get("/host/vouchers"),
           ]);
 
-        // Extract total bookings from the paginated response
-        const totalBookings = bookingsRes.data.totalItems || 0;
-
         // Calculate average rating
         const ratings = reviewsRes.data.map((review) => review.rating);
         const averageRating =
@@ -67,7 +65,7 @@ function HostDashboard() {
         }).length;
 
         setDashboardStats({
-          totalBookings,
+          totalBookings: bookingsRes.data.length,
           activePlaces: placesRes.data.length,
           averageRating,
           activeVouchers,
@@ -113,7 +111,12 @@ function HostDashboard() {
       icon: FaStar,
       description: "View and respond to guest reviews",
     },
-
+    {
+      path: "/host/analytics",
+      label: "Analytics",
+      icon: FaChartLine,
+      description: "View your revenue and booking analytics",
+    },
     {
       path: "/host/announcements",
       label: "Announcements",
@@ -283,8 +286,8 @@ function HostDashboard() {
               <Route path="places" element={<HostPlaces />} />
               <Route path="vouchers" element={<VoucherList />} />
               <Route path="vouchers/new" element={<VoucherFormPage />} />
-              <Route path="vouchers/:id" element={<VoucherFormPage />} />
-
+              <Route path="vouchers/  :id" element={<VoucherFormPage />} />
+              <Route path="analytics" element={<HostAnalytics />} />
               <Route path="announcements" element={<HostAnnouncements />} />
               <Route
                 path="announcements/new"
