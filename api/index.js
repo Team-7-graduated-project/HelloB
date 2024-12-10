@@ -1094,7 +1094,126 @@ app.delete(
     }
   }
 );
+app.get("/host/analytics", authenticateToken, async (req, res) => {
+  try {
+    const { timeFrame } = req.query;
+    const userId = req.userData.id;
 
+    let startDate = new Date();
+    let groupBy;
+
+    // Configure date ranges based on timeFrame
+    switch (timeFrame) {
+      case "week":
+        startDate.setDate(startDate.getDate() - 7);
+        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } };
+        break;
+      case "month":
+        startDate.setMonth(startDate.getMonth() - 1);
+        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } };
+        break;
+      case "year":
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        groupBy = { $dateToString: { format: "%Y-%m", date: "$createdAt" } };
+        break;
+      default:
+        startDate.setMonth(startDate.getMonth() - 1);
+        groupBy = { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } };
+    }
+
+    // First get all places owned by this host
+    const hostPlaces = await Place.find({ owner: userId }).select("_id");
+    const placeIds = hostPlaces.map((place) => place._id);
+
+    const analytics = await Booking.aggregate([
+      {
+        $match: {
+          place: { $in: placeIds },
+          createdAt: { $gte: startDate },
+          status: { $in: ["confirmed", "completed"] },
+        },
+      },
+      {
+        $group: {
+          _id: groupBy,
+          revenue: { $sum: "$price" },
+          bookings: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { _id: 1 },
+      },
+      {
+        $project: {
+          date: "$_id",
+          revenue: 1,
+          bookings: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    // Fill in missing dates with zero values
+    const filledAnalytics = fillMissingDates(
+      analytics,
+      startDate,
+      new Date(),
+      timeFrame
+    );
+
+    res.json(filledAnalytics);
+  } catch (error) {
+    console.error("Analytics error:", error);
+    res.status(500).json({ message: "Error fetching analytics data" });
+  }
+});
+
+// Helper function to fill in missing dates
+function fillMissingDates(data, startDate, endDate, timeFrame) {
+  const filledData = [];
+  const current = new Date(startDate);
+
+  while (current <= endDate) {
+    let dateKey;
+
+    switch (timeFrame) {
+      case "week":
+      case "month":
+        dateKey = current.toLocaleDateString("en-CA"); // YYYY-MM-DD format
+        break;
+      case "year":
+        dateKey = `${current.getFullYear()}-${String(
+          current.getMonth() + 1
+        ).padStart(2, "0")}`;
+        break;
+      default:
+        dateKey = current.toLocaleDateString("en-CA");
+    }
+
+    const existingData = data.find((item) => item.date === dateKey);
+
+    filledData.push({
+      date: dateKey,
+      revenue: existingData ? existingData.revenue : 0,
+      bookings: existingData ? existingData.bookings : 0,
+    });
+
+    // Increment date based on timeFrame
+    switch (timeFrame) {
+      case "week":
+      case "month":
+        current.setDate(current.getDate() + 1);
+        break;
+      case "year":
+        current.setMonth(current.getMonth() + 1);
+        break;
+      default:
+        current.setDate(current.getDate() + 1);
+    }
+  }
+
+  return filledData;
+}
 // Add new place route with authentication
 app.post(
   "/host/places",
