@@ -50,7 +50,7 @@ function HostDashboard() {
             axios.get("/host/reviews"),
             axios.get("/host/vouchers"),
           ]);
-
+        const totalBookings = bookingsRes.data.totalItems || 0;
         // Calculate average rating
         const ratings = reviewsRes.data.map((review) => review.rating);
         const averageRating =
@@ -65,7 +65,7 @@ function HostDashboard() {
         }).length;
 
         setDashboardStats({
-          totalBookings: bookingsRes.data.length,
+          totalBookings,
           activePlaces: placesRes.data.length,
           averageRating,
           activeVouchers,
