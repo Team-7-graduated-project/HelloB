@@ -5273,7 +5273,7 @@ app.get("/api/announcements", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error fetching announcements" });
   }
 });
-pp.post("/api/blog-posts", authenticateToken, async (req, res) => {
+app.post("/api/blog-posts", authenticateToken, async (req, res) => {
   const { title, excerpt, category, images } = req.body;
 
   try {
