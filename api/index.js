@@ -5273,29 +5273,80 @@ app.get("/api/announcements", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error fetching announcements" });
   }
 });
-app.post("/api/blog-posts", authenticateToken, async (req, res) => {
+pp.post("/api/blog-posts", authenticateToken, async (req, res) => {
   const { title, excerpt, category, images } = req.body;
 
   try {
+    // More robust validation
+    if (!title || title.trim() === "") {
+      return res
+        .status(400)
+        .json({ error: "Title is required and cannot be empty." });
+    }
+    if (!excerpt || excerpt.trim() === "") {
+      return res
+        .status(400)
+        .json({ error: "Excerpt is required and cannot be empty." });
+    }
+    if (!category || category.trim() === "") {
+      return res
+        .status(400)
+        .json({ error: "Category is required and cannot be empty." });
+    }
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ error: "At least one image is required." });
+    }
+
     const newPost = await BlogPost.create({
-      title,
-      excerpt,
-      category,
+      title: title.trim(),
+      excerpt: excerpt.trim(),
+      category: category.trim(),
       author: req.userData.id, // Set the author to the logged-in user
-      images: images.map((image) => image.secure_url), // Save the uploaded images to the database
+      images: images.map((image) => image.secure_url || image), // Handle different image input formats
+      createdAt: new Date(),
     });
+
     res.status(201).json(newPost);
   } catch (error) {
     console.error("Error creating blog post:", error);
-    res.status(500).json({ error: "Failed to create blog post" });
+    res.status(500).json({
+      error: "Failed to create blog post",
+      details: error.message,
+    });
   }
 });
 
-// Get all blog posts
+// Get all blog posts (with optional filtering and pagination)
 app.get("/api/blog-posts", async (req, res) => {
   try {
-    const posts = await BlogPost.find().populate("author", "name email");
-    res.json({ posts });
+    const { page = 1, limit = 10, category, search } = req.query;
+
+    // Build query object
+    const query = {};
+    if (category) query.category = category;
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { excerpt: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Pagination and population
+    const posts = await BlogPost.find(query)
+      .populate("author", "name email")
+      .sort({ createdAt: -1 }) // Sort by most recent first
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
+
+    // Get total count for pagination
+    const total = await BlogPost.countDocuments(query);
+
+    res.json({
+      posts,
+      currentPage: Number(page),
+      totalPages: Math.ceil(total / limit),
+      totalPosts: total,
+    });
   } catch (error) {
     console.error("Error fetching blog posts:", error);
     res.status(500).json({ error: "Failed to fetch blog posts" });
@@ -5309,6 +5360,7 @@ app.get("/api/blog-posts/:id", async (req, res) => {
       "author",
       "name email"
     );
+
     if (!post) {
       return res.status(404).json({ error: "Blog post not found" });
     }
@@ -5324,42 +5376,65 @@ app.put("/api/blog-posts/:id", authenticateToken, async (req, res) => {
   const { title, excerpt, category, images } = req.body;
 
   try {
+    // Find the existing post first to check ownership
+    const existingPost = await BlogPost.findById(req.params.id);
+
+    if (!existingPost) {
+      return res.status(404).json({ error: "Blog post not found" });
+    }
+
+    // Optional: Add authorization to only allow author or admin to update
+    if (existingPost.author.toString() !== req.userData.id) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to update this post" });
+    }
+
     const updatedPost = await BlogPost.findByIdAndUpdate(
       req.params.id,
       {
-        title,
-        excerpt,
-        category,
-        images: images.map((image) => image.secure_url),
+        title: title.trim(),
+        excerpt: excerpt.trim(),
+        category: category.trim(),
+        images: images.map((image) => image.secure_url || image),
+        updatedAt: new Date(),
       },
       { new: true, runValidators: true }
     );
 
-    if (!updatedPost) {
-      return res.status(404).json({ error: "Blog post not found" });
-    }
-
     res.json(updatedPost);
   } catch (error) {
     console.error("Error updating blog post:", error);
-    res.status(500).json({ error: "Failed to update blog post" });
+    res
+      .status(500)
+      .json({ error: "Failed to update blog post", details: error.message });
   }
 });
 
 // Delete a blog post
 app.delete("/api/blog-posts/:id", authenticateToken, async (req, res) => {
   try {
-    const deletedPost = await BlogPost.findByIdAndDelete(req.params.id);
-    if (!deletedPost) {
+    // Find the existing post first to check ownership
+    const existingPost = await BlogPost.findById(req.params.id);
+
+    if (!existingPost) {
       return res.status(404).json({ error: "Blog post not found" });
     }
-    res.json({ message: "Blog post deleted successfully" });
+
+    // Optional: Add authorization to only allow author or admin to delete
+    if (existingPost.author.toString() !== req.userData.id) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to delete this post" });
+    }
+
+    const deletedPost = await BlogPost.findByIdAndDelete(req.params.id);
+    res.json({ message: "Blog post deleted successfully", deletedPost });
   } catch (error) {
     console.error("Error deleting blog post:", error);
     res.status(500).json({ error: "Failed to delete blog post" });
   }
 });
-
 app.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");
 });
