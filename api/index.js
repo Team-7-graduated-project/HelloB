@@ -5249,6 +5249,52 @@ app.get("/api/announcements", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error fetching announcements" });
   }
 });
+app.get("/api/announcements", authenticateToken, async (req, res) => {
+  try {
+    const announcements = await Announcement.find({
+      isActive: true,
+      isDeleted: false,
+    }).populate({
+      path: "host",
+      match: { isActive: true, isDeleted: false },
+    });
+
+    const filteredAnnouncements = announcements.filter(
+      (announcement) => announcement.host
+    );
+    res.json(filteredAnnouncements);
+  } catch (error) {
+    res.status(500).json({ error: "Error fetching announcements" });
+  }
+});
+app.post("/api/blog-posts", authenticateToken, async (req, res) => {
+  const { title, excerpt, image, category } = req.body;
+
+  try {
+    const newPost = await BlogPost.create({
+      title,
+      excerpt,
+      image,
+      category,
+      author: req.userData.id, // Set the author to the logged-in user
+    });
+    res.status(201).json(newPost);
+  } catch (error) {
+    console.error("Error creating blog post:", error);
+    res.status(500).json({ error: "Failed to create blog post" });
+  }
+});
+
+// Get all blog posts
+app.get("/api/blog-posts", async (req, res) => {
+  try {
+    const posts = await BlogPost.find().populate("author", "name email");
+    res.json({ posts });
+  } catch (error) {
+    console.error("Error fetching blog posts:", error);
+    res.status(500).json({ error: "Failed to fetch blog posts" });
+  }
+});
 app.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");
 });
