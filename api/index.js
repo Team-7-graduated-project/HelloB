@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const bcrypt = require("bcryptjs");
+const bodyParser = require("body-parser");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const multer = require("multer");
@@ -73,6 +74,11 @@ const Chat = mongoose.model("Chat", {
 // Middleware setup
 app.use(express.json());
 app.use(cookieParser());
+app.use(bodyParser.json({ limit: '50mb' })); 
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
+// Or if using express.json() instead
+app.use(express.json({ limit: '50mb' }));
 app.use("/uploads", express.static(path.join(__dirname, "/uploads")));
 app.use(
   cors({
