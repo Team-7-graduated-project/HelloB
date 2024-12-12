@@ -5268,15 +5268,15 @@ app.get("/api/announcements", authenticateToken, async (req, res) => {
   }
 });
 app.post("/api/blog-posts", authenticateToken, async (req, res) => {
-  const { title, excerpt, image, category } = req.body;
+  const { title, excerpt, category, images } = req.body;
 
   try {
     const newPost = await BlogPost.create({
       title,
       excerpt,
-      image,
       category,
       author: req.userData.id, // Set the author to the logged-in user
+      images: images.map((image) => image.secure_url), // Save the uploaded images to the database
     });
     res.status(201).json(newPost);
   } catch (error) {
@@ -5295,6 +5295,65 @@ app.get("/api/blog-posts", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch blog posts" });
   }
 });
+
+// Get a single blog post by ID
+app.get("/api/blog-posts/:id", async (req, res) => {
+  try {
+    const post = await BlogPost.findById(req.params.id).populate(
+      "author",
+      "name email"
+    );
+    if (!post) {
+      return res.status(404).json({ error: "Blog post not found" });
+    }
+    res.json(post);
+  } catch (error) {
+    console.error("Error fetching blog post:", error);
+    res.status(500).json({ error: "Failed to fetch blog post" });
+  }
+});
+
+// Update a blog post
+app.put("/api/blog-posts/:id", authenticateToken, async (req, res) => {
+  const { title, excerpt, category, images } = req.body;
+
+  try {
+    const updatedPost = await BlogPost.findByIdAndUpdate(
+      req.params.id,
+      {
+        title,
+        excerpt,
+        category,
+        images: images.map((image) => image.secure_url),
+      },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedPost) {
+      return res.status(404).json({ error: "Blog post not found" });
+    }
+
+    res.json(updatedPost);
+  } catch (error) {
+    console.error("Error updating blog post:", error);
+    res.status(500).json({ error: "Failed to update blog post" });
+  }
+});
+
+// Delete a blog post
+app.delete("/api/blog-posts/:id", authenticateToken, async (req, res) => {
+  try {
+    const deletedPost = await BlogPost.findByIdAndDelete(req.params.id);
+    if (!deletedPost) {
+      return res.status(404).json({ error: "Blog post not found" });
+    }
+    res.json({ message: "Blog post deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting blog post:", error);
+    res.status(500).json({ error: "Failed to delete blog post" });
+  }
+});
+
 app.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");
 });
