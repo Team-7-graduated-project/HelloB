@@ -4849,6 +4849,9 @@ function validateCardDetails(cardDetails) {
 
   return { isValid: true };
 }
+// Add these endpoints for announcements
+
+// Create announcement with real metrics
 app.post('/api/host/announcements', authenticateToken, authorizeRole('host'), async (req, res) => {
   try {
     const { type, period, message } = req.body;
@@ -4862,6 +4865,10 @@ app.post('/api/host/announcements', authenticateToken, authorizeRole('host'), as
       });
     }
 
+    // Get host's places
+    const hostPlaces = await Place.find({ owner: hostId }).select('_id');
+    const placeIds = hostPlaces.map(place => place._id);
+
     // Calculate metrics based on type and period
     let metrics = { total: 0, percentageChange: 0 };
     const endDate = new Date();
@@ -4874,12 +4881,14 @@ app.post('/api/host/announcements', authenticateToken, authorizeRole('host'), as
     }
 
     if (type === 'revenue') {
-      const bookings = await Booking.find({
-        host: hostId,
-        createdAt: { $gte: startDate, $lte: endDate }
+      // Get current period bookings
+      const currentBookings = await Booking.find({
+        place: { $in: placeIds },
+        createdAt: { $gte: startDate, $lte: endDate },
+        status: 'completed'
       });
       
-      metrics.total = bookings.reduce((sum, booking) => sum + booking.price, 0);
+      metrics.total = currentBookings.reduce((sum, booking) => sum + booking.price, 0);
       
       // Calculate previous period for percentage change
       const previousStart = new Date(startDate);
@@ -4891,20 +4900,22 @@ app.post('/api/host/announcements', authenticateToken, authorizeRole('host'), as
       }
       
       const previousBookings = await Booking.find({
-        host: hostId,
-        createdAt: { $gte: previousStart, $lte: previousEnd }
+        place: { $in: placeIds },
+        createdAt: { $gte: previousStart, $lte: previousEnd },
+        status: 'completed'
       });
       
       const previousTotal = previousBookings.reduce((sum, booking) => sum + booking.price, 0);
       metrics.percentageChange = previousTotal ? ((metrics.total - previousTotal) / previousTotal) * 100 : 0;
     } else {
       // Bookings count
-      const bookingsCount = await Booking.countDocuments({
-        host: hostId,
-        createdAt: { $gte: startDate, $lte: endDate }
+      const currentBookingsCount = await Booking.countDocuments({
+        place: { $in: placeIds },
+        createdAt: { $gte: startDate, $lte: endDate },
+        status: 'completed'
       });
       
-      metrics.total = bookingsCount;
+      metrics.total = currentBookingsCount;
       
       const previousStart = new Date(startDate);
       const previousEnd = new Date(startDate);
@@ -4915,11 +4926,12 @@ app.post('/api/host/announcements', authenticateToken, authorizeRole('host'), as
       }
       
       const previousCount = await Booking.countDocuments({
-        host: hostId,
-        createdAt: { $gte: previousStart, $lte: previousEnd }
+        place: { $in: placeIds },
+        createdAt: { $gte: previousStart, $lte: previousEnd },
+        status: 'completed'
       });
       
-      metrics.percentageChange = previousCount ? ((bookingsCount - previousCount) / previousCount) * 100 : 0;
+      metrics.percentageChange = previousCount ? ((currentBookingsCount - previousCount) / previousCount) * 100 : 0;
     }
 
     const announcement = await Announcement.create({
@@ -4938,7 +4950,7 @@ app.post('/api/host/announcements', authenticateToken, authorizeRole('host'), as
   }
 });
 
-// Get host's announcements
+// Get host's announcements with real data
 app.get('/api/host/announcements', authenticateToken, authorizeRole('host'), async (req, res) => {
   try {
     const announcements = await Announcement.find({ host: req.userData.id })
@@ -4950,7 +4962,7 @@ app.get('/api/host/announcements', authenticateToken, authorizeRole('host'), asy
   }
 });
 
-// Get all announcements (admin only)
+// Admin endpoints for announcements
 app.get('/api/admin/announcements', authenticateToken, authorizeRole('admin'), async (req, res) => {
   try {
     const announcements = await Announcement.find()
@@ -4962,6 +4974,31 @@ app.get('/api/admin/announcements', authenticateToken, authorizeRole('admin'), a
   }
 });
 
+// Toggle announcement status
+app.patch('/api/admin/announcements/:id/toggle', authenticateToken, authorizeRole('admin'), async (req, res) => {
+  try {
+    const announcement = await Announcement.findById(req.params.id);
+    if (!announcement) {
+      return res.status(404).json({ error: 'Announcement not found' });
+    }
+    
+    announcement.isActive = !announcement.isActive;
+    await announcement.save();
+    res.json(announcement);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to toggle announcement status' });
+  }
+});
+
+// Delete announcement
+app.delete('/api/admin/announcements/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+  try {
+    await Announcement.findByIdAndDelete(req.params.id);
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete announcement' });
+  }
+});
 function isValidLuhn(number) {
   let sum = 0;
   let isEven = false;
