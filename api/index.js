@@ -56,7 +56,7 @@ const Booking = require("./models/Booking.js");
 const Notification = require("./models/Notification");
 const jwtSecret = process.env.JWT_SECRET;
 const Report = require("./models/Report");
-const Announcement = require("./models/Announcement");
+
 const Blog = require("./models/Blog");
 // Add after existing imports
 const Chat = mongoose.model("Chat", {
@@ -1514,156 +1514,7 @@ app.get("/api/host/metrics", authenticateToken, async (req, res) => {
     });
   }
 });
-app.post("/api/host/announcements", authenticateToken, async (req, res) => {
-  try {
-    const { title, content, type, period, metrics, autoConfirmAt } = req.body;
-    const hostId = req.userData._id;
 
-    // Check if announcement already exists for this period
-    const existingAnnouncement = await Announcement.findOne({
-      host: hostId,
-      "period.startDate": new Date(period.startDate),
-      "period.endDate": new Date(period.endDate),
-    });
-
-    if (existingAnnouncement) {
-      return res.status(400).json({
-        error: "An announcement for this period already exists",
-      });
-    }
-
-    const announcement = await Announcement.create({
-      host: hostId,
-      title,
-      content,
-      type,
-      period: {
-        startDate: new Date(period.startDate),
-        endDate: new Date(period.endDate),
-      },
-      metrics,
-      status: "pending",
-      autoConfirmAt: new Date(autoConfirmAt),
-    });
-
-    // Create notification for admin
-    await createNotification(
-      "admin",
-      "New Announcement",
-      `New announcement created by host: ${title}`,
-      `/admin/announcements/${announcement._id}`
-    );
-
-    res.status(201).json(announcement);
-  } catch (error) {
-    console.error("Error creating announcement:", error);
-    res.status(500).json({
-      error: "Failed to create announcement",
-      details: error.message,
-    });
-  }
-});
-// Add this function near your other scheduled tasks
-const autoCreateAnnouncements = async () => {
-  try {
-    // Get all hosts
-    const hosts = await User.find({ role: "host", isActive: true });
-
-    for (const host of hosts) {
-      // Check last announcement
-      const lastAnnouncement = await Announcement.findOne({
-        host: host._id,
-      }).sort("-createdAt");
-
-      const now = new Date();
-      const twelveHoursAgo = new Date(now - 12 * 60 * 60 * 1000);
-
-      // If no announcement in last 12 hours and it's either Sunday or 1st of month
-      if (
-        (!lastAnnouncement || lastAnnouncement.createdAt < twelveHoursAgo) &&
-        (now.getDay() === 0 || now.getDate() === 1)
-      ) {
-        // Get host metrics
-        const hostPlaces = await Place.find({ owner: host._id });
-        const placeIds = hostPlaces.map((place) => place._id);
-
-        const recentBookings = await Booking.find({
-          place: { $in: placeIds },
-          createdAt: { $gte: new Date(now - 30 * 24 * 60 * 60 * 1000) },
-        });
-
-        // Create auto-announcement
-        const announcement = await Announcement.create({
-          host: host._id,
-          type: "auto",
-          title: "Monthly Performance Update",
-          content: "Automatically generated monthly performance report",
-          period: {
-            startDate: now,
-            endDate: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
-          },
-          metrics: {
-            totalBookings: recentBookings.length,
-            totalRevenue: recentBookings.reduce(
-              (sum, booking) => sum + (Number(booking.price) || 0),
-              0
-            ),
-            completedBookings: recentBookings.filter(
-              (b) => b.status === "completed"
-            ).length,
-            cancelledBookings: recentBookings.filter(
-              (b) => b.status === "cancelled"
-            ).length,
-          },
-          status: "pending",
-        });
-
-        // Create notification for host
-        await createNotification(
-          "announcement_auto_created",
-          "Auto-Generated Announcement",
-          "An announcement has been automatically generated for your account",
-          `/host/announcements/${announcement._id}`,
-          host._id
-        );
-      }
-    }
-  } catch (error) {
-    console.error("Error in auto-creating announcements:", error);
-  }
-};
-
-// Run auto-create check every hour
-setInterval(autoCreateAnnouncements, 60 * 60 * 1000);
-
-// Run it once when the server starts
-autoCreateAnnouncements();
-
-// Get host metrics for a specific period
-
-
-// Get host announcements
-app.get("/api/host/announcements", authenticateToken, async (req, res) => {
-  try {
-    const hostId = req.userData._id;
-
-    const announcements = await Announcement.find({ host: hostId }).sort(
-      "-createdAt"
-    );
-
-    res.json(announcements);
-  } catch (error) {
-    console.error("Error fetching announcements:", {
-      message: error.message,
-      stack: error.stack,
-      userData: req.userData,
-    });
-    res.status(500).json({
-      error: "Failed to fetch announcements",
-      details: error.message,
-    });
-  }
-});
 
 
 app.delete("/places/:id", authenticateToken, async (req, res) => {
@@ -4487,8 +4338,7 @@ const updateUserDataVisibility = async (userId, isActive) => {
     // Update vouchers visibility
     await Voucher.updateMany({ owner: userId }, { isActive: isActive });
 
-    // Update announcements visibility
-    await Announcement.updateMany({ owner: userId }, { isActive: isActive });
+    
 
     // Update chat messages visibility
     await Message.updateMany(
@@ -4569,7 +4419,7 @@ app.put(
             <li>Bookings</li>
             <li>Reviews</li>
             <li>Vouchers</li>
-            <li>Announcements</li>
+     
             <li>Messages</li>
           </ul>
           <p>If you have any questions, please contact our support team.</p>
@@ -4640,37 +4490,6 @@ app.delete(
     }
   }
 );
-app.get("/api/admin/announcements", async (req, res) => {
-  try {
-    const announcements = await Announcement.find()
-      .populate("host", "name email")
-      .sort("-createdAt");
-    res.json(announcements);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch announcements" });
-  }
-});
-
-// Update announcement status (admin only)
-app.put("/api/admin/announcements/:id/status", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, adminComment } = req.body;
-
-    const announcement = await Announcement.findByIdAndUpdate(
-      id,
-      {
-        status,
-        ...(adminComment && { adminComment }),
-      },
-      { new: true }
-    );
-
-    res.json(announcement);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to update announcement" });
-  }
-});
 
 // Add this route before other routes
 app.post("/check-email", async (req, res) => {
@@ -5062,9 +4881,6 @@ async function processCardPayment(cardDetails, amount) {
   return testCards.includes(cardDetails.cardNumber.replace(/\s/g, ""));
 }
 
-// Get all announcements (admin only)
-
-// Create new announcement (host only)
 
 // Add this function after your imports
 
@@ -5096,11 +4912,7 @@ const updateHostDataVisibility = async (
         { isActive: isActive, isDeleted: isDeleted }
       ),
 
-      // Update announcements
-      Announcement.updateMany(
-        { host: hostId },
-        { isActive: isActive, isDeleted: isDeleted }
-      ),
+     
 
       // Update reviews for host's places
       Review.updateMany(
@@ -5237,43 +5049,7 @@ app.get("/api/vouchers", authenticateToken, async (req, res) => {
   }
 });
 
-// GET Announcements
-app.get("/api/announcements", authenticateToken, async (req, res) => {
-  try {
-    const announcements = await Announcement.find({
-      isActive: true,
-      isDeleted: false,
-    }).populate({
-      path: "host",
-      match: { isActive: true, isDeleted: false },
-    });
 
-    const filteredAnnouncements = announcements.filter(
-      (announcement) => announcement.host
-    );
-    res.json(filteredAnnouncements);
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching announcements" });
-  }
-});
-app.get("/api/announcements", authenticateToken, async (req, res) => {
-  try {
-    const announcements = await Announcement.find({
-      isActive: true,
-      isDeleted: false,
-    }).populate({
-      path: "host",
-      match: { isActive: true, isDeleted: false },
-    });
-
-    const filteredAnnouncements = announcements.filter(
-      (announcement) => announcement.host
-    );
-    res.json(filteredAnnouncements);
-  } catch (error) {
-    res.status(500).json({ error: "Error fetching announcements" });
-  }
-});
 app.get('/api/blog', async (req, res) => {
   try {
     const posts = await Blog.find()
