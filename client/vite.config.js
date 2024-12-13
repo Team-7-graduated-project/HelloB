@@ -8,9 +8,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    optimizeDeps: {
-      include: ['react-quill']
-    },
+   
     server: {
       proxy: {
         "/ws": {
