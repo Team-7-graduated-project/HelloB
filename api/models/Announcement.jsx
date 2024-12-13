@@ -34,7 +34,7 @@ const announcementSchema = new mongoose.Schema({
   }
 });
 
-// Add method to check if host can create new announcement
+// Add method to check if host can create new announcemente
 announcementSchema.statics.canCreateAnnouncement = async function(hostId, period) {
   const lastAnnouncement = await this.findOne({
     host: hostId,
