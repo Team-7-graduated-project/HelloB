@@ -17,6 +17,7 @@ import PropTypes from "prop-types";
 import BackToTop from "../BackToTop";
 import SearchEle from "../SearchEle";
 import FavoriteButton from "../components/FavoriteButton";
+import HomeCarousel from "../components/HomeCarousel";
 
 // Define Place PropType shape
 const PlaceType = PropTypes.shape({
@@ -213,25 +214,12 @@ export default function IndexPage({
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative h-[80vh] mb-16">
-        <div className="absolute inset-0">
-          <img
-            src="https://images.unsplash.com/photo-1571896349842-33c89424de2d"
-            alt="Hero background"
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/60"></div>
-        </div>
-
-        <div className="relative z-10 h-full flex flex-col items-center justify-center px-4">
-          <h1 className="text-5xl md:text-7xl text-white font-bold text-center mb-6 animate-fadeIn">
-            Find Your Perfect Stay
-          </h1>
-          <p className="text-xl md:text-2xl text-white text-center mb-12 max-w-2xl animate-fadeInDelay opacity-90">
-            Discover unique places to stay and unforgettable experiences
-          </p>
-
-          <div className="w-full max-w-5xl animate-fadeInUp">
+      <section className="relative mb-16">
+        <HomeCarousel places={popularPlaces.slice(0, 5)} />
+        
+        {/* Search Bar Overlay */}
+        <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full max-w-5xl px-4 z-10">
+          <div className="backdrop-blur-sx  bg-white/10 p-4 rounded-2xl">
             <SearchEle />
           </div>
         </div>
