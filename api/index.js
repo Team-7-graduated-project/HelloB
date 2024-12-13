@@ -56,7 +56,7 @@ const Booking = require("./models/Booking.js");
 const Notification = require("./models/Notification");
 const jwtSecret = process.env.JWT_SECRET;
 const Report = require("./models/Report");
-
+const Announcement = require('./models/Announcement');
 const Blog = require("./models/Blog");
 // Add after existing imports
 const Chat = mongoose.model("Chat", {
@@ -4849,6 +4849,118 @@ function validateCardDetails(cardDetails) {
 
   return { isValid: true };
 }
+app.post('/api/host/announcements', authenticateToken, authorizeRole('host'), async (req, res) => {
+  try {
+    const { type, period, message } = req.body;
+    const hostId = req.userData.id;
+
+    // Check if host can create announcement
+    const canCreate = await Announcement.canCreateAnnouncement(hostId, period);
+    if (!canCreate) {
+      return res.status(400).json({
+        error: `You can only create one ${period}ly announcement`
+      });
+    }
+
+    // Calculate metrics based on type and period
+    let metrics = { total: 0, percentageChange: 0 };
+    const endDate = new Date();
+    const startDate = new Date();
+    
+    if (period === 'week') {
+      startDate.setDate(startDate.getDate() - 7);
+    } else {
+      startDate.setMonth(startDate.getMonth() - 1);
+    }
+
+    if (type === 'revenue') {
+      const bookings = await Booking.find({
+        host: hostId,
+        createdAt: { $gte: startDate, $lte: endDate }
+      });
+      
+      metrics.total = bookings.reduce((sum, booking) => sum + booking.price, 0);
+      
+      // Calculate previous period for percentage change
+      const previousStart = new Date(startDate);
+      const previousEnd = new Date(startDate);
+      if (period === 'week') {
+        previousStart.setDate(previousStart.getDate() - 7);
+      } else {
+        previousStart.setMonth(previousStart.getMonth() - 1);
+      }
+      
+      const previousBookings = await Booking.find({
+        host: hostId,
+        createdAt: { $gte: previousStart, $lte: previousEnd }
+      });
+      
+      const previousTotal = previousBookings.reduce((sum, booking) => sum + booking.price, 0);
+      metrics.percentageChange = previousTotal ? ((metrics.total - previousTotal) / previousTotal) * 100 : 0;
+    } else {
+      // Bookings count
+      const bookingsCount = await Booking.countDocuments({
+        host: hostId,
+        createdAt: { $gte: startDate, $lte: endDate }
+      });
+      
+      metrics.total = bookingsCount;
+      
+      const previousStart = new Date(startDate);
+      const previousEnd = new Date(startDate);
+      if (period === 'week') {
+        previousStart.setDate(previousStart.getDate() - 7);
+      } else {
+        previousStart.setMonth(previousStart.getMonth() - 1);
+      }
+      
+      const previousCount = await Booking.countDocuments({
+        host: hostId,
+        createdAt: { $gte: previousStart, $lte: previousEnd }
+      });
+      
+      metrics.percentageChange = previousCount ? ((bookingsCount - previousCount) / previousCount) * 100 : 0;
+    }
+
+    const announcement = await Announcement.create({
+      host: hostId,
+      type,
+      period,
+      message,
+      metrics
+    });
+
+    await announcement.populate('host', 'name email');
+    res.status(201).json(announcement);
+  } catch (error) {
+    console.error('Error creating announcement:', error);
+    res.status(500).json({ error: 'Failed to create announcement' });
+  }
+});
+
+// Get host's announcements
+app.get('/api/host/announcements', authenticateToken, authorizeRole('host'), async (req, res) => {
+  try {
+    const announcements = await Announcement.find({ host: req.userData.id })
+      .sort({ createdAt: -1 })
+      .populate('host', 'name email');
+    res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch announcements' });
+  }
+});
+
+// Get all announcements (admin only)
+app.get('/api/admin/announcements', authenticateToken, authorizeRole('admin'), async (req, res) => {
+  try {
+    const announcements = await Announcement.find()
+      .sort({ createdAt: -1 })
+      .populate('host', 'name email');
+    res.json(announcements);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch announcements' });
+  }
+});
 
 function isValidLuhn(number) {
   let sum = 0;
@@ -4913,7 +5025,10 @@ const updateHostDataVisibility = async (
       ),
 
      
-
+Announcement.updateMany(
+  { host: hostId },
+  { isActive: isActive, isDeleted: isDeleted }
+),
       // Update reviews for host's places
       Review.updateMany(
         { place: { $in: hostPlaces } },
