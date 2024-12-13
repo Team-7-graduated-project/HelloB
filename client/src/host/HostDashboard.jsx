@@ -15,8 +15,8 @@ import HostPlaces from "./HostPlaces";
 import VoucherList from "./VoucherList";
 import VoucherFormPage from "../pages/VoucherFormPage";
 import HostAnalytics from "./HostAnalytics";
-import AnnouncementForm from '../pages/AnnouncementForm';
-
+import HostAnnouncements from "./HostAnnouncements";
+import AnnouncementForm from "../pages/AnnouncementForm";
 import "./Index.css";
 
 
@@ -122,7 +122,7 @@ function HostDashboard() {
       path: "/host/announcements",
       label: "Announcements",
       icon: FaBullhorn,
-      description: "Create and view your announcements",
+      description: "Share your performance metrics",
     },
   ];
 
@@ -289,9 +289,8 @@ function HostDashboard() {
               <Route path="vouchers/new" element={<VoucherFormPage />} />
               <Route path="vouchers/  :id" element={<VoucherFormPage />} />
               <Route path="analytics" element={<HostAnalytics />} />
-              <Route path="announcements" element={<AnnouncementForm onSuccess={() => {
-                // Refresh dashboard stats or show success message
-              }} />} />
+              <Route path="announcements" element={<HostAnnouncements />} />
+              <Route path="announcements/new" element={<AnnouncementForm />} />
 
               <Route
                 path="*"
