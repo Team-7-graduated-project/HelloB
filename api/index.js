@@ -5351,7 +5351,22 @@ app.delete('/api/blog/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Error deleting blog post' });
   }
 });
-
+app.get('/api/blog/:id', async (req, res) => {
+  try {
+    const post = await Blog.findById(req.params.id)
+      .populate('author', 'name')
+      .exec();
+      
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    
+    res.json(post);
+  } catch (error) {
+    console.error('Error fetching blog post:', error);
+    res.status(500).json({ error: 'Error fetching blog post' });
+  }
+});
 
 app.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");
