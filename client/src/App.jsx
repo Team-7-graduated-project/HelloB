@@ -36,9 +36,11 @@ import ContactPage from "./pages/ContactPage";
 import { FavoritesProvider } from "./context/FavoritesContext";
 import FavoritesPage from "./pages/FavoritesPage";
 import MessagesPage from "./pages/MessagesPage";
+import BlogFormPage from "./pages/BlogFormPage";
 
 axios.defaults.withCredentials = true;
-axios.defaults.baseURL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+axios.defaults.baseURL =
+  import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
 
 function App() {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -100,6 +102,7 @@ function App() {
                   <Route path="/about" element={<AboutUsPage />} />
                   <Route path="/services" element={<ServicesPage />} />
                   <Route path="/blog" element={<BlogPage />} />
+                  <Route path="/blog-form" element={<BlogFormPage />} />
                   <Route path="/contact" element={<ContactPage />} />
                   <Route path="/account/history" element={<BookingsPage />} />
                   <Route path="/favorites" element={<FavoritesPage />} />
