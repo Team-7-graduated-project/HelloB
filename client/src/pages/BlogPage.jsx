@@ -1,22 +1,34 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FaCalendar, FaUser, FaTags, FaSearch } from "react-icons/fa";
+import axios from "axios";
+import { format } from "date-fns";
+import { Link } from "react-router-dom";
 
 export default function BlogPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [posts, setPosts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const blogPosts = [
-    {
-      id: 1,
-      title: "Top 10 Destinations for 2024",
-      excerpt:
-        "Discover the most exciting travel destinations that should be on your radar this year.",
-      image: "/path-to-image.jpg",
-      date: "March 15, 2024",
-      author: "John Doe",
-      category: "Travel Tips",
-    },
-    // Add more blog posts...
-  ];
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+
+  const fetchPosts = async () => {
+    try {
+      const response = await axios.get("/api/blog");
+      setPosts(response.data);
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredPosts = posts.filter((post) =>
+    post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    post.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    post.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -33,7 +45,7 @@ export default function BlogPage() {
         </div>
       </div>
 
-      {/* Search and Filter Section */}
+      {/* Search Section */}
       <div className="container mx-auto px-4 py-8">
         <div className="flex justify-center mb-8">
           <div className="relative w-full max-w-xl">
@@ -51,37 +63,46 @@ export default function BlogPage() {
 
       {/* Blog Posts Grid */}
       <div className="container mx-auto px-4 py-8">
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {blogPosts.map((post) => (
-            <div
-              key={post.id}
-              className="bg-white rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
-            >
-              <img
-                src={post.image}
-                alt={post.title}
-                className="w-full h-48 object-cover"
-              />
-              <div className="p-6">
-                <div className="flex items-center text-sm text-gray-500 mb-4">
-                  <FaCalendar className="mr-2" />
-                  <span className="mr-4">{post.date}</span>
-                  <FaUser className="mr-2" />
-                  <span>{post.author}</span>
+        {isLoading ? (
+          <div className="text-center py-8">Loading...</div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredPosts.map((post) => (
+              <div
+                key={post._id}
+                className="bg-white rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
+              >
+                <img
+                  src={post.image}
+                  alt={post.title}
+                  className="w-full h-48 object-cover"
+                />
+                <div className="p-6">
+                  <div className="flex items-center text-sm text-gray-500 mb-4">
+                    <FaCalendar className="mr-2" />
+                    <span className="mr-4">
+                      {format(new Date(post.createdAt), "MMM d, yyyy")}
+                    </span>
+                    <FaUser className="mr-2" />
+                    <span>Admin</span>
+                  </div>
+                  <h2 className="text-xl font-semibold mb-3">{post.title}</h2>
+                  <p className="text-gray-600 mb-4">{post.excerpt}</p>
+                  <div className="flex items-center">
+                    <FaTags className="text-primary mr-2" />
+                    <span className="text-sm text-gray-500">{post.category}</span>
+                  </div>
+                  <Link 
+                    to={`/blog/${post._id}`}
+                    className="mt-4 text-primary hover:text-primary-dark font-semibold inline-flex items-center"
+                  >
+                    Read More →
+                  </Link>
                 </div>
-                <h2 className="text-xl font-semibold mb-3">{post.title}</h2>
-                <p className="text-gray-600 mb-4">{post.excerpt}</p>
-                <div className="flex items-center">
-                  <FaTags className="text-primary mr-2" />
-                  <span className="text-sm text-gray-500">{post.category}</span>
-                </div>
-                <button className="mt-4 text-primary hover:text-primary-dark font-semibold">
-                  Read More →
-                </button>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
