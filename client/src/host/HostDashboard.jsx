@@ -18,6 +18,7 @@ import HostAnalytics from "./HostAnalytics";
 import HostAnnouncements from "./HostAnnouncements";
 import AnnouncementForm from "../pages/AnnouncementForm";
 import "./Index.css";
+import BookingDetail from "./BookingDetail";
 
 
 function HostDashboard() {
@@ -291,7 +292,7 @@ function HostDashboard() {
               <Route path="analytics" element={<HostAnalytics />} />
               <Route path="announcements" element={<HostAnnouncements />} />
               <Route path="announcements/new" element={<AnnouncementForm />} />
-
+              <Route path="bookings/:id" element={<BookingDetail />} />
               <Route
                 path="*"
                 element={
