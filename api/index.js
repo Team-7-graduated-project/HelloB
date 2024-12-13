@@ -5273,166 +5273,86 @@ app.get("/api/announcements", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error fetching announcements" });
   }
 });
-app.post("/api/blog-posts", authenticateToken, async (req, res) => {
+app.get('/api/blog', async (req, res) => {
   try {
-    const { title, excerpt, content, category, images, tags, status } = req.body;
-
-    // Validate required fields
-    if (!title?.trim()) {
-      return res.status(400).json({ error: "Title is required" });
-    }
-    if (!excerpt?.trim()) {
-      return res.status(400).json({ error: "Excerpt is required" });
-    }
-    if (!content?.trim()) {
-      return res.status(400).json({ error: "Content is required" });
-    }
-    if (!category?.trim()) {
-      return res.status(400).json({ error: "Category is required" });
-    }
-    if (!images || !Array.isArray(images) || images.length === 0) {
-      return res.status(400).json({ error: "At least one image is required" });
-    }
-
-    // Create the blog post
-    const newPost = await BlogPost.create({
-      title: title.trim(),
-      excerpt: excerpt.trim(),
-      content: content.trim(),
-      category: category.trim(),
-      images: images.map(image => typeof image === 'string' ? image : image.secure_url),
-      tags: tags || [],
-      status: status || 'published',
-      author: req.userData.id
-    });
-
-    // Populate author details
-    await newPost.populate('author', 'name email');
-
-    res.status(201).json({
-      success: true,
-      post: newPost
-    });
-
+    const posts = await Blog.find()
+      .populate('author', 'name')
+      .sort({ createdAt: -1 });
+    res.json(posts);
   } catch (error) {
-    console.error('Blog post creation error:', error);
-    res.status(500).json({
-      error: "Failed to create blog post",
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
+    console.error('Error fetching blog posts:', error);
+    res.status(500).json({ error: 'Error fetching blog posts' });
   }
 });
 
-// Get all blog posts (with optional filtering and pagination)
-app.get("/api/blog-posts", async (req, res) => {
+app.post('/api/blog', authenticateToken, async (req, res) => {
   try {
-    const { page = 1, limit = 5, category = 'all', sort = 'newest', search = '' } = req.query;
-
-    // Build query object
-    let query = {
-      status: 'published' // Only show published posts
-    };
+    const { title, excerpt, content, image, category } = req.body;
     
-    // Add category filter if not 'all'
-    if (category && category !== 'all') {
-      query.category = category;
+    // Validate required fields
+    if (!title || !excerpt || !content || !category) {
+      return res.status(400).json({ error: 'All fields are required' });
     }
 
-    // Add search filter
-    if (search) {
-      query.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { excerpt: { $regex: search, $options: "i" } },
-        { content: { $regex: search, $options: "i" } },
-        { tags: { $regex: search, $options: "i" } }
-      ];
-    }
-
-    // Determine sort order
-    const sortOptions = {
-      newest: { createdAt: -1 },
-      oldest: { createdAt: 1 },
-      popular: { views: -1 },
-      title: { title: 1 }
-    };
-
-    const sortOrder = sortOptions[sort] || sortOptions.newest;
-
-    // Execute query with pagination
-    const posts = await BlogPost.find(query)
-      .populate("author", "name email photo")
-      .sort(sortOrder)
-      .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit));
-
-    // Get total count for pagination
-    const total = await BlogPost.countDocuments(query);
-
-    res.json({
-      posts,
-      currentPage: Number(page),
-      totalPages: Math.ceil(total / Number(limit)),
-      totalPosts: total
+    const post = await Blog.create({
+      title,
+      excerpt,
+      content,
+      image: image || '', // Make image optional
+      category,
+      author: req.userData.id, // Get author from authenticated user
     });
 
+    // Populate author details in response
+    await post.populate('author', 'name');
+    
+    res.status(201).json(post);
   } catch (error) {
-    console.error("Error fetching blog posts:", error);
-    res.status(500).json({ 
-      error: "Failed to fetch blog posts",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
+    console.error('Error creating blog post:', error);
+    res.status(500).json({ error: 'Error creating blog post' });
   }
 });
 
-// Get a single blog post by ID
-app.get("/api/blog-posts/:id", async (req, res) => {
+app.put('/api/blog/:id', authenticateToken, async (req, res) => {
   try {
-    const post = await BlogPost.findById(req.params.id)
-      .populate("author", "name email photo")
-      .populate("comments.user", "name photo");
+    const { id } = req.params;
+    const update = await Blog.findOneAndUpdate(
+      { _id: id, author: req.userData.id }, // Only allow update if user is author
+      req.body,
+      { new: true }
+    ).populate('author', 'name');
+
+    if (!update) {
+      return res.status(404).json({ error: 'Post not found or unauthorized' });
+    }
+
+    res.json(update);
+  } catch (error) {
+    console.error('Error updating blog post:', error);
+    res.status(500).json({ error: 'Error updating blog post' });
+  }
+});
+
+app.delete('/api/blog/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const post = await Blog.findOneAndDelete({
+      _id: id,
+      author: req.userData.id, // Only allow deletion if user is author
+    });
 
     if (!post) {
-      return res.status(404).json({ error: "Blog post not found" });
+      return res.status(404).json({ error: 'Post not found or unauthorized' });
     }
 
-    // Increment view count
-    post.views += 1;
-    await post.save();
-
-    res.json(post);
+    res.json({ message: 'Post deleted successfully' });
   } catch (error) {
-    console.error("Error fetching blog post:", error);
-    res.status(500).json({ 
-      error: "Failed to fetch blog post",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    console.error('Error deleting blog post:', error);
+    res.status(500).json({ error: 'Error deleting blog post' });
   }
 });
 
-// Like/Unlike blog post
-app.post("/api/blog-posts/:id/like", authenticateToken, async (req, res) => {
-  try {
-    const post = await BlogPost.findById(req.params.id);
-    if (!post) {
-      return res.status(404).json({ error: "Blog post not found" });
-    }
 
-    const userLikeIndex = post.likes.indexOf(req.userData.id);
-    if (userLikeIndex === -1) {
-      // Like the post
-      post.likes.push(req.userData.id);
-    } else {
-      // Unlike the post
-      post.likes.splice(userLikeIndex, 1);
-    }
-
-    await post.save();
-    res.json({ likes: post.likes.length, isLiked: userLikeIndex === -1 });
-  } catch (error) {
-    console.error("Error updating post like:", error);
-    res.status(500).json({ error: "Failed to update like status" });
-  }
-});
 app.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");
 });
