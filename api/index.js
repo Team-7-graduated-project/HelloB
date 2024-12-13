@@ -1883,6 +1883,36 @@ app.get(
     }
   }
 );
+app.get('/host/bookings/:id', authenticateToken, authorizeRole('host'), async (req, res) => {
+  try {
+    const booking = await Booking.findById(req.params.id)
+      .populate('place', 'title photos') // Get place details
+      .populate('user', 'name email phone') // Get user details
+      .populate({
+        path: 'place',
+        populate: {
+          path: 'owner',
+          select: 'name email'
+        }
+      });
+
+    // Check if booking exists
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    // Check if the authenticated user is the host of this booking
+    if (booking.place.owner._id.toString() !== req.userData.id) {
+      return res.status(403).json({ error: 'Not authorized to view this booking' });
+    }
+
+    res.json(booking);
+  } catch (error) {
+    console.error('Error fetching booking details:', error);
+    res.status(500).json({ error: 'Failed to fetch booking details' });
+  }
+});
+
 app.get(
   "/host/users",
   authenticateToken,
