@@ -56,7 +56,7 @@ const Booking = require("./models/Booking.js");
 const Notification = require("./models/Notification");
 const jwtSecret = process.env.JWT_SECRET;
 const Report = require("./models/Report");
-const Announcement = require('./models/Announcement');
+const Announcement = require("./models/Announcement");
 const Blog = require("./models/Blog");
 // Add after existing imports
 const Chat = mongoose.model("Chat", {
