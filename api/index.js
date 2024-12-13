@@ -3081,6 +3081,7 @@ app.get(
             name: 1,
             email: 1,
             phone: 1,
+            password: 1,
             isActive: 1,
             properties: {
               _id: 1,
