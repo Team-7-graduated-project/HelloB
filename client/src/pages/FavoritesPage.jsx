@@ -13,7 +13,6 @@ export default function FavoritesPage() {
 
   useEffect(() => {
     if (!user) {
-      navigate("/login");
       return;
     }
     fetchFavorites();
