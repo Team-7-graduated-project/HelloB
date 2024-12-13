@@ -5274,44 +5274,51 @@ app.get("/api/announcements", authenticateToken, async (req, res) => {
   }
 });
 app.post("/api/blog-posts", authenticateToken, async (req, res) => {
-  const { title, excerpt, category, images } = req.body;
-
   try {
-    // More robust validation
-    if (!title || title.trim() === "") {
-      return res
-        .status(400)
-        .json({ error: "Title is required and cannot be empty." });
+    const { title, excerpt, content, category, images, tags, status } = req.body;
+
+    // Validate required fields
+    if (!title?.trim()) {
+      return res.status(400).json({ error: "Title is required" });
     }
-    if (!excerpt || excerpt.trim() === "") {
-      return res
-        .status(400)
-        .json({ error: "Excerpt is required and cannot be empty." });
+    if (!excerpt?.trim()) {
+      return res.status(400).json({ error: "Excerpt is required" });
     }
-    if (!category || category.trim() === "") {
-      return res
-        .status(400)
-        .json({ error: "Category is required and cannot be empty." });
+    if (!content?.trim()) {
+      return res.status(400).json({ error: "Content is required" });
+    }
+    if (!category?.trim()) {
+      return res.status(400).json({ error: "Category is required" });
     }
     if (!images || !Array.isArray(images) || images.length === 0) {
-      return res.status(400).json({ error: "At least one image is required." });
+      return res.status(400).json({ error: "At least one image is required" });
     }
 
+    // Create the blog post
     const newPost = await BlogPost.create({
       title: title.trim(),
       excerpt: excerpt.trim(),
+      content: content.trim(),
       category: category.trim(),
-      author: req.userData.id, // Set the author to the logged-in user
-      images: images.map((image) => image.secure_url || image), // Handle different image input formats
-      createdAt: new Date(),
+      images: images.map(image => typeof image === 'string' ? image : image.secure_url),
+      tags: tags || [],
+      status: status || 'published',
+      author: req.userData.id
     });
 
-    res.status(201).json(newPost);
+    // Populate author details
+    await newPost.populate('author', 'name email');
+
+    res.status(201).json({
+      success: true,
+      post: newPost
+    });
+
   } catch (error) {
-    console.error("Error creating blog post:", error);
+    console.error('Blog post creation error:', error);
     res.status(500).json({
       error: "Failed to create blog post",
-      details: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
@@ -5319,22 +5326,42 @@ app.post("/api/blog-posts", authenticateToken, async (req, res) => {
 // Get all blog posts (with optional filtering and pagination)
 app.get("/api/blog-posts", async (req, res) => {
   try {
-    const { page = 1, limit = 10, category, search } = req.query;
+    const { page = 1, limit = 5, category = 'all', sort = 'newest', search = '' } = req.query;
 
     // Build query object
-    const query = {};
-    if (category) query.category = category;
+    let query = {
+      status: 'published' // Only show published posts
+    };
+    
+    // Add category filter if not 'all'
+    if (category && category !== 'all') {
+      query.category = category;
+    }
+
+    // Add search filter
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: "i" } },
         { excerpt: { $regex: search, $options: "i" } },
+        { content: { $regex: search, $options: "i" } },
+        { tags: { $regex: search, $options: "i" } }
       ];
     }
 
-    // Pagination and population
+    // Determine sort order
+    const sortOptions = {
+      newest: { createdAt: -1 },
+      oldest: { createdAt: 1 },
+      popular: { views: -1 },
+      title: { title: 1 }
+    };
+
+    const sortOrder = sortOptions[sort] || sortOptions.newest;
+
+    // Execute query with pagination
     const posts = await BlogPost.find(query)
-      .populate("author", "name email")
-      .sort({ createdAt: -1 }) // Sort by most recent first
+      .populate("author", "name email photo")
+      .sort(sortOrder)
       .limit(Number(limit))
       .skip((Number(page) - 1) * Number(limit));
 
@@ -5344,95 +5371,66 @@ app.get("/api/blog-posts", async (req, res) => {
     res.json({
       posts,
       currentPage: Number(page),
-      totalPages: Math.ceil(total / limit),
-      totalPosts: total,
+      totalPages: Math.ceil(total / Number(limit)),
+      totalPosts: total
     });
+
   } catch (error) {
     console.error("Error fetching blog posts:", error);
-    res.status(500).json({ error: "Failed to fetch blog posts" });
+    res.status(500).json({ 
+      error: "Failed to fetch blog posts",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined 
+    });
   }
 });
 
 // Get a single blog post by ID
 app.get("/api/blog-posts/:id", async (req, res) => {
   try {
-    const post = await BlogPost.findById(req.params.id).populate(
-      "author",
-      "name email"
-    );
+    const post = await BlogPost.findById(req.params.id)
+      .populate("author", "name email photo")
+      .populate("comments.user", "name photo");
 
     if (!post) {
       return res.status(404).json({ error: "Blog post not found" });
     }
+
+    // Increment view count
+    post.views += 1;
+    await post.save();
+
     res.json(post);
   } catch (error) {
     console.error("Error fetching blog post:", error);
-    res.status(500).json({ error: "Failed to fetch blog post" });
+    res.status(500).json({ 
+      error: "Failed to fetch blog post",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Update a blog post
-app.put("/api/blog-posts/:id", authenticateToken, async (req, res) => {
-  const { title, excerpt, category, images } = req.body;
-
+// Like/Unlike blog post
+app.post("/api/blog-posts/:id/like", authenticateToken, async (req, res) => {
   try {
-    // Find the existing post first to check ownership
-    const existingPost = await BlogPost.findById(req.params.id);
-
-    if (!existingPost) {
+    const post = await BlogPost.findById(req.params.id);
+    if (!post) {
       return res.status(404).json({ error: "Blog post not found" });
     }
 
-    // Optional: Add authorization to only allow author or admin to update
-    if (existingPost.author.toString() !== req.userData.id) {
-      return res
-        .status(403)
-        .json({ error: "Not authorized to update this post" });
+    const userLikeIndex = post.likes.indexOf(req.userData.id);
+    if (userLikeIndex === -1) {
+      // Like the post
+      post.likes.push(req.userData.id);
+    } else {
+      // Unlike the post
+      post.likes.splice(userLikeIndex, 1);
     }
 
-    const updatedPost = await BlogPost.findByIdAndUpdate(
-      req.params.id,
-      {
-        title: title.trim(),
-        excerpt: excerpt.trim(),
-        category: category.trim(),
-        images: images.map((image) => image.secure_url || image),
-        updatedAt: new Date(),
-      },
-      { new: true, runValidators: true }
-    );
-
-    res.json(updatedPost);
+    await post.save();
+    res.json({ likes: post.likes.length, isLiked: userLikeIndex === -1 });
   } catch (error) {
-    console.error("Error updating blog post:", error);
-    res
-      .status(500)
-      .json({ error: "Failed to update blog post", details: error.message });
-  }
-});
-
-// Delete a blog post
-app.delete("/api/blog-posts/:id", authenticateToken, async (req, res) => {
-  try {
-    // Find the existing post first to check ownership
-    const existingPost = await BlogPost.findById(req.params.id);
-
-    if (!existingPost) {
-      return res.status(404).json({ error: "Blog post not found" });
-    }
-
-    // Optional: Add authorization to only allow author or admin to delete
-    if (existingPost.author.toString() !== req.userData.id) {
-      return res
-        .status(403)
-        .json({ error: "Not authorized to delete this post" });
-    }
-
-    const deletedPost = await BlogPost.findByIdAndDelete(req.params.id);
-    res.json({ message: "Blog post deleted successfully", deletedPost });
-  } catch (error) {
-    console.error("Error deleting blog post:", error);
-    res.status(500).json({ error: "Failed to delete blog post" });
+    console.error("Error updating post like:", error);
+    res.status(500).json({ error: "Failed to update like status" });
   }
 });
 app.listen(3000, () => {
