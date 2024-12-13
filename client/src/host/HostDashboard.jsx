@@ -15,6 +15,7 @@ import HostPlaces from "./HostPlaces";
 import VoucherList from "./VoucherList";
 import VoucherFormPage from "../pages/VoucherFormPage";
 import HostAnalytics from "./HostAnalytics";
+import AnnouncementForm from '../pages/AnnouncementForm';
 
 import "./Index.css";
 
@@ -117,7 +118,12 @@ function HostDashboard() {
       icon: FaChartLine,
       description: "View your revenue and booking analytics",
     },
- 
+    {
+      path: "/host/announcements",
+      label: "Announcements",
+      icon: FaBullhorn,
+      description: "Create and view your announcements",
+    },
   ];
 
   const currentPath = location.pathname;
@@ -283,8 +289,10 @@ function HostDashboard() {
               <Route path="vouchers/new" element={<VoucherFormPage />} />
               <Route path="vouchers/  :id" element={<VoucherFormPage />} />
               <Route path="analytics" element={<HostAnalytics />} />
-       
-     
+              <Route path="announcements" element={<AnnouncementForm onSuccess={() => {
+                // Refresh dashboard stats or show success message
+              }} />} />
+
               <Route
                 path="*"
                 element={
