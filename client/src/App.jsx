@@ -36,6 +36,8 @@ import ContactPage from "./pages/ContactPage";
 import { FavoritesProvider } from "./context/FavoritesContext";
 import FavoritesPage from "./pages/FavoritesPage";
 import MessagesPage from "./pages/MessagesPage";
+import BlogDetailPage from "./pages/BlogDetailPage";
+
 
 axios.defaults.withCredentials = true;
 axios.defaults.baseURL =
@@ -101,6 +103,7 @@ function App() {
                   <Route path="/about" element={<AboutUsPage />} />
                   <Route path="/services" element={<ServicesPage />} />
                   <Route path="/blog" element={<BlogPage />} />
+                  <Route path="/blog/:id" element={<BlogDetailPage />} />
                   <Route path="/contact" element={<ContactPage />} />
                   <Route path="/account/history" element={<BookingsPage />} />
                   <Route path="/favorites" element={<FavoritesPage />} />
