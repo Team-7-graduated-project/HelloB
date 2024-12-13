@@ -57,7 +57,7 @@ const Notification = require("./models/Notification");
 const jwtSecret = process.env.JWT_SECRET;
 const Report = require("./models/Report");
 const Announcement = require("./models/Announcement");
-const BlogPost = require("./models/BlogPost");
+const Blog = require("./models/Blog");
 // Add after existing imports
 const Chat = mongoose.model("Chat", {
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
@@ -82,7 +82,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use("/uploads", express.static(path.join(__dirname, "/uploads")));
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://hello-b.vercel.app"],
+    origin: ["http://localhost:5173", "https://hello-b.vercel.app",],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
