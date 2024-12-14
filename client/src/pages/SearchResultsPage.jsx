@@ -17,6 +17,7 @@ import {
   FaUmbrellaBeach,
   FaStar,
   FaHeart,
+  FaQuestionCircle,
 } from "react-icons/fa";
 
 export default function SearchResultsPage() {
@@ -45,6 +46,7 @@ export default function SearchResultsPage() {
     { type: "villa", label: "Villa", icon: FaWarehouse },
     { type: "hotel", label: "Hotel", icon: FaHotel },
     { type: "resort", label: "Resort", icon: FaUmbrellaBeach },
+    {type:"other",label:"Other",icon: FaQuestionCircle }
   ];
 
   const sortOptions = [

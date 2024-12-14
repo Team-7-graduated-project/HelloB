@@ -400,14 +400,20 @@ export default function IndexPage({
               <Link
                 key={review._id}
                 to={`/place/${review.place._id}`}
-                className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 group"
+                className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 group flex flex-col h-full"
               >
+                {/* User Info Section */}
                 <div className="flex items-center gap-4 mb-4">
-                  <img
-                    src={review.user.photo}
-                    alt={review.user.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                  />
+                  <div className="w-12 h-12 flex-shrink-0 rounded-full overflow-hidden">
+                    <img
+                      src={review.user.photo}
+                      alt={review.user.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = '/default-avatar.png';
+                      }}
+                    />
+                  </div>
                   <div>
                     <div className="font-semibold">{review.user.name}</div>
                     <div className="text-sm text-gray-500">
@@ -420,31 +426,37 @@ export default function IndexPage({
                   </div>
                 </div>
 
+                {/* Place Info Section */}
                 <div className="mb-4">
                   <div className="flex items-center gap-1 mb-2">
                     {[...Array(5)].map((_, i) => (
                       <FaStar key={i} className="text-yellow-400" />
                     ))}
                   </div>
-                  <h3 className="font-medium text-lg group-hover:text-primary transition-colors">
+                  <h3 className="font-medium text-lg group-hover:text-primary transition-colors line-clamp-1">
                     {review.place.title}
                   </h3>
-                  <div className="text-sm text-gray-500 mb-3">{review.place.address}</div>
+                  <div className="text-sm text-gray-500 mb-3 line-clamp-1">{review.place.address}</div>
                 </div>
 
-                <div className="relative">
+                {/* Review Content */}
+                <div className="relative mb-4 flex-grow">
                   <FaQuoteLeft className="absolute -left-2 -top-2 text-primary/10 text-4xl" />
                   <p className="text-gray-600 line-clamp-3 pl-6">
                     {review.content}
                   </p>
                 </div>
 
+                {/* Place Image */}
                 {review.place.photos?.[0] && (
-                  <div className="mt-4 aspect-[3/2] overflow-hidden rounded-lg">
+                  <div className="w-full aspect-[16/9] overflow-hidden rounded-lg mt-auto">
                     <img
                       src={review.place.photos[0]}
                       alt={review.place.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      onError={(e) => {
+                        e.target.src = '/default-place-image.jpg';
+                      }}
                     />
                   </div>
                 )}
@@ -454,35 +466,7 @@ export default function IndexPage({
         </div>
       </section>
 
-      {/* Newsletter Section */}
-      <section className="bg-primary/5 py-16 mb-20">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="flex-1">
-              <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center gap-3">
-                <FaEnvelope className="text-primary" />
-                Stay Updated
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Subscribe to our newsletter for exclusive deals, travel tips, and latest updates.
-              </p>
-            </div>
-            <div className="flex-1 w-full">
-              <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
-                <input
-                  type="email"
-                  placeholder="Enter your email"
-                  className="flex-1 px-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:border-primary"
-                />
-                <button className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
-                  Subscribe
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </section>
-
+      
       <BackToTop />
     </div>
   );
