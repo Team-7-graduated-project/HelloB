@@ -1,123 +1,117 @@
-const crypto = require("crypto");
-const https = require("https");
+const crypto = require('crypto');
+const axios = require('axios');
 
-class MomoPayment {
-  constructor() {
-    this.partnerCode = "MOMO";
-    this.accessKey = "F8BBA842ECF85";
-    this.secretKey = "K951B6PE1waDMi640xX08PD3vg6EkVlz";
-    this.endpoint = "test-payment.momo.vn";
-  }
+const config = {
+  partnerCode: process.env.MOMO_PARTNER_CODE,
+  accessKey: process.env.MOMO_ACCESS_KEY,
+  secretKey: process.env.MOMO_SECRET_KEY,
+  apiEndpoint: process.env.MOMO_API_ENDPOINT || 'https://test-payment.momo.vn/v2/gateway/api',
+  redirectUrl: process.env.CLIENT_URL + '/payment/success',
+  ipnUrl: process.env.SERVER_URL + '/api/payment/momo/notify',
+};
 
-  async createPayment({ amount, bookingId, userId }) {
-    try {
-      const requestId = this.partnerCode + new Date().getTime();
-      const orderId = requestId;
-      const orderInfo = `Payment for booking #${bookingId}`;
-      const redirectUrl = `${process.env.CLIENT_URL}/account/bookings/${bookingId}`;
-      const ipnUrl = `${process.env.API_URL}/payment/momo/notify/${bookingId}`;
-      const requestType = "payWithATM";
-      const extraData = Buffer.from(
-        JSON.stringify({
-          bookingId,
-          userId,
-          key: "payment",
-          orderId: requestId,
-          returnUrl: `/account/bookings/${bookingId}`,
-          paymentId: null,
-        })
-      ).toString("base64");
+const createPayment = async ({ amount, bookingId, userId }) => {
+  try {
+    // Generate unique orderId
+    const orderId = `MOMO_${Date.now()}_${bookingId}`;
+    const requestId = orderId;
 
-      const rawSignature = [
-        `accessKey=${this.accessKey}`,
-        `amount=${amount}`,
-        `extraData=${extraData}`,
-        `ipnUrl=${ipnUrl}`,
-        `orderId=${orderId}`,
-        `orderInfo=${orderInfo}`,
-        `partnerCode=${this.partnerCode}`,
-        `redirectUrl=${redirectUrl}`,
-        `requestId=${requestId}`,
-        `requestType=${requestType}`,
-      ].join("&");
+    // Create signature data
+    const rawSignature = `accessKey=${config.accessKey}&amount=${amount}&extraData=${Buffer.from(JSON.stringify({
+      bookingId,
+      userId,
+      orderId,
+      key: 'payment'
+    })).toString('base64')}&ipnUrl=${config.ipnUrl}&orderId=${orderId}&orderInfo=Payment for booking ${bookingId}&partnerCode=${config.partnerCode}&redirectUrl=${config.redirectUrl}&requestId=${requestId}&requestType=captureWallet`;
 
-      const signature = crypto
-        .createHmac("sha256", this.secretKey)
-        .update(rawSignature)
-        .digest("hex");
+    // Create signature
+    const signature = crypto
+      .createHmac('sha256', config.secretKey)
+      .update(rawSignature)
+      .digest('hex');
 
-      return new Promise((resolve, reject) => {
-        const requestBody = JSON.stringify({
-          partnerCode: this.partnerCode,
-          partnerName: "Test",
-          storeId: "MomoTestStore",
-          requestId: requestId,
-          amount: amount,
-          orderId: orderId,
-          orderInfo: orderInfo,
-          redirectUrl: redirectUrl,
-          ipnUrl: ipnUrl,
-          extraData: extraData,
-          requestType: requestType,
-          signature: signature,
-          lang: "vi",
-        });
+    // Create request body
+    const requestBody = {
+      partnerCode: config.partnerCode,
+      accessKey: config.accessKey,
+      requestId: requestId,
+      amount: amount,
+      orderId: orderId,
+      orderInfo: `Payment for booking ${bookingId}`,
+      redirectUrl: config.redirectUrl,
+      ipnUrl: config.ipnUrl,
+      requestType: 'captureWallet',
+      extraData: Buffer.from(JSON.stringify({
+        bookingId,
+        userId,
+        orderId,
+        key: 'payment'
+      })).toString('base64'),
+      signature: signature,
+      lang: 'vi'
+    };
 
-        console.log("MoMo Request:", {
-          body: JSON.parse(requestBody),
-          signature: signature,
-          rawSignature: rawSignature,
-          redirectUrl: redirectUrl,
-          bookingId: bookingId,
-        });
+    // Make request to MoMo API
+    const response = await axios.post(
+      `${config.apiEndpoint}/create`,
+      requestBody,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(JSON.stringify(requestBody))
+        }
+    });
 
-        const options = {
-          hostname: this.endpoint,
-          port: 443,
-          path: "/v2/gateway/api/create",
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(requestBody),
-          },
-        };
-
-        const req = https.request(options, (res) => {
-          let data = "";
-
-          res.on("data", (chunk) => {
-            data += chunk;
-          });
-
-          res.on("end", () => {
-            try {
-              const response = JSON.parse(data);
-              console.log("MoMo Response:", {
-                ...response,
-                bookingId: bookingId,
-                redirectUrl: redirectUrl,
-              });
-              resolve(response);
-            } catch (error) {
-              console.error("Error parsing MoMo response:", error);
-              reject(error);
-            }
-          });
-        });
-
-        req.on("error", (error) => {
-          console.error("MoMo Request Error:", error);
-          reject(error);
-        });
-
-        req.write(requestBody);
-        req.end();
-      });
-    } catch (error) {
-      console.error("MoMo Service Error:", error);
-      throw error;
+    // Validate response
+    if (response.data.resultCode === 0) {
+      return {
+        payUrl: response.data.payUrl,
+        orderId: orderId,
+        requestId: requestId,
+        signature: signature
+      };
+    } else {
+      throw new Error(response.data.message || 'Failed to create MoMo payment');
     }
-  }
-}
 
-module.exports = new MomoPayment();
+  } catch (error) {
+    console.error('MoMo payment creation error:', error);
+    throw new Error('Failed to initialize MoMo payment');
+  }
+};
+
+// Add function to verify MoMo payment response
+const verifyPayment = async (momoResponse) => {
+  try {
+    const { orderId, requestId, amount, resultCode, transId, extraData, signature } = momoResponse;
+
+    // Recreate signature for verification
+    const rawSignature = `accessKey=${config.accessKey}&amount=${amount}&extraData=${extraData}&orderId=${orderId}&orderInfo=Payment for booking&partnerCode=${config.partnerCode}&payType=webApp&requestId=${requestId}&responseTime=${Date.now()}&resultCode=${resultCode}&transId=${transId}`;
+
+    const checkSignature = crypto
+      .createHmac('sha256', config.secretKey)
+      .update(rawSignature)
+      .digest('hex');
+
+    // Verify signature
+    if (signature !== checkSignature) {
+      throw new Error('Invalid signature');
+    }
+
+    return {
+      isValid: true,
+      orderId,
+      amount,
+      transId,
+      extraData: JSON.parse(Buffer.from(extraData, 'base64').toString())
+    };
+  } catch (error) {
+    console.error('MoMo payment verification error:', error);
+    return { isValid: false, error: error.message };
+  }
+};
+
+module.exports = {
+  createPayment,
+  verifyPayment
+};
