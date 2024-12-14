@@ -285,7 +285,7 @@ app.post("/login", async (req, res) => {
     // If no user found
     if (!user) {
       console.log("No user found with email:", email);
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "Email not found" });
     }
 
     // Check if user is active
@@ -302,7 +302,7 @@ app.post("/login", async (req, res) => {
     const passOK = bcrypt.compareSync(password, user.password);
     if (!passOK) {
       console.log("Invalid password for user:", email);
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid password for user:" + email });
     }
 
     // Create JWT token
@@ -322,7 +322,7 @@ app.post("/login", async (req, res) => {
       .cookie("token", token, {
         httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
         secure: process.env.NODE_ENV === "production", // Use secure cookies in production
-        sameSite: "None", // Allow cross-origin requests
+        sameSite: "none", // Allow cross-origin requests
       })
       .json({
         user: {
