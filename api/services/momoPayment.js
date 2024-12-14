@@ -16,13 +16,13 @@ const createPayment = async ({ amount, bookingId, userId }) => {
     const orderId = `MOMO_${Date.now()}_${bookingId}`;
     const requestId = orderId;
 
-    // Create signature data
+    // Create signature data with payWithATM requestType
     const rawSignature = `accessKey=${config.accessKey}&amount=${amount}&extraData=${Buffer.from(JSON.stringify({
       bookingId,
       userId,
       orderId,
       key: 'payment'
-    })).toString('base64')}&ipnUrl=${config.ipnUrl}&orderId=${orderId}&orderInfo=Payment for booking ${bookingId}&partnerCode=${config.partnerCode}&redirectUrl=${config.redirectUrl}&requestId=${requestId}&requestType=captureWallet`;
+    })).toString('base64')}&ipnUrl=${config.ipnUrl}&orderId=${orderId}&orderInfo=Payment for booking ${bookingId}&partnerCode=${config.partnerCode}&redirectUrl=${config.redirectUrl}&requestId=${requestId}&requestType=payWithATM`;
 
     // Create signature
     const signature = crypto
@@ -40,7 +40,7 @@ const createPayment = async ({ amount, bookingId, userId }) => {
       orderInfo: `Payment for booking ${bookingId}`,
       redirectUrl: config.redirectUrl,
       ipnUrl: config.ipnUrl,
-      requestType: 'captureWallet',
+      requestType: 'payWithATM',
       extraData: Buffer.from(JSON.stringify({
         bookingId,
         userId,
