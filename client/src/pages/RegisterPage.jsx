@@ -317,7 +317,7 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="mt-4">
+            <div className="mt-4 text-center flex justify-center">
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
                 onError={() => {
