@@ -2143,7 +2143,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
 });
 app.post("/payment-options/momo", authenticateToken, async (req, res) => {
   try {
-    const { bookingId, userId, amount } = req.body;
+    const { bookingId, userId, amount, cardDetails } = req.body;
 
     // Validation checks
     if (!bookingId || !userId || !amount) {
@@ -2157,9 +2157,12 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
     const payment = await PaymentOption.create({
       booking: bookingId,
       user: userId,
-      method: "momo",
+      method: "momo_card",
       amount: amount,
       status: "pending",
+      cardDetails: {
+        last4: cardDetails?.cardNumber?.slice(-4) || null,
+      }
     });
 
     try {
