@@ -277,7 +277,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="mt-4">
+          <div className="mt-4 text-center flex justify-center">
             <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
