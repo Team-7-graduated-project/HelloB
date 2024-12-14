@@ -5,6 +5,15 @@ import { format } from "date-fns";
 import { FaSearch, FaBed, FaWalking, FaHome } from "react-icons/fa";
 import PropTypes from "prop-types";
 
+// Add this helper function at the top of the file
+const normalizeText = (text) => {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove diacritics
+    .replace(/[^a-z0-9\s]/g, ""); // Remove special characters
+};
+
 // Update TabButton to use default parameters
 
 // Update SearchEle to use default parameters
@@ -57,16 +66,27 @@ export default function SearchEle({
 
     try {
       setIsSearching(true);
+      const normalizedQuery = normalizeText(query);
+      
       const response = await axios.get(`/api/places/quick-search`, {
         params: {
-          q: query,
+          q: normalizedQuery,
           searchFields: ["address", "description", "title"],
           isActive: true,
+          original: query // Send original query for reference
         },
       });
 
-      setSearchResults(response.data);
-    } catch {
+      // Sort results to prioritize exact matches
+      const sortedResults = response.data.sort((a, b) => {
+        const aMatch = normalizeText(a.address).includes(normalizedQuery);
+        const bMatch = normalizeText(b.address).includes(normalizedQuery);
+        return bMatch - aMatch;
+      });
+
+      setSearchResults(sortedResults);
+    } catch (error) {
+      console.error('Search error:', error);
       setSearchResults([]);
     } finally {
       setIsSearching(false);
@@ -149,11 +169,9 @@ export default function SearchEle({
                   key={result._id}
                   className="p-3 hover:bg-gray-50 cursor-pointer flex gap-3"
                   onClick={() => {
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                    setSearchParams((prev) => ({
-                      ...prev,
-                      location: result.address,
-                    }));
+                    // Navigate to the place detail page
+                    navigate(`/place/${result._id}`);
+                    // Clear search results
                     setSearchResults([]);
                   }}
                 >
