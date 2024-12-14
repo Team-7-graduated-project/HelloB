@@ -99,7 +99,7 @@ export default function BookingDetail() {
               </div>
               <div>
                 <p className="text-gray-600">Number of Guests</p>
-                <p className="font-medium">{booking.numberOfGuests}</p>
+                <p className="font-medium">{booking.max_guests}</p>
               </div>
             </div>
           </div>
