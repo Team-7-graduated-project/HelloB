@@ -12,6 +12,11 @@ import {
   FaWarehouse,
   FaHotel,
   FaUmbrellaBeach,
+  FaEnvelope,
+  FaCompass,
+  FaHeart,
+  FaMountain,
+  FaCity,
 } from "react-icons/fa";
 import PropTypes from "prop-types";
 import BackToTop from "../BackToTop";
@@ -58,6 +63,7 @@ export default function IndexPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedType, setSelectedType] = useState("all");
+  const [topReviews, setTopReviews] = useState([]);
   const navigate = useNavigate();
 
   const propertyTypes = [
@@ -110,6 +116,20 @@ export default function IndexPage({
       setLoading(false);
     }
   }, [selectedType]);
+
+  const fetchTopReviews = useCallback(async () => {
+    try {
+      const response = await axios.get('/api/reviews/top', {
+        params: {
+          limit: 3,
+          minRating: 5
+        }
+      });
+      setTopReviews(response.data);
+    } catch (error) {
+      console.error('Failed to fetch top reviews:', error);
+    }
+  }, []);
 
   const PlaceCard = ({ place, index }) => {
     return (
@@ -184,7 +204,8 @@ export default function IndexPage({
 
   useEffect(() => {
     fetchPlaces();
-  }, [fetchPlaces]);
+    fetchTopReviews();
+  }, [fetchPlaces, fetchTopReviews]);
 
   if (loading) {
     return (
@@ -329,6 +350,131 @@ export default function IndexPage({
           )}
         </section>
       </div>
+
+      {/* Featured Categories Section */}
+      <section className="mb-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-gray-800 mb-10 flex items-center gap-3 group">
+            <FaCompass className="text-primary group-hover:scale-110 transition-transform" />
+            Explore by Category
+          </h2>
+          
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {[
+              { icon: FaUmbrellaBeach, title: "Beach Getaways", count: "250+", color: "bg-blue-500" },
+              { icon: FaMountain, title: "Mountain Retreats", count: "180+", color: "bg-green-500" },
+              { icon: FaCity, title: "City Experiences", count: "320+", color: "bg-purple-500" },
+              { icon: FaHeart, title: "Romantic Stays", count: "150+", color: "bg-red-500" },
+            ].map((category, index) => (
+              <Link
+                key={index}
+                to={`/search?category=${category.title.toLowerCase()}`}
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                className="group relative overflow-hidden rounded-2xl aspect-square shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <div className={`absolute inset-0 ${category.color} opacity-80`}></div>
+                <div className="absolute inset-0 p-6 flex flex-col justify-between text-white">
+                  <category.icon className="text-4xl group-hover:scale-110 transition-transform" />
+                  <div>
+                    <h3 className="text-xl font-bold mb-2">{category.title}</h3>
+                    <p className="text-sm opacity-90">{category.count} listings</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Top Reviews Section */}
+      <section className="mb-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-gray-800 mb-10 flex items-center gap-3 group">
+            <FaStar className="text-primary group-hover:scale-110 transition-transform" />
+            What Our Guests Love
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {topReviews.map((review) => (
+              <div
+                key={review._id}
+                className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <img
+                    src={review.user?.avatar || '/default-avatar.png'}
+                    alt={review.user?.name}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                  <div>
+                    <div className="font-semibold">{review.user?.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(review.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+                
+                <Link 
+                  to={`/place/${review.place?._id}`}
+                  className="block mb-3 hover:text-primary transition-colors"
+                >
+                  <h3 className="font-medium text-lg">{review.place?.title}</h3>
+                </Link>
+
+                <div className="flex items-center gap-1 mb-3">
+                  {[...Array(5)].map((_, i) => (
+                    <FaStar key={i} className="text-yellow-400" />
+                  ))}
+                </div>
+
+                <p className="text-gray-600 line-clamp-3">{review.content}</p>
+
+                {review.photos?.length > 0 && (
+                  <div className="mt-4 flex gap-2 overflow-x-auto">
+                    {review.photos.map((photo, photoIndex) => (
+                      <img
+                        key={photoIndex}
+                        src={photo}
+                        alt={`Review photo ${photoIndex + 1}`}
+                        className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Newsletter Section */}
+      <section className="bg-primary/5 py-16 mb-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="flex-1">
+              <h2 className="text-3xl font-bold text-gray-800 mb-4 flex items-center gap-3">
+                <FaEnvelope className="text-primary" />
+                Stay Updated
+              </h2>
+              <p className="text-gray-600 mb-6">
+                Subscribe to our newsletter for exclusive deals, travel tips, and latest updates.
+              </p>
+            </div>
+            <div className="flex-1 w-full">
+              <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
+                <input
+                  type="email"
+                  placeholder="Enter your email"
+                  className="flex-1 px-4 py-3 rounded-lg border border-gray-200 focus:outline-none focus:border-primary"
+                />
+                <button className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
+                  Subscribe
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <BackToTop />
     </div>

@@ -1846,6 +1846,58 @@ app.get("/api/reviews/check", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to check review status" });
   }
 });
+app.get('/api/reviews/top', async (req, res) => {
+  try {
+    const { limit = 3, minRating = 5 } = req.query;
+    
+    const topReviews = await Review.find({ 
+      rating: { $gte: parseInt(minRating) },
+      isActive: true 
+    })
+      .populate('user', 'name avatar')
+      .populate('place', 'title photos address')
+      .sort({ 
+        rating: -1,
+        createdAt: -1 
+      })
+      .limit(parseInt(limit));
+
+    // Format the response
+    const formattedReviews = topReviews.map(review => ({
+      _id: review._id,
+      content: review.review_text,
+      rating: review.rating,
+      createdAt: review.createdAt,
+      photos: review.photos || [],
+      user: {
+        name: review.user?.name || 'Anonymous',
+        avatar: review.user?.avatar || '/default-avatar.png'
+      },
+      place: {
+        _id: review.place?._id,
+        title: review.place?.title,
+        photos: review.place?.photos,
+        address: review.place?.address
+      },
+      // Include additional rating categories if they exist
+      cleanliness: review.cleanliness,
+      communication: review.communication,
+      checkIn: review.checkIn,
+      accuracy: review.accuracy,
+      location: review.location,
+      value: review.value
+    }));
+
+    res.json(formattedReviews);
+  } catch (error) {
+    console.error('Error fetching top reviews:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch top reviews',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 
 app.get('/host/bookings', async (req, res) => {
   try {
@@ -5580,3 +5632,7 @@ server.listen(PORT, () => {
 // Host bookings route
 
 // Add this endpoint to check if user has reviewed
+
+// Add this after your other routes
+
+// Get top reviews

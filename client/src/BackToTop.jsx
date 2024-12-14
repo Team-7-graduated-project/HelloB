@@ -1,19 +1,42 @@
-import { FaArrowCircleUp } from "react-icons/fa"; // Nhập biểu tượng từ react-icons
+import { useState, useEffect } from "react";
+import { FaArrowCircleUp } from "react-icons/fa";
 
 const BackToTop = () => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  // Show button when page is scrolled up to given distance
+  const toggleVisibility = () => {
+    if (window.pageYOffset > 300) { // Show after 300px of scroll
+      setIsVisible(true);
+    } else {
+      setIsVisible(false);
+    }
+  };
+
   const handleScrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  useEffect(() => {
+    window.addEventListener("scroll", toggleVisibility);
+    return () => {
+      window.removeEventListener("scroll", toggleVisibility);
+    };
+  }, []);
+
   return (
-    <button
-      onClick={handleScrollToTop}
-      className="fixed bottom-4 right-4 bg-red-500 text-white p-3 rounded-full shadow-lg hover:bg-red-600 transition"
-      style={{ width: "54px", height: "50px", fontSize: "20px" }}
-      aria-label="Back to top"
-    >
-      <FaArrowCircleUp size={30} /> {/* Sử dụng biểu tượng mũi tên lớn hơn */}
-    </button>
+    <>
+      {isVisible && (
+        <button
+          onClick={handleScrollToTop}
+          className="fixed bottom-4 right-4 bg-primary text-white p-3 rounded-full shadow-lg hover:bg-primary-dark transition-all duration-300 transform hover:scale-110 opacity-90 hover:opacity-100 z-50"
+          style={{ width: "54px", height: "50px" }}
+          aria-label="Back to top"
+        >
+          <FaArrowCircleUp size={30} className="mx-auto" />
+        </button>
+      )}
+    </>
   );
 };
 
