@@ -32,7 +32,6 @@ export default function ReviewPage({
   rating,
   setRating,
   placeId: propPlaceId,
-  onReviewSubmitted,
 }) {
   const [localRating, setLocalRating] = useState(0);
   const { id: routeId } = useParams();
@@ -104,9 +103,6 @@ export default function ReviewPage({
         setIsFormVisible(false);
         handleRatingChange(0);
         alert("Review submitted successfully!");
-        if (onReviewSubmitted) {
-          onReviewSubmitted();
-        }
       }
     } catch (error) {
       console.error("Error submitting review:", error);
@@ -205,8 +201,7 @@ export default function ReviewPage({
 }
 
 ReviewPage.propTypes = {
-  rating: PropTypes.number.isRequired,
-  setRating: PropTypes.func.isRequired,
-  placeId: PropTypes.string.isRequired,
-  onReviewSubmitted: PropTypes.func,
+  rating: PropTypes.number,
+  setRating: PropTypes.func,
+  placeId: PropTypes.string,
 };
