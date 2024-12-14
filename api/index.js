@@ -2148,6 +2148,7 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
     // Validation checks
     if (!bookingId || !userId || !amount) {
       return res.status(400).json({
+        success: false,
         message: "Missing required fields: bookingId, userId, or amount",
       });
     }
@@ -2164,7 +2165,7 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
     try {
       // Initialize MoMo payment
       const momoResponse = await momoPayment.createPayment({
-        amount: Number(amount),
+        amount: Math.round(amount), // MoMo requires integer amount
         bookingId: bookingId,
         userId: userId,
       });
@@ -2173,26 +2174,78 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
         throw new Error("Failed to get payment URL from MoMo");
       }
 
-      // Update payment record with orderId
+      // Update payment record with MoMo orderId
       await PaymentOption.findByIdAndUpdate(payment._id, {
-        orderId: momoResponse.orderId || momoResponse.requestId,
+        orderId: momoResponse.orderId,
+        requestId: momoResponse.requestId
       });
 
       res.json({
-        data: momoResponse.payUrl,
         success: true,
+        data: momoResponse.payUrl,
       });
+
     } catch (momoError) {
       // Clean up payment record if MoMo request fails
       await PaymentOption.findByIdAndDelete(payment._id);
       throw momoError;
     }
+
   } catch (error) {
     console.error("MoMo payment error:", error);
     res.status(400).json({
-      message: error.message || "Failed to process MoMo payment",
       success: false,
+      message: error.message || "Failed to process MoMo payment"
     });
+  }
+});
+
+// Update the MoMo payment notification handler
+app.post("/payment/momo/notify", async (req, res) => {
+  try {
+    const verificationResult = await momoPayment.verifyPayment(req.body);
+
+    if (!verificationResult.isValid) {
+      throw new Error('Invalid payment verification');
+    }
+
+    const { orderId, amount, transId, extraData } = verificationResult;
+    const { bookingId, userId } = extraData;
+
+    // Update payment status
+    const payment = await PaymentOption.findOneAndUpdate(
+      { orderId: orderId },
+      {
+        status: 'completed',
+        momoTransactionId: transId
+      },
+      { new: true }
+    );
+
+    if (!payment) {
+      throw new Error('Payment record not found');
+    }
+
+    // Update booking status
+    await Booking.findByIdAndUpdate(bookingId, {
+      paymentStatus: 'paid',
+      paymentMethod: 'momo',
+      status: 'confirmed'
+    });
+
+    // Create notification
+    await createNotification(
+      'payment_success',
+      'Payment Successful',
+      `Payment of ${amount}đ received for booking #${bookingId}`,
+      `/bookings/${bookingId}`,
+      userId
+    );
+
+    res.json({ message: 'Payment processed successfully' });
+  } catch (error) {
+    console.error('MoMo notification error:', error);
+    res.status(500).json({ error: 'Failed to process payment notification' });
   }
 });
 
