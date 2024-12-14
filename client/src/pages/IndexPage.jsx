@@ -409,7 +409,11 @@ export default function IndexPage({
                   <div>
                     <div className="font-semibold">{review.user?.name}</div>
                     <div className="text-sm text-gray-500">
-                      {new Date(review.createdAt).toLocaleDateString()}
+                      {review.createdAt ? new Date(review.createdAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      }) : 'Date not available'}
                     </div>
                   </div>
                 </div>

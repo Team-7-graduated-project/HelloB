@@ -1854,7 +1854,7 @@ app.get('/api/reviews/top', async (req, res) => {
       rating: { $gte: parseInt(minRating) },
       isActive: true 
     })
-      .populate('user', 'name avatar')
+      .populate('user', 'name photo avatar') // Add photo field here
       .populate('place', 'title photos address')
       .sort({ 
         rating: -1,
@@ -1871,7 +1871,7 @@ app.get('/api/reviews/top', async (req, res) => {
       photos: review.photos || [],
       user: {
         name: review.user?.name || 'Anonymous',
-        avatar: review.user?.avatar || '/default-avatar.png'
+        avatar: review.user?.photo || review.user?.avatar || '/default-avatar.png' // Check both photo and avatar
       },
       place: {
         _id: review.place?._id,

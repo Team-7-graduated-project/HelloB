@@ -1049,11 +1049,11 @@ export default function PlacePage() {
                               <div className="flex items-center gap-2 text-sm text-gray-500">
                                 <FaClock className="text-gray-400" />
                                 {new Date(review.createdAt).toLocaleDateString(
-                                  "en-US",
+                                  'en-US',
                                   {
-                                    year: "numeric",
-                                    month: "long",
-                                    day: "numeric",
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
                                   }
                                 )}
                               </div>
