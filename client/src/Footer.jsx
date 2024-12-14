@@ -1,15 +1,15 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   FaFacebook,
   FaTwitter,
   FaInstagram,
-  FaLinkedin,
-  FaYoutube,
   FaPhone,
   FaEnvelope,
   FaMapMarkerAlt,
   FaHeart,
+  FaCreditCard,
+  FaMobileAlt,
 } from "react-icons/fa";
 import TermsModal from "./components/TermsModal";
 import PrivacyModal from "./components/PrivacyModal";
@@ -37,35 +37,44 @@ function Footer() {
   return (
     <>
       <footer className="bg-gradient-to-b from-gray-900 to-gray-950 text-gray-300">
-        <div className="max-w-7xl mx-auto px-4 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+        <div className="max-w-7xl mx-auto px-4 py-8 md:py-16">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-12">
             {/* Company Info */}
-            <div className="space-y-6">
+            <div className="space-y-4 md:space-y-6">
               <img
                 src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSQUcUPHrQFwODi-3aJ5GvQYWJnRxv1Bn5h0A&s"
                 alt="HelloB"
-                className="h-16 rounded-lg"
+                className="h-12 md:h-16 rounded-lg"
               />
-              <p className="text-gray-400 leading-relaxed">
+              <p className="text-sm md:text-base text-gray-400 leading-relaxed">
                 Your trusted platform for finding perfect accommodations
                 worldwide. Experience comfort and luxury at your fingertips.
               </p>
               <div className="flex gap-4">
-                {[
-                  FaFacebook,
-                  FaTwitter,
-                  FaInstagram,
-                  FaLinkedin,
-                  FaYoutube,
-                ].map((Icon, i) => (
-                  <a
-                    key={i}
-                    href="#"
+                <Link
+                  to="https://www.facebook.com/profile.php?id=61570193229904&is_tour_dismissed"
+                  className=""
+                >
+                  <FaFacebook
                     className="text-gray-400 hover:text-primary transform hover:scale-110 transition-all"
-                  >
-                    <Icon size={24} />
-                  </a>
-                ))}
+                    size={24}
+                  />
+                </Link>
+                <Link
+                  to="https://x.com/Bookingss_Hotel"
+                  className=""
+                >
+                  <FaTwitter
+                    className="text-gray-400 hover:text-primary transform hover:scale-110 transition-all"
+                    size={24}
+                  />
+                </Link>{" "}
+                <Link to="https://www.instagram.com/bookingss_hotel/">
+                  <FaInstagram
+                    className="text-gray-400 hover:text-primary transform hover:scale-110 transition-all"
+                    size={24}
+                  />
+                </Link>{" "}
               </div>
             </div>
 
@@ -145,34 +154,20 @@ function Footer() {
                     Terms of Service
                   </a>
                 </li>
-                <li>
-                  <a
-                    href="#"
-                    className="text-gray-400 hover:text-white hover:translate-x-1 transition-all inline-flex items-center gap-2"
-                  >
-                    <span className="h-1 w-1 bg-primary rounded-full"></span>
-                    Cookie Policy
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="#"
-                    className="text-gray-400 hover:text-white hover:translate-x-1 transition-all inline-flex items-center gap-2"
-                  >
-                    <span className="h-1 w-1 bg-primary rounded-full"></span>
-                    Disclaimer
-                  </a>
-                </li>
               </ul>
             </div>
           </div>
 
           {/* Bottom Bar */}
-          <div className="border-t border-gray-800 mt-16 pt-8 text-center">
+          <div className="border-t border-gray-800 mt-16 pt-8 flex justify-between items-center text-center">
             <p className="text-gray-400 flex items-center justify-center gap-2">
               &copy; {new Date().getFullYear()} HelloB. Made with
               <FaHeart className="text-red-500" />
               All rights reserved.
+            </p>
+            <p className="text-gray-400 flex gap-4">
+              <FaCreditCard size={48} className="text-primary" />
+              <FaMobileAlt size={48} className="text-primary" />
             </p>
           </div>
         </div>
