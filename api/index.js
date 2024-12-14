@@ -5593,3 +5593,55 @@ server.listen(PORT, () => {
 // Host bookings route
 
 // Add this endpoint to check if user has reviewed
+
+// Add this endpoint to get top reviews
+app.get('/api/reviews/top', async (req, res) => {
+  try {
+    const { limit = 3, minRating = 5 } = req.query;
+    
+    const topReviews = await Review.find({ 
+      rating: { $gte: parseInt(minRating) },
+      isActive: true 
+    })
+      .populate({
+        path: 'user',
+        select: 'name photo',
+        match: { isActive: true }
+      })
+      .populate({
+        path: 'place',
+        select: 'title photos address',
+        match: { isActive: true }
+      })
+      .sort({ 
+        rating: -1,
+        createdAt: -1 
+      })
+      .limit(parseInt(limit));
+
+    // Filter out reviews where place or user is inactive/null
+    const validReviews = topReviews
+      .filter(review => review.user && review.place)
+      .map(review => ({
+        _id: review._id,
+        content: review.review_text,
+        rating: review.rating,
+        createdAt: review.createdAt,
+        user: {
+          name: review.user.name,
+          photo: review.user.photo || '/default-avatar.png'
+        },
+        place: {
+          _id: review.place._id,
+          title: review.place.title,
+          photos: review.place.photos,
+          address: review.place.address
+        }
+      }));
+
+    res.json(validReviews);
+  } catch (error) {
+    console.error('Error fetching top reviews:', error);
+    res.status(500).json({ error: 'Failed to fetch top reviews' });
+  }
+});

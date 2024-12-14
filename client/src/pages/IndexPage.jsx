@@ -17,6 +17,7 @@ import {
   FaHeart,
   FaMountain,
   FaCity,
+  FaQuoteLeft,
 } from "react-icons/fa";
 import PropTypes from "prop-types";
 import BackToTop from "../BackToTop";
@@ -63,6 +64,7 @@ export default function IndexPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedType, setSelectedType] = useState("all");
+  const [topReviews, setTopReviews] = useState([]);
   const navigate = useNavigate();
 
   const propertyTypes = [
@@ -115,6 +117,20 @@ export default function IndexPage({
       setLoading(false);
     }
   }, [selectedType]);
+
+  const fetchTopReviews = useCallback(async () => {
+    try {
+      const { data } = await axios.get('/api/reviews/top', {
+        params: {
+          limit: 3,
+          minRating: 5
+        }
+      });
+      setTopReviews(data);
+    } catch (error) {
+      console.error('Failed to fetch top reviews:', error);
+    }
+  }, []);
 
   const PlaceCard = ({ place, index }) => {
     return (
@@ -189,7 +205,8 @@ export default function IndexPage({
 
   useEffect(() => {
     fetchPlaces();
-  }, [fetchPlaces]);
+    fetchTopReviews();
+  }, [fetchPlaces, fetchTopReviews]);
 
   if (loading) {
     return (
@@ -364,6 +381,73 @@ export default function IndexPage({
                     <p className="text-sm opacity-90">{category.count} listings</p>
                   </div>
                 </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Top Reviews Section */}
+      <section className="mb-20">
+        <div className="max-w-7xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-gray-800 mb-10 flex items-center gap-3 group">
+            <FaStar className="text-primary group-hover:scale-110 transition-transform" />
+            Guest Experiences
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {topReviews.map((review) => (
+              <Link
+                key={review._id}
+                to={`/place/${review.place._id}`}
+                className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 group"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <img
+                    src={review.user.photo}
+                    alt={review.user.name}
+                    className="w-12 h-12 rounded-full object-cover"
+                  />
+                  <div>
+                    <div className="font-semibold">{review.user.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(review.createdAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <div className="flex items-center gap-1 mb-2">
+                    {[...Array(5)].map((_, i) => (
+                      <FaStar key={i} className="text-yellow-400" />
+                    ))}
+                  </div>
+                  <h3 className="font-medium text-lg group-hover:text-primary transition-colors">
+                    {review.place.title}
+                  </h3>
+                  <div className="text-sm text-gray-500 mb-3">{review.place.address}</div>
+                </div>
+
+                <div className="relative">
+                  <FaQuoteLeft className="absolute -left-2 -top-2 text-primary/10 text-4xl" />
+                  <p className="text-gray-600 line-clamp-3 pl-6">
+                    {review.content}
+                  </p>
+                </div>
+
+                {review.place.photos?.[0] && (
+                  <div className="mt-4 aspect-[3/2] overflow-hidden rounded-lg">
+                    <img
+                      src={review.place.photos[0]}
+                      alt={review.place.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                  </div>
+                )}
               </Link>
             ))}
           </div>
