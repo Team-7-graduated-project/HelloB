@@ -3,24 +3,26 @@ import { UserContext } from "../UserContext";
 import axios from "axios";
 import { format } from "date-fns";
 import { toast } from "react-hot-toast";
-import { FaPaperPlane, FaUser } from "react-icons/fa";
+import { FaPaperPlane, FaUser, FaComments, FaArrowLeft } from "react-icons/fa";
 import AccountNav from "../AccountNav";
 
 const messageBubbleStyle = `
-  relative before:content-[''] before:absolute before:bottom-0 
-  before:w-2 before:h-2 before:transform transition-all duration-300
+  relative rounded-2xl px-4 py-2 max-w-[80%] break-words
+  before:content-[''] before:absolute before:bottom-[6px]
+  before:w-4 before:h-4 before:transform before:rotate-45
+  transition-all duration-300 shadow-sm
 `;
 
 const leftBubbleStyle = `
   ${messageBubbleStyle}
-  before:-left-1 before:bg-gray-100 
-  before:rotate-45 shadow-md
+  bg-white border border-gray-100
+  before:-left-1.5 before:border-l before:border-b before:border-gray-100 before:bg-white
 `;
 
 const rightBubbleStyle = `
   ${messageBubbleStyle}
-  before:-right-1 before:bg-primary 
-  before:rotate-45 shadow-md
+  bg-primary text-white
+  before:-right-1.5 before:border-r before:border-t before:border-primary before:bg-primary
 `;
 
 export default function MessagesPage() {
@@ -205,28 +207,97 @@ const sendMessage = async (e) => {
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-gray-50">
       <AccountNav />
-      <div className="flex-1 container mx-auto p-8 flex flex-col">
-        <h1 className="text-2xl font-bold mb-4">Messages</h1>
-        <div className="flex-1 grid grid-cols-3 gap-4">
-          {/* Chat List - Left sidebar - Fixed */}
-          <div className="col-span-1 border rounded-lg bg-white h-[calc(100vh-200px)] overflow-hidden">
-            <div className="h-full overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
-              {chats.map((chat) => {
-                const otherParticipant = getOtherParticipant(chat);
-                return (
-                  <div
-                    key={chat._id}
-                    onClick={() => setSelectedChat(chat)}
-                    className={`p-4 border-b cursor-pointer hover:bg-gray-50 
-                    ${selectedChat?._id === chat._id ? "bg-gray-100" : ""}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
-                        {otherParticipant?.photo ? (
+      <div className="flex-1 container mx-auto p-4 md:p-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 h-[calc(100vh-180px)] flex flex-col">
+          {/* Header */}
+          <div className="p-4 border-b flex items-center justify-between">
+            <h1 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+              <FaComments className="text-primary" />
+              Messages
+            </h1>
+            {selectedChat && (
+              <button 
+                onClick={() => setSelectedChat(null)}
+                className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <FaArrowLeft />
+              </button>
+            )}
+          </div>
+
+          {/* Chat Container */}
+          <div className="flex-1 flex overflow-hidden">
+            {/* Chat List - Left sidebar */}
+            <div className={`w-full md:w-80 border-r flex-shrink-0 bg-white ${
+              selectedChat ? 'hidden md:block' : 'block'
+            }`}>
+              <div className="h-full overflow-y-auto">
+                {chats.map((chat) => {
+                  const otherParticipant = getOtherParticipant(chat);
+                  const lastMessage = chat.messages[chat.messages.length - 1];
+                  
+                  return (
+                    <div
+                      key={chat._id}
+                      onClick={() => setSelectedChat(chat)}
+                      className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors border-b
+                        ${selectedChat?._id === chat._id ? "bg-gray-50" : ""}
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden">
+                            {otherParticipant?.photo ? (
+                              <img
+                                src={otherParticipant.photo}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <FaUser className="w-full h-full p-3 text-gray-400" />
+                            )}
+                          </div>
+                          {otherParticipant?.isActive && (
+                            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-baseline">
+                            <h3 className="font-medium text-gray-900 truncate">
+                              {otherParticipant?.name || "Loading..."}
+                            </h3>
+                            {lastMessage && (
+                              <span className="text-xs text-gray-500">
+                                {format(new Date(lastMessage.timestamp), "h:mm a")}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 truncate">
+                            {lastMessage?.content || "No messages yet"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Chat Window */}
+            <div className={`flex-1 flex flex-col ${
+              !selectedChat ? 'hidden md:flex' : 'flex'
+            }`}>
+              {selectedChat ? (
+                <>
+                  {/* Chat Header */}
+                  <div className="p-4 border-b bg-white flex items-center gap-3">
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden">
+                        {getOtherParticipant(selectedChat)?.photo ? (
                           <img
-                            src={otherParticipant.photo}
+                            src={getOtherParticipant(selectedChat).photo}
                             alt=""
                             className="w-full h-full object-cover"
                           />
@@ -234,140 +305,95 @@ const sendMessage = async (e) => {
                           <FaUser className="w-full h-full p-2 text-gray-400" />
                         )}
                       </div>
-                      <div className="flex-grow min-w-0">
-                        <h3 className="font-medium truncate">
-                          {otherParticipant?.name || "Loading..."}
-                        </h3>
-                        <p className="text-sm text-gray-500 truncate">
-                          {chat.messages[chat.messages.length - 1]?.content ||
-                            "No messages yet"}
-                        </p>
-                      </div>
+                      {getOtherParticipant(selectedChat)?.isActive && (
+                        <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">
+                        {getOtherParticipant(selectedChat)?.name || "Loading..."}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        {getOtherParticipant(selectedChat)?.isActive ? "Active now" : "Offline"}
+                      </p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Chat Window - Right side - Fixed structure */}
-          <div className="col-span-2 border rounded-lg bg-white h-[calc(100vh-200px)] flex flex-col">
-            {selectedChat ? (
-              <>
-                {/* Fixed Header */}
-                <div className="p-4 border-b flex items-center gap-3 bg-white">
-                  <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden">
-                    {getOtherParticipant(selectedChat)?.photo ? (
-                      <img
-                        src={getOtherParticipant(selectedChat).photo}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <FaUser className="w-full h-full p-2 text-gray-400" />
-                    )}
-                  </div>
-                  <h3 className="font-medium">
-                    {getOtherParticipant(selectedChat)?.name || "Loading..."}
-                  </h3>
-                </div>
-
-                {/* Scrollable Messages Area */}
-                <div className="flex-1 overflow-y-auto">
-                  <div className="p-4 space-y-6">
-                    {" "}
-                    {/* Increased space between groups */}
-                    {Object.entries(
-                      groupMessagesByDate(selectedChat.messages)
-                    ).map(([date, messages]) => (
-                      <div key={date} className="space-y-4">
-                        {/* Date Separator */}
-                        <div className="flex items-center justify-center">
-                          <div className="bg-gray-200 px-3 py-1 rounded-full text-sm text-gray-600">
-                            {date === format(new Date(), "dd/MM/yyyy")
-                              ? "Today"
-                              : date}
+                  {/* Messages Area */}
+                  <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
+                    <div className="space-y-6">
+                      {Object.entries(groupMessagesByDate(selectedChat.messages)).map(([date, messages]) => (
+                        <div key={date} className="space-y-4">
+                          <div className="flex items-center justify-center">
+                            <span className="bg-gray-200/70 backdrop-blur-sm px-3 py-1 rounded-full text-xs text-gray-600">
+                              {date === format(new Date(), "dd/MM/yyyy") ? "Today" : date}
+                            </span>
                           </div>
-                        </div>
 
-                        {/* Messages for this date */}
-                        {messages.map((message, index) => (
-                          <div
-                            key={index}
-                            className={`flex items-end gap-2 ${
-                              message.sender === user?._id
-                                ? "justify-end"
-                                : "justify-start"
-                            }`}
-                          >
-                            {message.sender !== user?._id && (
-                              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                                <img
-                                  src={
-                                    getOtherParticipant(selectedChat)?.photo ||
-                                    "/default-avatar.png"
-                                  }
-                                  alt=""
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            )}
+                          {messages.map((message, index) => (
                             <div
-                              className={`max-w-[70%] p-3 rounded-xl ${
-                                message.sender === user?._id
-                                  ? `${rightBubbleStyle} bg-primary text-white`
-                                  : `${leftBubbleStyle} bg-gray-100`
+                              key={index}
+                              className={`flex items-end gap-2 ${
+                                message.sender === user?._id ? "justify-end" : "justify-start"
                               }`}
                             >
-                              <p className="break-words">{message.content}</p>
-                              <div
-                                className={`text-xs mt-1 ${
-                                  message.sender === user?._id
-                                    ? "text-white/70"
-                                    : "text-gray-500"
-                                }`}
-                              >
-                                {format(new Date(message.timestamp), "h:mm a")}
+                              {message.sender !== user?._id && (
+                                <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
+                                  <img
+                                    src={getOtherParticipant(selectedChat)?.photo || "/default-avatar.png"}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
+                              )}
+                              <div className={message.sender === user?._id ? rightBubbleStyle : leftBubbleStyle}>
+                                <p>{message.content}</p>
+                                <div className={`text-[10px] mt-1 ${
+                                  message.sender === user?._id ? "text-white/70" : "text-gray-400"
+                                }`}>
+                                  {format(new Date(message.timestamp), "h:mm a")}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Message Input */}
+                  <div className="p-4 bg-white border-t">
+                    <form onSubmit={sendMessage} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type your message..."
+                        className="flex-1 h-12 px-4 py-2 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!newMessage.trim()}
+                        className={`h-12 w-12 rounded-xl flex items-center justify-center transition-colors ${
+                          newMessage.trim()
+                            ? "bg-primary text-white hover:bg-primary-dark"
+                            : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                        }`}
+                      >
+                        <FaPaperPlane className="w-4 h-4" />
+                      </button>
+                    </form>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center text-gray-500 bg-gray-50">
+                  <div className="text-center">
+                    <FaComments className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                    <p>Select a conversation to start messaging</p>
                   </div>
                 </div>
-
-                {/* Fixed Input Area */}
-                <div className="p-4 border-t bg-white mt-auto">
-                  <form onSubmit={sendMessage} className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Type your message..."
-                      className="flex-grow p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!newMessage.trim()}
-                      className={`px-6 py-3 rounded-xl font-medium flex items-center gap-2
-                      ${
-                        newMessage.trim()
-                          ? "bg-primary text-white hover:bg-primary-dark"
-                          : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                      }`}
-                    >
-                      <FaPaperPlane className="w-4 h-4" />
-                      Send
-                    </button>
-                  </form>
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-500">
-                Select a chat to start messaging
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

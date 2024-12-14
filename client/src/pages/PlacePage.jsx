@@ -704,7 +704,7 @@ export default function PlacePage() {
                     clipRule="evenodd"
                   />
                 </svg>
-                Check-in after {place?.check_in_time || "3:00 PM"}
+                Check-in after {place.check_in|| "3:00 PM"}
               </li>
               <li className="flex items-center gap-2">
                 <svg
@@ -719,7 +719,7 @@ export default function PlacePage() {
                     clipRule="evenodd"
                   />
                 </svg>
-                Check-out before {place?.check_out_time || "11:00 AM"}
+                Check-out before {place.check_out || "11:00 AM"}
               </li>
               {place?.minimum_stay && (
                 <li className="flex items-center gap-2">

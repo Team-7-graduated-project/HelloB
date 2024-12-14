@@ -67,79 +67,78 @@ export default function AdminAnnouncements() {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Host Announcements</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage and monitor all host announcements
-          </p>
+      <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Announcements</h1>
+            <p className="text-white/80">Manage and monitor host announcements</p>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {announcements.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-            <FaBullhorn className="mx-auto text-4xl text-gray-300 mb-2" />
-            <p className="text-gray-500">No announcements found</p>
-          </div>
-        ) : (
-          announcements.map((announcement) => (
-            <div key={announcement._id} className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                    {announcement.type} - {announcement.period}ly
+      <div className="grid gap-6">
+        {announcements.map((announcement) => (
+          <div key={announcement._id} className="bg-gray-200 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200">
+            <div className="flex justify-between items-start">
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                    {announcement.type}
                   </span>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Posted by: {announcement.host?.name || 'Unknown Host'} on{' '}
-                    {format(new Date(announcement.createdAt), 'PPP')}
-                  </p>
+                  <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-sm">
+                    {announcement.period}ly
+                  </span>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => toggleAnnouncementStatus(announcement._id, announcement.isActive)}
-                    className={`p-2 rounded-full ${
-                      announcement.isActive 
-                        ? 'bg-green-100 text-green-600' 
-                        : 'bg-red-100 text-red-600'
-                    }`}
-                    title={announcement.isActive ? 'Deactivate' : 'Activate'}
-                  >
-                    {announcement.isActive ? <FaCheck /> : <FaTimes />}
-                  </button>
-                  <button
-                    onClick={() => deleteAnnouncement(announcement._id)}
-                    className="p-2 rounded-full bg-red-100 text-red-600"
-                    title="Delete"
-                  >
-                    <FaTrash />
-                  </button>
-                </div>
+                <p className="text-sm text-gray-500">
+                  Posted by: {announcement.host?.name || 'Unknown Host'} • {format(new Date(announcement.createdAt), 'PPP')}
+                </p>
               </div>
-              <p className="mt-4">{announcement.message}</p>
-              <div className="mt-4 flex gap-4">
-                <div className="bg-gray-50 px-4 py-2 rounded-lg">
-                  <p className="text-sm text-gray-600">Total</p>
-                  <p className="text-lg font-semibold">
-                    {announcement.type === 'revenue' ? '$' : ''}
-                    {announcement.metrics.total}
-                  </p>
-                </div>
-                <div className="bg-gray-50 px-4 py-2 rounded-lg">
-                  <p className="text-sm text-gray-600">Change</p>
-                  <p className={`text-lg font-semibold ${
-                    announcement.metrics.percentageChange > 0 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
-                    {announcement.metrics.percentageChange > 0 ? '+' : ''}
-                    {announcement.metrics.percentageChange.toFixed(1)}%
-                  </p>
-                </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => toggleAnnouncementStatus(announcement._id, announcement.isActive)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    announcement.isActive 
+                      ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                      : 'bg-red-100 text-red-600 hover:bg-red-200'
+                  }`}
+                  title={announcement.isActive ? 'Deactivate' : 'Activate'}
+                >
+                  {announcement.isActive ? <FaCheck /> : <FaTimes />}
+                </button>
+                <button
+                  onClick={() => deleteAnnouncement(announcement._id)}
+                  className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                  title="Delete"
+                >
+                  <FaTrash />
+                </button>
               </div>
             </div>
-          ))
-        )}
+            
+            <p className="mt-4 text-gray-700">{announcement.message}</p>
+            
+            <div className="mt-4 flex gap-4">
+              <div className="bg-gray-50 px-6 py-3 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Total</p>
+                <p className="text-xl font-semibold text-gray-900">
+                  {announcement.type === 'revenue' ? '$' : ''}
+                  {announcement.metrics.total}
+                </p>
+              </div>
+              <div className="bg-gray-50 px-6 py-3 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Change</p>
+                <p className={`text-xl font-semibold ${
+                  announcement.metrics.percentageChange > 0 
+                    ? 'text-green-600' 
+                    : 'text-red-600'
+                }`}>
+                  {announcement.metrics.percentageChange > 0 ? '+' : ''}
+                  {announcement.metrics.percentageChange.toFixed(1)}%
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -13,6 +13,11 @@ const bookingSchema = new Schema(
       required: true,
       ref: "User",
     },
+    owner: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     check_in: {
       type: Date,
       required: true,

@@ -63,7 +63,7 @@ export default function BookingCancellation({ bookingId, onCancel, booking }) {
   return (
     <div className="relative">
       <button
-        className="bg-red-500 max-w-28 hover:bg-red-600 text-white py-2 px-6 rounded-lg 
+        className="bg-red-500 max-w-40 hover:bg-red-600 text-white py-2 px-6 rounded-lg 
                    text-sm font-medium transition-colors duration-200 ease-in-out
                    flex items-center gap-2"
         onClick={handleCancelClick}

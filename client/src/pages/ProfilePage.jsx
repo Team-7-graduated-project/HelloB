@@ -147,10 +147,10 @@ export default function ProfilePage() {
         return;
       }
 
-      // Email format validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(updatedUserData.email)) {
-        setErrors({ email: "Invalid email format" });
+      // Enhanced Gmail validation
+      const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+      if (!gmailRegex.test(updatedUserData.email.toLowerCase())) {
+        setErrors({ email: "Please enter a valid Gmail address (example@gmail.com)" });
         return;
       }
 
@@ -187,13 +187,10 @@ export default function ProfilePage() {
     } catch (error) {
       console.error("Update failed:", error);
 
-      // Handle different types of errors
       if (error.response?.data?.error) {
-        // If error is an object with multiple fields
         if (typeof error.response.data.error === "object") {
           setErrors(error.response.data.error);
         } else {
-          // If error is a single string
           setErrors({ general: error.response.data.error });
         }
       } else {
@@ -280,64 +277,68 @@ export default function ProfilePage() {
       <div className="max-w-4xl mx-auto">
         {activePage === "profile" && (
           <div className="space-y-8">
-            {/* Profile Header with Photo */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-8">
-                <div className="relative group">
-                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-primary/20">
-                    {photoPreview || user?.photo ? (
-                      <img
-                        src={photoPreview || user.photo}
-                        alt={user.name}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.src = "https://via.placeholder.com/150";
-                        }}
+            {/* Enhanced Profile Header with Photo */}
+            <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 text-white">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-8">
+                  <div className="relative group">
+                    <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-xl">
+                      {photoPreview || user?.photo ? (
+                        <img
+                          src={photoPreview || user.photo}
+                          alt={user.name}
+                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-110"
+                          onError={(e) => {
+                            e.target.src = "https://via.placeholder.com/150";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-white/10 flex items-center justify-center">
+                          <FaUser className="text-4xl text-white/70" />
+                        </div>
+                      )}
+                    </div>
+                    <label className="absolute bottom-0 right-0 bg-white text-primary p-2 rounded-full cursor-pointer
+                              hover:bg-gray-50 transition-all transform hover:scale-110 shadow-lg">
+                      <FaCamera className="text-lg" />
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
                       />
-                    ) : (
-                      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                        <FaUser className="text-4xl text-gray-400" />
-                      </div>
-                    )}
+                    </label>
                   </div>
-                  <label
-                    className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full cursor-pointer
-                                  hover:bg-primary-dark transition-colors"
-                  >
-                    <FaCamera className="text-lg" />
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handlePhotoChange}
-                    />
-                  </label>
+                  {photoFile && (
+                    <button
+                      onClick={handlePhotoUpload}
+                      className="px-6 py-3 bg-white text-primary rounded-xl hover:bg-gray-50 
+                             transition-all duration-200 flex items-center gap-2 shadow-lg"
+                    >
+                      <FaUpload />
+                      Upload Photo
+                    </button>
+                  )}
                 </div>
-                {photoFile && (
-                  <button
-                    onClick={handlePhotoUpload}
-                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark 
-                             transition-colors flex items-center gap-2"
-                  >
-                    <FaUpload />
-                    Upload Photo
-                  </button>
-                )}
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 px-6 py-3 bg-red-200 max-w-32 text-red-500 rounded-xl
+                           hover:bg-red-600 hover:text-white  transition-all duration-200"
+                >
+                  <FaSignOutAlt className="text-red-500 hover:text-white" />
+                  Logout
+                </button>
               </div>
-              <button
-                onClick={logout}
-                className="flex max-w-28   items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <FaSignOutAlt />
-                Logout
-              </button>
+              <div className="mt-6">
+                <h2 className="text-2xl font-bold">{user.name}</h2>
+                <p className="text-white/80">{user.email}</p>
+              </div>
             </div>
 
-            {/* Two Column Layout */}
+            {/* Rest of the profile content with enhanced styling */}
             <div className="grid md:grid-cols-3 gap-8">
-              {/* Left Column - Profile Info */}
               <div className="md:col-span-2 space-y-6">
-                <div className=" p-6 rounded-xl shadow-lg ">
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                   <div className="flex items-center justify-between mb-6">
                     <div>
                       <h3 className="text-xl font-semibold text-gray-800">
@@ -513,7 +514,7 @@ export default function ProfilePage() {
 
               {/* Right Column - Password Change */}
               <div className="md:col-span-1">
-                <div className="bg-white p-6 rounded-xl shadow-lg">
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
                   <div className="mb-6">
                     <h3 className="text-xl font-semibold text-gray-800">
                       Password Settings

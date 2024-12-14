@@ -10,6 +10,8 @@ import {
   FaHeart,
   FaCreditCard,
   FaMobileAlt,
+  FaGoogle,
+  FaDesktop,
 } from "react-icons/fa";
 import TermsModal from "./components/TermsModal";
 import PrivacyModal from "./components/PrivacyModal";
@@ -61,7 +63,7 @@ function Footer() {
                   />
                 </Link>
                 <Link
-                  to="https://x.com/Bookingss_Hotel"
+                  to="https://x.com/HelloB_Hotel"
                   className=""
                 >
                   <FaTwitter
@@ -69,12 +71,12 @@ function Footer() {
                     size={24}
                   />
                 </Link>{" "}
-                <Link to="https://www.instagram.com/bookingss_hotel/">
+                <Link to="https://www.instagram.com/hellob_hotel/">
                   <FaInstagram
                     className="text-gray-400 hover:text-primary transform hover:scale-110 transition-all"
                     size={24}
                   />
-                </Link>{" "}
+                </Link>{" "}  
               </div>
             </div>
 
@@ -167,7 +169,10 @@ function Footer() {
             </p>
             <p className="text-gray-400 flex gap-4">
               <FaCreditCard size={48} className="text-primary" />
+              <FaGoogle size={48} className="text-primary" />
               <FaMobileAlt size={48} className="text-primary" />
+              <FaDesktop size={48} className="text-primary" />
+              
             </p>
           </div>
         </div>

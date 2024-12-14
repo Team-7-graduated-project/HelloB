@@ -15,6 +15,10 @@ import {
   FaRegTimesCircle,
   FaFlag,
   FaCheckCircle,
+  FaClock,
+  FaStar,
+  FaSpinner,
+  FaInfoCircle,
 } from "react-icons/fa";
 import ReportForm from "../components/ReportForm";
 
@@ -35,6 +39,7 @@ export default function BookingPage() {
   const [error, setError] = useState(null);
   const [showReportForm, setShowReportForm] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
 
   const loadBooking = useCallback(async () => {
     if (!id) return;
@@ -205,6 +210,28 @@ export default function BookingPage() {
     return user.role === "user"; // Only allow regular users to report
   }, [user]);
 
+  const checkUserReview = useCallback(async () => {
+    if (!booking?.place?._id || !user?._id) return;
+    
+    try {
+      const response = await axios.get(`/api/reviews/check`, {
+        params: {
+          placeId: booking.place._id,
+          userId: user._id
+        }
+      });
+      setHasReviewed(response.data.hasReviewed);
+    } catch (error) {
+      console.error("Error checking review status:", error);
+    }
+  }, [booking?.place?._id, user?._id]);
+
+  useEffect(() => {
+    if (booking) {
+      checkUserReview();
+    }
+  }, [booking, checkUserReview]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -248,186 +275,235 @@ export default function BookingPage() {
     }
   };
 
-  const renderPaymentButton = () => {
-    if (booking?.paymentStatus === "paid" || paymentStatus === "paid") {
+  const StatusBadge = ({ status }) => {
+    const styles = {
+      completed: "bg-green-100 text-green-800 border border-green-200",
+      confirmed: "bg-blue-100 text-blue-800 border border-blue-200",
+      pending: "bg-yellow-100 text-yellow-800 border border-yellow-200",
+      cancelled: "bg-red-100 text-red-800 border border-red-200"
+    };
+
+    return (
+      <span className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status] || styles.pending}`}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </span>
+    );
+  };
+
+  const PaymentStatusBadge = ({ status, method }) => {
+    if (status === "paid") {
       return (
-        <div className="ml-10 text-green-600 font-semibold">
-          Paid via{" "}
-          {booking?.paymentMethod === "payLater"
-            ? "Pay at Property"
-            : "Online Payment"}
+        <div className="flex items-center gap-2 text-green-600">
+          <FaCheckCircle />
+          <span>Paid via {method === "payLater" ? "Pay at Property" : "Online Payment"}</span>
         </div>
       );
     }
 
-    if (
-      (booking?.paymentStatus === "pending" &&
-        booking?.paymentMethod === "payLater") ||
-      (paymentStatus === "pending" && paymentMethod === "payLater")
-    ) {
+    if (status === "pending" && method === "payLater") {
       return (
-        <div className="ml-10 text-orange-600 font-semibold">
-          Payment pending - Pay at Property
+        <div className="flex items-center gap-2 text-orange-600">
+          <FaClock />
+          <span>Payment pending - Pay at Property</span>
         </div>
       );
     }
 
     return (
       <button
-        className="ml-10 text-black max-w-36 bg-sky-500 rounded-md px-4 py-2 hover:bg-sky-600"
         onClick={handleOpenModal}
+        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-all duration-200"
       >
-        Choose your Payment
+        <FaCreditCard />
+        Choose Payment Method
       </button>
     );
   };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Booking Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          {placeToPass.title}
-        </h1>
-        <AddressLink className="text-gray-600">
-          {booking.place.address || "Address not available"}
-        </AddressLink>
+      {/* Booking Header with Status */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{placeToPass.title}</h1>
+            <AddressLink className="text-gray-600 mt-1">
+              {booking.place.address || "Address not available"}
+            </AddressLink>
+          </div>
+          <StatusBadge status={booking.status} />
+        </div>
       </div>
 
-      {/* Checkout Status Section */}
+      {/* Checkout Status Card */}
       {booking && (
-        <div className="bg-white shadow-lg rounded-2xl overflow-hidden mb-8">
-          <div className="p-6">
-            <div className="flex items-center mb-4 text-gray-800">
-              <FaCheckCircle className="text-primary mr-2" size={20} />
-              <h2 className="text-xl font-semibold">Checkout Status</h2>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FaCheckCircle className="text-primary" size={24} />
             </div>
-
-            {booking.status === "completed" ? (
-              <div className="bg-green-50 p-4 rounded-lg">
-                <div className="flex items-center text-green-600">
-                  <FaCheckCircle className="mr-2" />
-                  <span>Checkout completed</span>
-                </div>
-              </div>
-            ) : isReadyForCheckout(booking) ? (
-              <div className="bg-green-50 p-6 rounded-lg border border-green-200">
-                <div className="flex items-center mb-4">
-                  <FaCheckCircle className="text-green-600 mr-2" size={24} />
-                  <h3 className="text-lg font-medium">Ready for Checkout</h3>
-                </div>
-                <button
-                  onClick={handleCheckout}
-                  disabled={checkoutLoading}
-                  className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors ${
-                    checkoutLoading ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                >
-                  <FaCheckCircle />
-                  {checkoutLoading ? "Processing..." : "Confirm Checkout"}
-                </button>
-              </div>
-            ) : (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center text-gray-600">
-                  <FaCalendarCheck className="mr-2" />
-                  <span>
-                    {booking.status !== "confirmed"
-                      ? "Booking must be confirmed to checkout"
-                      : booking.paymentStatus !== "paid"
-                      ? "Payment must be completed to checkout"
-                      : new Date() < new Date(booking.check_out)
-                      ? `Checkout will be available on ${new Date(
-                          booking.check_out
-                        ).toLocaleDateString()}`
-                      : new Date() > new Date(booking.check_out)
-                      ? "Checkout period has passed"
-                      : "Checkout not available"}
-                  </span>
-                </div>
-                <div className="mt-2 text-sm text-gray-500">
-                  Check-out date:{" "}
-                  {new Date(booking.check_out).toLocaleDateString()}
-                </div>
-              </div>
-            )}
+            <h2 className="text-xl font-semibold text-gray-900">Checkout Status</h2>
           </div>
+
+          {booking.status === "completed" ? (
+            <div className="bg-green-50 rounded-xl p-4 border border-green-100">
+              <div className="flex items-center text-green-700">
+                <FaCheckCircle className="mr-2" />
+                <span className="font-medium">Checkout completed successfully</span>
+              </div>
+            </div>
+          ) : isReadyForCheckout(booking) ? (
+            <div className="bg-blue-50 rounded-xl p-6 border border-blue-100">
+              <div className="flex items-center mb-4">
+                <FaCalendarCheck className="text-blue-600 mr-2" size={24} />
+                <h3 className="text-lg font-medium text-blue-900">Ready for Checkout</h3>
+              </div>
+              <button
+                onClick={handleCheckout}
+                disabled={checkoutLoading}
+                className={`w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-all duration-200 ${
+                  checkoutLoading ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                {checkoutLoading ? (
+                  <>
+                    <FaSpinner className="animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <FaCheckCircle />
+                    Confirm Checkout
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <div className="flex items-center text-gray-700">
+                <FaInfoCircle className="mr-2" />
+                <span>
+                  {booking.status !== "confirmed"
+                    ? "Booking must be confirmed to checkout"
+                    : booking.paymentStatus !== "paid"
+                    ? "Payment must be completed to checkout"
+                    : new Date() < new Date(booking.check_out)
+                    ? `Checkout will be available on ${new Date(booking.check_out).toLocaleDateString()}`
+                    : "Checkout period has passed"}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Booking Information Card */}
-      <div className="bg-white shadow-lg rounded-2xl overflow-hidden mb-8">
-        <div className="p-6 sm:p-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Dates Section */}
-            <div>
-              <div className="flex items-center mb-4 text-gray-800">
-                <FaCalendarCheck className="text-primary mr-2" size={20} />
-                <h2 className="text-xl font-semibold">Booking Dates</h2>
-              </div>
-              {booking?.check_in && booking?.check_out ? (
-                <BookingDates booking={booking} className="text-gray-600" />
-              ) : (
-                <div className="text-red-500">Booking dates not available</div>
-              )}
+      {/* Booking Details Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Dates Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FaCalendarCheck className="text-primary" size={20} />
             </div>
-
-            {/* Price Section */}
-            <div>
-              <div className="flex items-center mb-4 text-gray-800">
-                <FaMoneyBillWave className="text-primary mr-2" size={20} />
-                <h2 className="text-xl font-semibold">Total Price</h2>
-              </div>
-              <div className="bg-primary/10 p-4 max-w-32 rounded-xl">
-                <span className="text-2xl font-bold text-primary">
-                  ${booking.price}
-                </span>
-                <span className="text-gray-600 ml-2">total</span>
-              </div>
-            </div>
-
-            {/* Payment Section */}
-            <div>
-              <div className="flex items-center mb-4 text-gray-800">
-                <FaCreditCard className="text-primary mr-2" size={20} />
-                <h2 className="text-xl font-semibold">Payment Status</h2>
-              </div>
-              <div className="space-y-4">{renderPaymentButton()}</div>
-            </div>
-
-            {/* Cancellation Section */}
-            <div>
-              <div className="flex items-center mb-4 text-gray-800">
-                <FaRegTimesCircle className="text-primary mr-2" size={20} />
-                <h2 className="text-xl font-semibold">Cancellation</h2>
-              </div>
-              <div className="space-y-4">{renderCancellationSection()}</div>
-            </div>
+            <h3 className="font-semibold text-gray-900">Booking Dates</h3>
           </div>
+          <BookingDates booking={booking} className="text-gray-600" />
+        </div>
+
+        {/* Price Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FaMoneyBillWave className="text-primary" size={20} />
+            </div>
+            <h3 className="font-semibold text-gray-900">Total Price</h3>
+          </div>
+          <div className="text-3xl font-bold text-primary">${booking.price}</div>
+        </div>
+
+        {/* Payment Status Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FaCreditCard className="text-primary" size={20} />
+            </div>
+            <h3 className="font-semibold text-gray-900">Payment Status</h3>
+          </div>
+          <PaymentStatusBadge status={paymentStatus} method={paymentMethod} />
+        </div>
+
+        {/* Cancellation Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FaRegTimesCircle className="text-primary" size={20} />
+            </div>
+            <h3 className="font-semibold text-gray-900">Cancellation</h3>
+          </div>
+          {renderCancellationSection()}
         </div>
       </div>
 
       {/* Place Gallery */}
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-8">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
         <PlaceGallery place={placeToPass} />
       </div>
 
       {/* Review Section */}
-      <div className="bg-white overflow-hidden">
-        {booking?.paymentStatus === "paid" || paymentStatus === "paid" ? (
-          <ReviewPage
-            rating={rating}
-            setRating={setRating}
-            placeId={booking.place._id}
-          />
-        ) : (
-          <div className="p-6 text-center text-gray-600">
-            Please complete your payment to leave a review.
+      {!hasReviewed ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+          {booking?.paymentStatus === "paid" || paymentStatus === "paid" ? (
+            <ReviewPage
+              rating={rating}
+              setRating={setRating}
+              placeId={booking.place._id}
+              onReviewSubmitted={() => setHasReviewed(true)}
+            />
+          ) : (
+            <div className="p-6 text-center text-gray-600">
+              <FaStar className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+              <p>Complete your payment to leave a review</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+          <div className="p-6 text-center">
+            <div className="bg-green-50 rounded-xl p-4 inline-flex items-center gap-2 text-green-700">
+              <FaCheckCircle className="text-green-500" />
+              <span>Thank you! You've already reviewed this booking</span>
+            </div>
           </div>
-        )}
+        </div>
+      )}
+
+      {/* Report Section */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-red-50 rounded-lg">
+              <FaFlag className="text-red-500" size={20} />
+            </div>
+            <h3 className="font-semibold text-gray-900">Report an Issue</h3>
+          </div>
+          {canReport() ? (
+            <button
+              onClick={() => setShowReportForm(true)}
+              className="px-4 py-2 bg-red-200 max-w-32 text-red-600 hover:bg-red-300 rounded-lg transition-colors"
+            >
+              Report Issue
+            </button>
+          ) : (
+            user && (
+              <span className="text-red-600 text-sm">
+                Only registered users can report issues
+              </span>
+            )
+          )}
+        </div>
       </div>
 
-      {/* Payment Modal */}
+      {/* Modals */}
       {isModalOpen && booking && user && (
         <PaymentOptionsModal
           isOpen={isModalOpen}
@@ -438,26 +514,6 @@ export default function BookingPage() {
         />
       )}
 
-      {/* Add Report Button */}
-      <div className="mt-4 border-t pt-4">
-        {canReport() ? (
-          <button
-            onClick={() => setShowReportForm(true)}
-            className="flex items-center gap-2 text-gray-600 hover:text-red-500"
-          >
-            <FaFlag />
-            Report an issue
-          </button>
-        ) : (
-          user && (
-            <div className="text-red-600 font-bold italic">
-              Only registered users can report issues
-            </div>
-          )
-        )}
-      </div>
-
-      {/* Report Form Modal */}
       {showReportForm && canReport() && (
         <ReportForm
           placeId={booking.place._id}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
-import { FaTimes } from "react-icons/fa";
+import { FaTimes, FaPlus, FaEdit, FaTrash, FaSpinner, FaTicketAlt } from "react-icons/fa";
 
 export default function VoucherListPage() {
   const [vouchers, setVouchers] = useState([]);
@@ -10,13 +10,17 @@ export default function VoucherListPage() {
   const [error, setError] = useState(null);
   const [editingVoucher, setEditingVoucher] = useState(null);
 
-  // Add fetchVouchers function
+  // Update fetchVouchers function
   const fetchVouchers = async () => {
     try {
       const response = await axios.get("/host/vouchers", {
         withCredentials: true,
       });
-      setVouchers(response.data);
+      // Sort vouchers by expiration date (oldest first)
+      const sortedVouchers = response.data.sort((a, b) => 
+        new Date(b.expirationDate) - new Date(a.expirationDate)
+      );
+      setVouchers(sortedVouchers);
     } catch (error) {
       console.error("Error fetching vouchers:", error);
       setError("Failed to fetch vouchers");
@@ -32,7 +36,12 @@ export default function VoucherListPage() {
           axios.get("/host/places"),
         ]);
 
-        setVouchers(vouchersRes.data);
+        // Sort vouchers by expiration date (oldest first)
+        const sortedVouchers = vouchersRes.data.sort((a, b) => 
+          new Date(b.expirationDate) - new Date(a.expirationDate)
+        );
+
+        setVouchers(sortedVouchers);
         setPlaces(placesRes.data);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -307,142 +316,148 @@ export default function VoucherListPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
-        <div>
-          <h3 className="text-3xl font-bold text-gray-900">
-            Voucher Management
-          </h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Manage your discount vouchers and promotional offers
-          </p>
-        </div>
-        <Link
-          to="/host/vouchers/new"
-          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            className="w-5 h-5 mr-2"
+      {/* Enhanced Header Section */}
+      <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Voucher Management</h1>
+            <p className="text-white/80">
+              Create and manage discount vouchers for your properties
+            </p>
+          </div>
+          <Link
+            to="/host/vouchers/new"
+            className="bg-white text-primary px-6 py-3 rounded-xl hover:bg-gray-50 
+                     transition-all duration-200 flex items-center gap-2 shadow-lg hover:scale-105"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          Create Voucher
-        </Link>
+            <FaPlus />
+            Create Voucher
+          </Link>
+        </div>
       </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="mb-6 rounded-lg bg-red-50 p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg
-                className="h-5 w-5 text-red-400"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">Error</h3>
-              <p className="mt-1 text-sm text-red-700">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-        </div>
-      ) : vouchers.length > 0 ? (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Voucher Code
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Discount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Description
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Expiration
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Places
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+      {/* Enhanced Table Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Code & Status
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Discount
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Description
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Expiration
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Places
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {vouchers.map((voucher) => (
+                <tr key={voucher._id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-900">{voucher.code}</span>
+                      <span className={`text-sm ${voucher.active ? 'text-green-600' : 'text-red-600'}`}>
+                        {voucher.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                      {voucher.discount}% OFF
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <p className="text-sm text-gray-600 max-w-xs truncate">
+                      {voucher.description}
+                    </p>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`text-sm ${
+                      new Date(voucher.expirationDate) < new Date() 
+                        ? 'text-red-600' 
+                        : 'text-gray-600'
+                    }`}>
+                      {new Date(voucher.expirationDate).toLocaleDateString()}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-1">
+                      {voucher.applicablePlaces?.map((place) => (
+                        <span
+                          key={place._id}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                          title={place.title}
+                        >
+                          {place.title?.length > 20
+                            ? place.title.substring(0, 20) + "..."
+                            : place.title || "Unnamed Place"}
+                        </span>
+                      ))}
+                      {(!voucher.applicablePlaces ||
+                        voucher.applicablePlaces.length === 0) && (
+                        <span className="text-gray-400 italic text-xs">All places</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => handleEdit(voucher)}
+                        className="inline-flex items-center px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                      >
+                        <FaEdit className="mr-1" />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(voucher._id)}
+                        className="inline-flex items-center px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                      >
+                        <FaTrash className="mr-1" />
+                        Delete
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {vouchers.map((voucher) => renderTableRow(voucher))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
-      ) : (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-            />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">
-            No vouchers
-          </h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Get started by creating a new voucher.
-          </p>
-          <div className="mt-6">
+
+        {/* Empty State */}
+        {vouchers.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <FaTicketAlt className="mx-auto text-gray-300 text-5xl mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No Vouchers Found</h3>
+            <p className="text-gray-500 mb-6">Start by creating your first voucher</p>
             <Link
               to="/host/vouchers/new"
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
             >
-              <svg
-                className="-ml-1 mr-2 h-5 w-5"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
+              <FaPlus className="mr-2" />
               Create Voucher
             </Link>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center items-center py-12">
+            <FaSpinner className="animate-spin text-primary text-3xl" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -123,20 +123,23 @@ function PlacesList() {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <FaMapMarkerAlt className="text-primary" />
-        Manage Places
-      </h2>
-
-      <div className="relative flex items-center gap-2 mb-6">
-        <FaSearch />
-        <input
-          type="text"
-          placeholder="Search places by title or address..."
-          value={searchQuery}
-          onChange={handleSearchChange}
-          className="w-full p-3 pl-10 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
+      <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Property Management</h1>
+            <p className="text-white/80">Manage and monitor all listed properties</p>
+          </div>
+          <div className="relative flex-1 max-w-md">
+            <input
+              type="text"
+              placeholder="Search properties..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="w-full pl-10 pr-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30"
+            />
+            <FaSearch className="absolute right-3 top-1/2 -translate-y-1/2 text-gary-600" />
+          </div>
+        </div>
       </div>
 
       {loading ? (

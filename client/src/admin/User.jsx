@@ -2,6 +2,11 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import StatusToggle from "./StatusToggle";
 import { FaSearch, FaSpinner, FaUser, FaEdit } from "react-icons/fa";
+const maskPassword = (password) => {
+  if (!password) return '';
+  if (password.length <= 8) return '••••••';
+  return password.slice(0, 2) + '••••' + password.slice(-2);
+};
 
 function ManageUsersPage() {
   const [users, setUsers] = useState([]);
@@ -100,37 +105,39 @@ function ManageUsersPage() {
 
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-        <FaUser className="text-primary" />
-        Manage Users
-      </h2>
-
-      {/* Search Bar */}
-      <div className="relative flex items-center gap-2 mb-6">
-        <FaSearch className="" />
-        <input
-          type="text"
-          placeholder="Search users by name or email..."
-          value={searchQuery}
-          onChange={handleSearchChange}
-          className="w-full p-3 pl-10  border rounded-lg shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent"
-        />
-      </div>
-
-      {/* Loading State */}
-      {loading ? (
-        <div className="flex justify-center items-center py-8">
-          <FaSpinner className="animate-spin text-primary text-3xl" />
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 text-white">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">User Management</h1>
+              <p className="text-white/80">Manage and monitor user accounts</p>
+            </div>
+            <div className="relative flex-1 max-w-md">
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="w-full pl-10 pr-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30"
+              />
+              <FaSearch className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600" />
+            </div>
+          </div>
         </div>
-      ) : (
-        <>
-          {/* User List */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex justify-center items-center py-8">
+            <FaSpinner className="animate-spin text-primary text-3xl" />
+          </div>
+        ) : (
+          <>
+            {/* User List */}
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       User Info
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -141,7 +148,7 @@ function ManageUsersPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-100">
                   {filteredUsers.slice(0, visibleUsers).map((user) => (
                     <tr key={user._id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
@@ -157,11 +164,17 @@ function ManageUsersPage() {
                               {user.phone}
                             </span>
                           )}
+                          {user.password && (
+                            <span className="text-sm text-gray-500">
+                              {maskPassword(user.password)}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <StatusToggle
                           user={user}
+      
                           onStatusChange={(id, newStatus, reason) => {
                             const updatedUsers = users.map((u) =>
                               u._id === id
@@ -203,67 +216,67 @@ function ManageUsersPage() {
                 </tbody>
               </table>
             </div>
-          </div>
 
-          {/* Load More Button */}
-          {visibleUsers < filteredUsers.length && (
-            <div className="flex justify-center mt-6">
-              <button
-                onClick={handleWatchMore}
-                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
-              >
-                Load More
-              </button>
-            </div>
-          )}
-        </>
-      )}
+            {/* Load More Button */}
+            {visibleUsers < filteredUsers.length && (
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={handleWatchMore}
+                  className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                >
+                  Load More
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
-      {editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h3 className="text-lg font-bold mb-4">Edit User</h3>
-            <input
-              type="text"
-              value={editingUser.name}
-              onChange={(e) =>
-                setEditingUser({ ...editingUser, name: e.target.value })
-              }
-              className="w-full p-2 border rounded mb-2"
-            />
-            <input
-              type="email"
-              value={editingUser.email}
-              onChange={(e) =>
-                setEditingUser({ ...editingUser, email: e.target.value })
-              }
-              className="w-full p-2 border rounded mb-4"
-            />
-            <input
-              type="tel"
-              value={editingUser.phone || ""}
-              onChange={(e) =>
-                setEditingUser({ ...editingUser, phone: e.target.value })
-              }
-              className="w-full p-2 border rounded mb-4"
-            />
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setEditingUser(null)}
-                className="px-4 py-2 bg-gray-200 rounded"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleEdit(editingUser)}
-                className="px-4 py-2 bg-primary text-white rounded"
-              >
-                Save
-              </button>
+        {editingUser && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div className="bg-white p-6 rounded-lg w-96">
+              <h3 className="text-lg font-bold mb-4">Edit User</h3>
+              <input
+                type="text"
+                value={editingUser.name}
+                onChange={(e) =>
+                  setEditingUser({ ...editingUser, name: e.target.value })
+                }
+                className="w-full p-2 border rounded mb-2"
+              />
+              <input
+                type="email"
+                value={editingUser.email}
+                onChange={(e) =>
+                  setEditingUser({ ...editingUser, email: e.target.value })
+                }
+                className="w-full p-2 border rounded mb-4"
+              />
+              <input
+                type="tel"
+                value={editingUser.phone || ""}
+                onChange={(e) =>
+                  setEditingUser({ ...editingUser, phone: e.target.value })
+                }
+                className="w-full p-2 border rounded mb-4"
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setEditingUser(null)}
+                  className="px-4 py-2 bg-gray-200 rounded"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleEdit(editingUser)}
+                  className="px-4 py-2 bg-primary text-white rounded"
+                >
+                  Save
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

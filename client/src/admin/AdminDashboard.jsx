@@ -29,26 +29,21 @@ import Announcement from "./Announcement";
 
 const StatCard = ({ title, value, icon, trend }) => {
   return (
-    <div className="bg-white rounded-2xl p-4 md:p-6 shadow-lg hover:shadow-xl transition-all duration-300">
+    <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
       <div className="flex justify-between items-start mb-4">
-        <div className="p-2 md:p-3 bg-primary/10 rounded-xl">
-          {React.cloneElement(icon, { className: "text-xl md:text-2xl text-primary" })}
+        <div className="p-3 bg-primary/10 rounded-xl">
+          {React.cloneElement(icon, { className: "text-2xl text-primary" })}
         </div>
         {trend && (
-          <span
-            className={`text-xs md:text-sm font-medium px-2 py-1 rounded-full ${
-              trend > 0
-                ? "bg-green-100 text-green-600"
-                : "bg-red-100 text-red-600"
-            }`}
-          >
-            {trend > 0 ? "+" : ""}
-            {trend}%
+          <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+            trend > 0 ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+          }`}>
+            {trend > 0 ? "+" : ""}{trend}%
           </span>
         )}
       </div>
-      <h3 className="text-gray-600 text-sm md:text-base font-medium mb-2">{title}</h3>
-      <div className="text-xl md:text-3xl font-bold text-gray-800">{value}</div>
+      <h3 className="text-gray-600 text-sm font-medium mb-2">{title}</h3>
+      <div className="text-2xl font-bold text-gray-800">{value}</div>
     </div>
   );
 };
@@ -711,54 +706,30 @@ function AdminDashboard() {
 
         {/* Dashboard Overview */}
         {location.pathname === "/admin" && (
-          <div className="bg-gradient-to-r from-blue-500 to-blue-800 py-4 md:py-8 px-4 md:px-6 rounded-lg shadow-lg text-white">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-8">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold">Dashboard Overview</h1>
-                <p className="mt-2 text-base md:text-lg opacity-90">
-                  Real-time statistics and platform metrics
-                </p>
+          <div className="space-y-6">
+            <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 text-white">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold mb-2">Dashboard Overview</h1>
+                  <p className="text-white/80">Real-time statistics and platform metrics</p>
+                </div>
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="relative max-w-40 bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-xl hover:bg-white/20 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <FaBell />
+                    Notifications
+                    {notifications.filter(n => n.status === "unread").length > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
+                        {notifications.filter(n => n.status === "unread").length}
+                      </span>
+                    )}
+                  </div>
+                </button>
               </div>
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative bg-white max-w-60 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors"
-              >
-                Notifications
-                {notifications.filter((n) => n.status === "unread").length >
-                  0 && (
-                  <span className="absolute  -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
-                    {notifications.filter((n) => n.status === "unread").length}
-                  </span>
-                )}
-              </button>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
-              <StatCard
-                title="Total Users"
-                value={stats.totalUsers}
-                icon={<FaUser />}
-              />
-              <StatCard
-                title="Total Hosts"
-                value={stats.totalHosts}
-                icon={<FaUser />}
-              />
-              <StatCard
-                title="Total Places"
-                value={stats.totalPlaces}
-                icon={<FaHotel />}
-              />
-              <StatCard
-                title="Total Bookings"
-                value={stats.totalBookings}
-                icon={<FaMapMarkerAlt />}
-              />
-              <StatCard
-                title="Total Revenue"
-                value={`$${stats.totalPayments.toLocaleString()}`}
-                icon={<FaChartLine />}
-              />
-            </div>
+            {renderStats()}
           </div>
         )}
         <Routes>

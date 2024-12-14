@@ -1831,7 +1831,56 @@ app.post("/reviews", authenticateToken, async (req, res) => {
   }
 });
 
-// Get all users (Admin only)
+app.get("/api/reviews/check", authenticateToken, async (req, res) => {
+  try {
+    const { placeId, userId } = req.query;
+    
+    const existingReview = await Review.findOne({
+      place: placeId,
+      user: userId
+    });
+
+    res.json({ hasReviewed: !!existingReview });
+  } catch (error) {
+    console.error("Error checking review status:", error);
+    res.status(500).json({ error: "Failed to check review status" });
+  }
+});
+
+app.get('/host/bookings', async (req, res) => {
+  try {
+    const { page = 1, limit = 5, status = 'all', sort = 'desc' } = req.query;
+    const skip = (page - 1) * limit;
+
+    // Build query based on status filter
+    let query = { owner: req.user._id };
+    if (status !== 'all') {
+      query.status = status;
+    }
+
+    // Get total count for pagination
+    const total = await Booking.countDocuments(query);
+    const totalPages = Math.ceil(total / limit);
+
+    // Get bookings with sorting
+    const bookings = await Booking.find(query)
+      .sort({ check_in: sort === 'asc' ? 1 : -1 }) // Sort by check-in date
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('user', 'name')
+      .populate('place', 'title');
+
+    res.json({
+      bookings,
+      totalPages,
+      currentPage: page,
+      total
+    });
+  } catch (error) {
+    console.error('Error fetching host bookings:', error);
+    res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
 
 // Route to get all bookings for the host's places
 app.get(
@@ -2592,28 +2641,6 @@ app.put("/notifications/:id/read", authenticateToken, async (req, res) => {
 });
 
 // Create notification helper function
-const createNotification = async (
-  type,
-  title,
-  message,
-  link = "",
-  userId = null
-) => {
-  try {
-    const notification = new Notification({
-      type,
-      title,
-      message,
-      link,
-      user: userId, // Add user targeting
-      status: "unread",
-    });
-    await notification.save();
-    return notification;
-  } catch (error) {
-    console.error("Error creating notification");
-  }
-};
 
 // Start the server
 
@@ -4644,7 +4671,195 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
   }
 });
 
-// Enhance the auto-complete task
+// Enhanced notification helper function with priority levels and categories
+const createNotification = async (
+  type,
+  title,
+  message,
+  link = "",
+  userId = null,
+  options = {}
+) => {
+  try {
+    const {
+      priority = "normal", // Priority: high, normal, low
+      category = "general", // Category: general, user, host, booking, report, system
+      expiresAt = null, // Optional expiration date
+      actions = [], // Optional actions that can be taken
+      metadata = {} // Additional data
+    } = options;
+
+    const notification = new Notification({
+      type,
+      title,
+      message,
+      link,
+      user: userId,
+      status: "unread",
+      priority,
+      category,
+      expiresAt,
+      actions,
+      metadata,
+      createdAt: new Date()
+    });
+
+    await notification.save();
+
+    // If it's a high priority notification, we might want to send additional alerts
+    if (priority === "high") {
+      // TODO: Implement email/SMS alerts for high priority notifications
+      console.log("High priority notification created:", title);
+    }
+
+    return notification;
+  } catch (error) {
+    console.error("Error creating notification:", error);
+    throw error;
+  }
+};
+
+// Admin notification endpoints
+app.get("/api/admin/notifications", authenticateToken, authorizeRole("admin"), async (req, res) => {
+  try {
+    const { 
+      status,
+      priority,
+      category,
+      startDate,
+      endDate,
+      limit = 50,
+      page = 1
+    } = req.query;
+
+    const query = {};
+
+    // Filter by status
+    if (status) {
+      query.status = status;
+    }
+
+    // Filter by priority
+    if (priority) {
+      query.priority = priority;
+    }
+
+    // Filter by category
+    if (category) {
+      query.category = category;
+    }
+
+    // Filter by date range
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    const notifications = await Notification.find(query)
+      .sort({ createdAt: -1, priority: 1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .populate('user', 'name email');
+
+    const total = await Notification.countDocuments(query);
+
+    res.json({
+      notifications,
+      pagination: {
+        total,
+        pages: Math.ceil(total / limit),
+        currentPage: page,
+        limit
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching admin notifications:", error);
+    res.status(500).json({ error: "Failed to fetch notifications" });
+  }
+});
+
+// Mark notifications as read
+app.put("/api/admin/notifications/read", authenticateToken, authorizeRole("admin"), async (req, res) => {
+  try {
+    const { notificationIds } = req.body;
+
+    await Notification.updateMany(
+      { _id: { $in: notificationIds } },
+      { $set: { status: "read", readAt: new Date() } }
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error marking notifications as read:", error);
+    res.status(500).json({ error: "Failed to update notifications" });
+  }
+});
+
+// Delete notifications
+app.delete("/api/admin/notifications", authenticateToken, authorizeRole("admin"), async (req, res) => {
+  try {
+    const { notificationIds } = req.body;
+
+    await Notification.deleteMany({ _id: { $in: notificationIds } });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting notifications:", error);
+    res.status(500).json({ error: "Failed to delete notifications" });
+  }
+});
+
+// Example usage in existing endpoints:
+
+// When a report is updated
+app.put("/api/admin/reports/:id/status", authenticateToken, authorizeRole("admin"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const report = await Report.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    ).populate("reportedBy", "name email");
+
+    if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+
+    // Create notification with enhanced options
+    await createNotification(
+      "report_update",
+      "Report Status Updated",
+      `Report #${report._id} has been marked as ${status}`,
+      `/reports/${report._id}`,
+      report.reportedBy?._id,
+      {
+        priority: status === "resolved" ? "normal" : "high",
+        category: "report",
+        metadata: {
+          reportId: report._id,
+          previousStatus: report.status,
+          newStatus: status
+        }
+      }
+    );
+
+    res.json(report);
+  } catch (error) {
+    console.error("Error updating report status:", error);
+    res.status(500).json({ error: "Failed to update report status" });
+  }
+});
+
+// When a booking is auto-completed
 const autoCompleteBookings = async () => {
   try {
     const oneDayAgo = new Date();
@@ -4661,12 +4876,22 @@ const autoCompleteBookings = async () => {
       booking.status = "completed";
       await booking.save();
 
+      // Create notification with enhanced options
       await createNotification(
         "booking_auto_completed",
         "Booking Auto-Completed",
         `Booking #${booking._id} for ${booking.place.title} has been automatically completed`,
         `/host/bookings/${booking._id}`,
-        booking.place.owner
+        booking.place.owner,
+        {
+          priority: "normal",
+          category: "booking",
+          metadata: {
+            bookingId: booking._id,
+            placeId: booking.place._id,
+            revenue: booking.price
+          }
+        }
       );
 
       try {
@@ -4699,8 +4924,24 @@ const autoCompleteBookings = async () => {
       }
     }
   } catch (error) {
-    // Keep track of critical errors only
-    console.error("Critical: Auto-complete bookings failed");
+    console.error("Critical: Auto-complete bookings failed:", error);
+    
+    // Create system notification for critical error
+    await createNotification(
+      "system_error",
+      "Auto-Complete Bookings Failed",
+      "The automatic booking completion process has failed. Manual intervention may be required.",
+      "/admin/bookings",
+      null,
+      {
+        priority: "high",
+        category: "system",
+        metadata: {
+          error: error.message,
+          timestamp: new Date()
+        }
+      }
+    );
   }
 };
 
@@ -5335,3 +5576,7 @@ const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
+
+// Host bookings route
+
+// Add this endpoint to check if user has reviewed

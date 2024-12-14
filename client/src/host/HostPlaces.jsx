@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaSearch, FaSpinner, FaEdit, FaTrash, FaEye, FaEyeSlash, FaHome, FaMapMarkerAlt, FaDollarSign, FaUsers } from "react-icons/fa";
 
 function HostPlaces() {
   const [places, setPlaces] = useState([]);
@@ -13,6 +13,7 @@ function HostPlaces() {
   const [showReasonModal, setShowReasonModal] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [reason, setReason] = useState("");
+  const [sortBy, setSortBy] = useState("newest"); // "newest", "oldest", "price-high", "price-low"
 
   useEffect(() => {
     fetchPlaces();
@@ -35,27 +36,18 @@ function HostPlaces() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this place?")) {
+    if (window.confirm("Are you sure you want to delete this place? This action cannot be undone.")) {
       try {
         setLoading(true);
         await axios.delete(`/places/${id}`, {
           withCredentials: true,
         });
 
-        setPlaces((prevPlaces) =>
-          prevPlaces.filter((place) => place._id !== id)
-        );
-        alert("Place deleted successfully");
+        setPlaces((prevPlaces) => prevPlaces.filter((place) => place._id !== id));
+        toast.success("Place deleted successfully");
       } catch (error) {
         console.error("Error deleting place:", error);
-        if (error.response?.status === 403) {
-          alert("You are not authorized to delete this place");
-        } else {
-          alert(
-            error.response?.data?.error ||
-              "Error deleting place, please try again later."
-          );
-        }
+        toast.error(error.response?.data?.error || "Error deleting place");
       } finally {
         setLoading(false);
       }
@@ -71,41 +63,36 @@ function HostPlaces() {
     }
   };
 
-  const updatePlaceStatus = async (
-    placeId,
-    isActive,
-    deactivationReason = ""
-  ) => {
+  const updatePlaceStatus = async (placeId, isActive, deactivationReason = "") => {
     try {
       const response = await axios.put(`/host/places/${placeId}/status`, {
         isActive,
         reason: deactivationReason,
       });
 
-      setPlaces(
-        places.map((place) =>
-          place._id === placeId
-            ? {
-                ...place,
-                isActive: response.data.isActive,
-                deactivationReason: response.data.deactivationReason,
-              }
-            : place
-        )
-      );
+      setPlaces(places.map((place) =>
+        place._id === placeId
+          ? {
+              ...place,
+              isActive: response.data.isActive,
+              deactivationReason: response.data.deactivationReason,
+            }
+          : place
+      ));
 
       setShowReasonModal(false);
       setSelectedPlace(null);
       setReason("");
+      toast.success(`Place ${isActive ? 'activated' : 'deactivated'} successfully`);
     } catch (error) {
       console.error("Error updating place status:", error);
-      alert(error.response?.data?.error || "Failed to update place status");
+      toast.error(error.response?.data?.error || "Failed to update place status");
     }
   };
 
   const handleReasonSubmit = () => {
     if (!reason.trim()) {
-      alert("Please provide a reason");
+      toast.error("Please provide a reason");
       return;
     }
     if (selectedPlace) {
@@ -113,176 +100,215 @@ function HostPlaces() {
     }
   };
 
-  const filteredPlaces = places.filter((place) =>
+  const sortPlaces = (places) => {
+    const sortedPlaces = [...places];
+    switch (sortBy) {
+      case "oldest":
+        return sortedPlaces.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      case "price-high":
+        return sortedPlaces.sort((a, b) => b.price - a.price);
+      case "price-low":
+        return sortedPlaces.sort((a, b) => a.price - b.price);
+      default: // newest
+        return sortedPlaces.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+  };
+
+  const filteredPlaces = sortPlaces(places).filter((place) =>
     place.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-        <h3 className="text-2xl font-bold text-gray-800">Your Places</h3>
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search places..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
-            <svg
-              className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" /* ... */
-            />
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Property Management</h1>
+            <p className="text-white/80">
+              Manage and monitor all your listed properties
+            </p>
           </div>
           <Link
             to="/host/places/new"
-            className="inline-flex gap-2 items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            className="bg-white text-primary px-6 py-3 rounded-xl hover:bg-gray-50 
+                     transition-all duration-200 flex items-center gap-2 shadow-lg hover:scale-105"
           >
             <FaPlus />
-            Add Place
+            Add New Property
           </Link>
         </div>
       </div>
 
+      {/* Search and Filter Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="relative flex-1">
+            <FaSearch className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600" />
+            <input
+              type="text"
+              placeholder="Search properties..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="price-high">Price: High to Low</option>
+            <option value="price-low">Price: Low to High</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Content Section */}
       {loading ? (
         <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <FaSpinner className="animate-spin text-primary text-4xl" />
         </div>
       ) : error ? (
-        <div className="bg-red-50 p-4 rounded-lg text-red-700">{error}</div>
-      ) : places.length > 0 ? (
-        <>
-          <div className="overflow-x-auto bg-white rounded-lg shadow">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold">
-                    Place Title
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold">
-                    Address
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold">
-                    Price
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold">
-                    Guests
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredPlaces.slice(0, displayCount).map((place) => (
-                  <tr
-                    key={place._id}
-                    className="border-b last:border-0 hover:bg-gray-50"
+        <div className="bg-red-50 p-4 rounded-xl text-red-700">{error}</div>
+      ) : filteredPlaces.length > 0 ? (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredPlaces.slice(0, displayCount).map((place) => (
+            <div
+              key={place._id}
+              className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-200 flex flex-col h-full"
+            >
+              {/* Property Image - Fixed height */}
+              <div className="relative h-48 flex-shrink-0">
+                <img
+                  src={place.photos[0]}
+                  alt={place.title}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-4 right-4">
+                  <button
+                    onClick={() => handleStatusToggle(place)}
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      place.isActive
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
                   >
-                    <td className="px-6 py-3 text-sm">{place.title}</td>
-                    <td className="px-6 py-3 text-sm">{place.address}</td>
-                    <td className="px-6 py-3 text-sm">{place.price}$</td>
-                    <td className="px-6 py-3 text-sm">{place.max_guests}</td>
-                    <td className="px-6 py-3 text-sm">
-                      <button
-                        onClick={() => handleStatusToggle(place)}
-                        className={`px-3 py-1 rounded-full text-sm ${
-                          place.isActive
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
-                      >
-                        {place.isActive ? "Active" : "Hidden"}
-                      </button>
-                      {!place.isActive && place.deactivationReason && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Reason: {place.deactivationReason}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-3 flex gap-1">
-                      <button
-                        onClick={() => handleEdit(place._id)}
-                        className="max-w-16 rounded-xl bg-yellow-500 text-white px-4 py-1 mr-2 hover:bg-yellow-600"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(place._id)}
-                        className=" max-w-20 rounded-xl bg-red-500 text-white px-4 py-1 hover:bg-red-600"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    {place.isActive ? (
+                      <span className="flex items-center gap-1">
+                        <FaEye /> Active
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        <FaEyeSlash /> Hidden
+                      </span>
+                    )}
+                  </button>
+                </div>
+              </div>
 
-          {displayCount < filteredPlaces.length && (
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => setDisplayCount((prev) => prev + 5)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200"
-              >
-                Load More Places
-              </button>
+              {/* Property Details - Will expand to fill available space */}
+              <div className="p-6 flex flex-col flex-grow">
+                <h3 className="text-xl font-semibold mb-2">{place.title}</h3>
+                <div className="space-y-2 text-gray-600 flex-grow">
+                  <div className="flex items-center gap-2">
+                    <FaMapMarkerAlt className="text-gray-400" />
+                    <span className="text-sm">{place.address}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FaDollarSign className="text-gray-400" />
+                    <span className="text-sm">${place.price}/night</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FaUsers className="text-gray-400" />
+                    <span className="text-sm">Max guests: {place.max_guests}</span>
+                  </div>
+                </div>
+
+                {!place.isActive && place.deactivationReason && (
+                  <div className="mt-4 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+                    <strong>Hidden reason:</strong> {place.deactivationReason}
+                  </div>
+                )}
+
+                {/* Action Buttons - Will stay at bottom */}
+                <div className="flex gap-2 mt-6">
+                  <button
+                    onClick={() => handleEdit(place._id)}
+                    className="flex-1 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FaEdit />
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(place._id)}
+                    className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <FaTrash />
+                    Delete
+                  </button>
+                </div>
+              </div>
             </div>
-          )}
-        </>
+          ))}
+        </div>
       ) : (
-        <div className="text-center py-12 bg-white rounded-lg shadow">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+        <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
+          <FaHome className="mx-auto text-6xl text-gray-300 mb-4" />
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">No Properties Yet</h3>
+          <p className="text-gray-500 mb-6">Start by adding your first property</p>
+          <Link
+            to="/host/places/new"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl hover:bg-primary-dark transition-all duration-200"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-            />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No places</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            No places have been added yet.
-          </p>
+            <FaPlus />
+            Add Your First Property
+          </Link>
         </div>
       )}
 
+      {/* Load More Button */}
+      {displayCount < filteredPlaces.length && (
+        <div className="flex justify-center mt-8">
+          <button
+            onClick={() => setDisplayCount((prev) => prev + 5)}
+            className="px-6 py-3 bg-primary/5 text-primary rounded-xl hover:bg-primary/10 transition-all duration-200"
+          >
+            Load More Properties
+          </button>
+        </div>
+      )}
+
+      {/* Deactivation Reason Modal */}
       {showReasonModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h3 className="text-lg font-bold mb-4">Hide Place</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Please provide a reason for hiding this place:
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl w-full max-w-md mx-4">
+            <h3 className="text-xl font-bold mb-4">Hide Property</h3>
+            <p className="text-gray-600 mb-4">
+              Please provide a reason for hiding this property:
             </p>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full p-2 border rounded mb-4 h-32"
+              className="w-full p-3 border rounded-lg mb-4 h-32 focus:ring-2 focus:ring-primary/20"
               placeholder="Enter reason here..."
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowReasonModal(false);
                   setSelectedPlace(null);
                   setReason("");
                 }}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleReasonSubmit}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
               >
                 Submit
               </button>

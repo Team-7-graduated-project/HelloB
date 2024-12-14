@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
-import { FaBullhorn, FaSpinner, FaPlus } from 'react-icons/fa';
+import { FaBullhorn, FaSpinner, FaPlus, FaChartLine, FaUsers, FaCalendarAlt, FaArrowUp, FaArrowDown } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
 export default function HostAnnouncements() {
@@ -23,75 +23,119 @@ export default function HostAnnouncements() {
     }
   };
 
+  const getAnnouncementIcon = (type) => {
+    switch (type.toLowerCase()) {
+      case 'revenue':
+        return <FaChartLine className="text-green-500" />;
+      case 'bookings':
+        return <FaCalendarAlt className="text-blue-500" />;
+      case 'visitors':
+        return <FaUsers className="text-purple-500" />;
+      default:
+        return <FaBullhorn className="text-primary" />;
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <FaSpinner className="animate-spin text-primary text-3xl" />
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-primary text-4xl mx-auto mb-4" />
+          <p className="text-gray-600">Loading announcements...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">Your Announcements</h2>
-        <Link
-          to="/host/announcements/new"
-          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-dark transition-colors flex items-center gap-2"
-        >
-          <FaPlus size={16} />
-          Create Announcement
-        </Link>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header Section */}
+      <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">Announcements Dashboard</h2>
+            <p className="text-white/80">
+              Keep track of your business metrics and important updates
+            </p>
+          </div>
+          <Link
+            to="/host/announcements/new"
+            className="bg-white text-primary px-6 py-3 rounded-xl hover:bg-gray-50 transition-all duration-200 flex items-center gap-2 shadow-lg hover:scale-105"
+          >
+            <FaPlus size={16} />
+            Create Announcement
+          </Link>
+        </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {announcements.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-            <FaBullhorn className="mx-auto text-4xl text-gray-300 mb-2" />
-            <p className="text-gray-500">No announcements yet</p>
+          <div className="text-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
+            <FaBullhorn className="mx-auto text-6xl text-gray-300 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">No Announcements Yet</h3>
+            <p className="text-gray-500 mb-6">Start creating announcements to keep track of your business metrics</p>
             <Link
               to="/host/announcements/new"
-              className="text-primary hover:text-primary-dark mt-2 inline-block"
+              className="inline-flex items-center gap-2 bg-primary text-white px-6 py-3 rounded-xl hover:bg-primary-dark transition-all duration-200"
             >
+              <FaPlus size={16} />
               Create your first announcement
             </Link>
           </div>
         ) : (
-          announcements.map((announcement) => (
-            <div key={announcement._id} className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                    {announcement.type} - {announcement.period}ly
-                  </span>
-                  <p className="text-sm text-gray-500 mt-2">
-                    {format(new Date(announcement.createdAt), 'PPP')}
-                  </p>
+          <div className="grid md:grid-cols-2 gap-6">
+            {announcements.map((announcement) => (
+              <div 
+                key={announcement._id} 
+                className="bg-gray-200 rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-200"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      {getAnnouncementIcon(announcement.type)}
+                    </div>
+                    <div>
+                      <span className="px-4 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium">
+                        {announcement.type} - {announcement.period}ly
+                      </span>
+                      <p className="text-sm text-gray-500 mt-2">
+                        {format(new Date(announcement.createdAt), 'PPP')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-gray-700 mb-6">{announcement.message}</p>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 px-4 py-3 rounded-xl">
+                    <p className="text-sm text-gray-600 mb-1">Total</p>
+                    <p className="text-xl font-semibold text-gray-900">
+                      {announcement.type === 'revenue' ? '$' : ''}
+                      {announcement.metrics.total.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 px-4 py-3 rounded-xl">
+                    <p className="text-sm text-gray-600 mb-1">Change</p>
+                    <div className="flex items-center gap-1">
+                      {announcement.metrics.percentageChange > 0 ? (
+                        <FaArrowUp className="text-green-500" />
+                      ) : (
+                        <FaArrowDown className="text-red-500" />
+                      )}
+                      <p className={`text-xl font-semibold ${
+                        announcement.metrics.percentageChange > 0 
+                          ? 'text-green-600' 
+                          : 'text-red-600'
+                      }`}>
+                        {Math.abs(announcement.metrics.percentageChange).toFixed(1)}%
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <p className="mt-4">{announcement.message}</p>
-              <div className="mt-4 flex gap-4">
-                <div className="bg-gray-50 px-4 py-2 rounded-lg">
-                  <p className="text-sm text-gray-600">Total</p>
-                  <p className="text-lg font-semibold">
-                    {announcement.type === 'revenue' ? '$' : ''}
-                    {announcement.metrics.total}
-                  </p>
-                </div>
-                <div className="bg-gray-50 px-4 py-2 rounded-lg">
-                  <p className="text-sm text-gray-600">Change</p>
-                  <p className={`text-lg font-semibold ${
-                    announcement.metrics.percentageChange > 0 
-                      ? 'text-green-600' 
-                      : 'text-red-600'
-                  }`}>
-                    {announcement.metrics.percentageChange > 0 ? '+' : ''}
-                    {announcement.metrics.percentageChange.toFixed(1)}%
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
     </div>

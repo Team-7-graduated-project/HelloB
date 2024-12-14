@@ -1,6 +1,7 @@
 import { useState } from "react";
 import PropTypes from "prop-types";
 import axios from "axios";
+import { FaCheck, FaSpinner, FaTimes } from "react-icons/fa";
 
 export default function StatusToggle({ user, onStatusChange }) {
   const [isActive, setIsActive] = useState(user.isActive);
@@ -59,43 +60,56 @@ export default function StatusToggle({ user, onStatusChange }) {
       <button
         onClick={handleToggle}
         disabled={loading}
-        className={`px-2 py-2 max-w-16 rounded-md text-white transition-colors duration-300 ${
+        className={`px-4 py-2 max-w-32 rounded-lg text-white transition-all duration-300 flex items-center gap-2 ${
           isActive
             ? "bg-green-500 hover:bg-green-600"
             : "bg-red-500 hover:bg-red-600"
-        }`}
+        } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
       >
-        {loading ? "Updating..." : isActive ? "Active" : "Inactive"}
+        {loading ? (
+          <FaSpinner className="animate-spin" />
+        ) : isActive ? (
+          <>
+            <FaCheck className="text-sm" />
+            Active
+          </>
+        ) : (
+          <>
+            <FaTimes className="text-sm" />
+            Inactive
+          </>
+        )}
       </button>
 
       {/* Deactivation Reason Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Deactivation Reason</h3>
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-xl font-semibold mb-4">Deactivation Reason</h3>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Please provide a reason for deactivation..."
-              className="w-full p-2 border rounded-md mb-4 min-h-[100px]"
+              className="w-full p-3 border border-gray-200 rounded-lg mb-4 min-h-[120px] focus:ring-2 focus:ring-primary focus:border-transparent"
               required
             />
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => {
                   setShowModal(false);
-                  setReason(""); // Clear reason when canceling
+                  setReason("");
                 }}
-                className="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => updateStatus(false, reason)}
                 disabled={!reason.trim() || loading}
-                className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50"
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {loading ? "Deactivating..." : "Deactivate"}
+                {loading ? <FaSpinner className="animate-spin" /> : <FaTimes />}
+                {loading ? "Processing..." : "Deactivate"}
               </button>
             </div>
           </div>

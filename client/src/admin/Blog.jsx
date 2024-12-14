@@ -163,36 +163,36 @@ export default function ManageBlogPage() {
   return (
     <div className="p-4">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Blog Posts</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage your blog content
-          </p>
+      <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 mb-8 text-white">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Blog Management</h1>
+            <p className="text-white/80">Create and manage blog content</p>
+          </div>
+          {!showForm && (
+            <button
+              onClick={() => {
+                resetForm();
+                setShowForm(true);
+              }}
+              className="px-6 py-2 bg-white/10 backdrop-blur-sm text-white rounded-xl hover:bg-white/20 transition-colors flex items-center gap-2"
+            >
+              <FaPlus />
+              New Post
+            </button>
+          )}
         </div>
-        {!showForm && (
-          <button
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-            className="bg-primary max-w-36 text-white px-6 py-2 rounded-lg hover:bg-primary-dark transition-colors duration-200 shadow-sm hover:shadow-md flex items-center gap-2"
-          >
-            <FaPlus size={16} />
-            New Post
-          </button>
-        )}
       </div>
-      <div className="flex items-center gap-2 relative mb-6">
-          <FaSearch className="" />
-          <input
-            type="text"
-            placeholder="Search posts by title, excerpt, or category..."
-            value={searchQuery}
-            onChange={handleSearchChange}
-            className="w-full p-3 pl-10 border rounded-lg shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent"
-          />
-        </div>
+      <div className="relative flex-1 max-w-2xl mx-auto mb-6">
+        <input
+          type="text"
+          placeholder="Search posts..."
+          value={searchQuery}
+          onChange={handleSearchChange}
+          className="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-200 shadow-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+        />
+        <FaSearch className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      </div>
       {/* Search Bar */}
      
 
