@@ -1854,112 +1854,84 @@ app.get("/api/reviews/check", authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/host/bookings', async (req, res) => {
+app.get("/host/bookings", authenticateToken, authorizeRole("host", "admin"), async (req, res) => {
   try {
-    const { page = 1, limit = 5, status = 'all', sort = 'desc' } = req.query;
+    // Verify user data
+    if (!req.userData || !req.userData.id) {
+      console.log("User data missing:", req.userData);
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 5;
+    const status = req.query.status || 'all';
+    const sort = req.query.sort || 'desc';
     const skip = (page - 1) * limit;
 
-    // Build query based on status filter
-    let query = { owner: req.user._id };
+    console.log("Fetching bookings for host:", req.userData.id); // Debug log
+
+    // Get places owned by the host
+    const places = await Place.find({ owner: req.userData.id });
+    
+    if (!places || places.length === 0) {
+      return res.json({
+        bookings: [],
+        totalPages: 0,
+        currentPage: page,
+        totalItems: 0,
+        itemsPerPage: limit
+      });
+    }
+
+    const placeIds = places.map(place => place._id);
+
+    // Build query
+    let query = { place: { $in: placeIds } };
     if (status !== 'all') {
       query.status = status;
     }
 
-    // Get total count for pagination
-    const total = await Booking.countDocuments(query);
-    const totalPages = Math.ceil(total / limit);
+    // Get bookings count
+    const totalBookings = await Booking.countDocuments(query);
 
-    // Get bookings with sorting
+    // Get bookings
     const bookings = await Booking.find(query)
-      .sort({ check_in: sort === 'asc' ? 1 : -1 }) // Sort by check-in date
+      .populate({
+        path: "place",
+        select: "title photos price",
+        match: { isActive: true }
+      })
+      .populate({
+        path: "user",
+        select: "name email phone"
+      })
       .skip(skip)
-      .limit(parseInt(limit))
-      .populate('user', 'name')
-      .populate('place', 'title');
+      .limit(limit)
+      .sort({ 
+        createdAt: sort === 'asc' ? 1 : -1,
+        status: 1 
+      });
+
+    // Filter out null populated fields
+    const validBookings = bookings.filter(booking => booking.place && booking.user);
 
     res.json({
-      bookings,
-      totalPages,
+      bookings: validBookings,
+      totalPages: Math.ceil(totalBookings / limit),
       currentPage: page,
-      total
+      totalItems: totalBookings,
+      itemsPerPage: limit
     });
+
   } catch (error) {
-    console.error('Error fetching host bookings:', error);
-    res.status(500).json({ error: 'Failed to fetch bookings' });
+    console.error("Failed to fetch host bookings:", error);
+    res.status(500).json({ 
+      error: "Failed to retrieve bookings",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
-// Route to get all bookings for the host's places
-app.get(
-  "/host/bookings",
-  authenticateToken,
-  authorizeRole("host", "admin"),
-  async (req, res) => {
-    try {
-      // Check if user data exists
-      if (!req.userData || !req.userData.id) {
-        return res.status(401).json({ error: "Authentication required" });
-      }
-
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 5;
-      const status = req.query.status || 'all';
-      const sort = req.query.sort || 'desc';
-      const skip = (page - 1) * limit;
-
-      // Get places owned by the authenticated host
-      const places = await Place.find({ owner: req.userData.id });
-      
-      // If no places found, return empty result
-      if (!places || places.length === 0) {
-        return res.json({
-          bookings: [],
-          totalPages: 0,
-          currentPage: page,
-          totalItems: 0,
-          itemsPerPage: limit
-        });
-      }
-
-      const placeIds = places.map((place) => place._id);
-
-      // Build query based on status filter
-      let query = { place: { $in: placeIds } };
-      if (status !== 'all') {
-        query.status = status;
-      }
-
-      // Get total count for pagination
-      const totalBookings = await Booking.countDocuments(query);
-
-      // Get bookings with sorting
-      const bookings = await Booking.find(query)
-        .populate("place", "title photos price")
-        .populate("user", "name email phone")
-        .skip(skip)
-        .limit(limit)
-        .sort({ 
-          createdAt: sort === 'asc' ? 1 : -1,
-          status: 1
-        });
-
-      res.json({
-        bookings,
-        totalPages: Math.ceil(totalBookings / limit),
-        currentPage: page,
-        totalItems: totalBookings,
-        itemsPerPage: limit
-      });
-
-    } catch (error) {
-      console.error("Failed to fetch host bookings:", error);
-      res.status(500).json({ 
-        error: "Failed to retrieve bookings",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  }
-);
 app.get(
   "/host/places",
   authenticateToken,
