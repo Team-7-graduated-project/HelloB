@@ -129,9 +129,13 @@ const authenticateToken = (req, res, next) => {
 
   try {
     const verified = jwt.verify(token, jwtSecret);
+    if (!verified || !verified.id) {
+      return res.status(401).json({ error: "Invalid token structure" });
+    }
     req.userData = verified; // Attach the verified user data to the request
-    next(); // Proceed to the next middleware or route handler
+    next();
   } catch (error) {
+    console.error("Token verification failed:", error);
     res.status(401).json({ error: "Invalid token", details: error.message });
   }
 };
@@ -139,9 +143,12 @@ const authenticateToken = (req, res, next) => {
 // Role-based authorization middleware
 function authorizeRole(...allowedRoles) {
   return (req, res, next) => {
-    const { role } = req.userData;
-    if (!allowedRoles.includes(role)) {
-      return res.status(403).json({ error: "Access denied" });
+    if (!req.userData || !req.userData.role) {
+      return res.status(403).json({ error: "Role verification failed" });
+    }
+    
+    if (!allowedRoles.includes(req.userData.role)) {
+      return res.status(403).json({ error: "Access denied. Insufficient permissions." });
     }
     next();
   };
@@ -308,10 +315,10 @@ app.post("/login", async (req, res) => {
     // Create JWT token
     const token = jwt.sign(
       {
+        id: user._id,        // Make sure to include id
         email: user.email,
-        id: user._id,
         name: user.name,
-        role: user.role,
+        role: user.role
       },
       jwtSecret,
       { expiresIn: "1h" }
@@ -1889,33 +1896,67 @@ app.get(
   authorizeRole("host", "admin"),
   async (req, res) => {
     try {
+      // Check if user data exists
+      if (!req.userData || !req.userData.id) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 5;
+      const status = req.query.status || 'all';
+      const sort = req.query.sort || 'desc';
       const skip = (page - 1) * limit;
 
+      // Get places owned by the authenticated host
       const places = await Place.find({ owner: req.userData.id });
+      
+      // If no places found, return empty result
+      if (!places || places.length === 0) {
+        return res.json({
+          bookings: [],
+          totalPages: 0,
+          currentPage: page,
+          totalItems: 0,
+          itemsPerPage: limit
+        });
+      }
+
       const placeIds = places.map((place) => place._id);
 
-      const totalBookings = await Booking.countDocuments({
-        place: { $in: placeIds },
-      });
+      // Build query based on status filter
+      let query = { place: { $in: placeIds } };
+      if (status !== 'all') {
+        query.status = status;
+      }
 
-      const bookings = await Booking.find({ place: { $in: placeIds } })
-        .populate("place", "title")
-        .populate("user", "name")
+      // Get total count for pagination
+      const totalBookings = await Booking.countDocuments(query);
+
+      // Get bookings with sorting
+      const bookings = await Booking.find(query)
+        .populate("place", "title photos price")
+        .populate("user", "name email phone")
         .skip(skip)
         .limit(limit)
-        .sort({ createdAt: -1 });
+        .sort({ 
+          createdAt: sort === 'asc' ? 1 : -1,
+          status: 1
+        });
 
       res.json({
         bookings,
         totalPages: Math.ceil(totalBookings / limit),
         currentPage: page,
         totalItems: totalBookings,
+        itemsPerPage: limit
       });
+
     } catch (error) {
       console.error("Failed to fetch host bookings:", error);
-      res.status(500).json({ error: "Failed to retrieve bookings" });
+      res.status(500).json({ 
+        error: "Failed to retrieve bookings",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   }
 );
