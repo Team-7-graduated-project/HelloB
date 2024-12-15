@@ -28,20 +28,20 @@ const momoPayment = require("./services/momoPayment");
 const server = require("http").createServer(app);
 
 // Create WebSocket server attached to HTTP server (change this line)
-const wss = new WebSocket.Server({ 
+const wss = new WebSocket.Server({
   server,
-  path: '/ws',  // Add explicit path
+  path: "/ws", // Add explicit path
   clientTracking: true,
   perMessageDeflate: {
     zlibDeflateOptions: {
       chunkSize: 1024,
       memLevel: 7,
-      level: 3
+      level: 3,
     },
     zlibInflateOptions: {
-      chunkSize: 10 * 1024
-    }
-  }
+      chunkSize: 10 * 1024,
+    },
+  },
 });
 
 // Store active connections
@@ -74,15 +74,20 @@ const Chat = mongoose.model("Chat", {
 // Middleware setup
 app.use(express.json());
 app.use(cookieParser());
-app.use(bodyParser.json({ limit: '50mb' })); 
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(bodyParser.json({ limit: "50mb" }));
+app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 
 // Or if using express.json() instead
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: "50mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "/uploads")));
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://hello-b.vercel.app", "https://clientt-g7c3.onrender.com",""],
+    origin: [
+      "http://localhost:5173",
+      "https://hello-b.vercel.app",
+      "https://clientt-g7c3.onrender.com",
+      "https://hello-b.onrender.com",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -146,9 +151,11 @@ function authorizeRole(...allowedRoles) {
     if (!req.userData || !req.userData.role) {
       return res.status(403).json({ error: "Role verification failed" });
     }
-    
+
     if (!allowedRoles.includes(req.userData.role)) {
-      return res.status(403).json({ error: "Access denied. Insufficient permissions." });
+      return res
+        .status(403)
+        .json({ error: "Access denied. Insufficient permissions." });
     }
     next();
   };
@@ -309,16 +316,18 @@ app.post("/login", async (req, res) => {
     const passOK = bcrypt.compareSync(password, user.password);
     if (!passOK) {
       console.log("Invalid password for user: ", email);
-      return res.status(401).json({ error: "Invalid password for user: " + email });
+      return res
+        .status(401)
+        .json({ error: "Invalid password for user: " + email });
     }
 
     // Create JWT token
     const token = jwt.sign(
       {
-        id: user._id,        // Make sure to include id
+        id: user._id, // Make sure to include id
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role,
       },
       jwtSecret,
       { expiresIn: "1h" }
@@ -1041,25 +1050,26 @@ app.post(
 // Get host's vouchers
 app.get("/host/vouchers", authenticateToken, async (req, res) => {
   try {
-    const vouchers = await Voucher.find({ owner: req.userData.id })
-      .populate('applicablePlaces', 'title');
+    const vouchers = await Voucher.find({ owner: req.userData.id }).populate(
+      "applicablePlaces",
+      "title"
+    );
 
     // Update the active status based on expiration date
-    const vouchersWithStatus = vouchers.map(voucher => {
+    const vouchersWithStatus = vouchers.map((voucher) => {
       const isExpired = new Date(voucher.expirationDate) < new Date();
       return {
         ...voucher.toObject(),
-        active: isExpired ? false : voucher.active
+        active: isExpired ? false : voucher.active,
       };
     });
 
     res.json(vouchersWithStatus);
   } catch (error) {
-    console.error('Error fetching vouchers:', error);
-    res.status(500).json({ error: 'Failed to fetch vouchers' });
+    console.error("Error fetching vouchers:", error);
+    res.status(500).json({ error: "Failed to fetch vouchers" });
   }
 });
-
 
 app.delete(
   "/host/vouchers/:id",
@@ -1499,7 +1509,6 @@ app.get("/api/host/metrics", authenticateToken, async (req, res) => {
   }
 });
 
-
 app.delete("/places/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   const place = await Place.findById(id);
@@ -1624,7 +1633,8 @@ app.get("/places/:id/bookings", authenticateToken, async (req, res) => {
 // Modify your booking creation endpoint
 app.post("/bookings", authenticateToken, async (req, res) => {
   try {
-    const { check_in, check_out, name, phone, place, price, max_guests } = req.body;
+    const { check_in, check_out, name, phone, place, price, max_guests } =
+      req.body;
 
     // Get the place to find its owner
     const placeDoc = await Place.findById(place);
@@ -1641,9 +1651,9 @@ app.post("/bookings", authenticateToken, async (req, res) => {
       place,
       price,
       max_guests,
-      user: req.userData.id,    // The person making the booking
-      owner: placeDoc.owner,    // The owner of the place
-      status: "pending"
+      user: req.userData.id, // The person making the booking
+      owner: placeDoc.owner, // The owner of the place
+      status: "pending",
     });
 
     // Create notification for the place owner
@@ -1653,7 +1663,7 @@ app.post("/bookings", authenticateToken, async (req, res) => {
         "New Booking Request",
         `You have a new booking request for ${placeDoc.title}`,
         `/host/bookings/${booking._id}`,
-        'booking'  // Use 'booking' type for booking notifications
+        "booking" // Use 'booking' type for booking notifications
       );
     } catch (notificationError) {
       console.error("Failed to create notification:", notificationError);
@@ -1793,10 +1803,10 @@ app.post("/reviews", authenticateToken, async (req, res) => {
 app.get("/api/reviews/check", authenticateToken, async (req, res) => {
   try {
     const { placeId, userId } = req.query;
-    
+
     const existingReview = await Review.findOne({
       place: placeId,
-      user: userId
+      user: userId,
     });
 
     res.json({ hasReviewed: !!existingReview });
@@ -1806,83 +1816,90 @@ app.get("/api/reviews/check", authenticateToken, async (req, res) => {
   }
 });
 
-app.get("/host/bookings", authenticateToken, authorizeRole("host", "admin"), async (req, res) => {
-  try {
-    // Verify user data
-    if (!req.userData || !req.userData.id) {
-      console.log("User data missing:", req.userData);
-      return res.status(401).json({ error: "Authentication required" });
-    }
+app.get(
+  "/host/bookings",
+  authenticateToken,
+  authorizeRole("host", "admin"),
+  async (req, res) => {
+    try {
+      // Verify user data
+      if (!req.userData || !req.userData.id) {
+        console.log("User data missing:", req.userData);
+        return res.status(401).json({ error: "Authentication required" });
+      }
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
-    const status = req.query.status || 'all';
-    const sort = req.query.sort || 'desc';
-    const skip = (page - 1) * limit;
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 5;
+      const status = req.query.status || "all";
+      const sort = req.query.sort || "desc";
+      const skip = (page - 1) * limit;
 
-    console.log("Fetching bookings for host:", req.userData.id); // Debug log
+      console.log("Fetching bookings for host:", req.userData.id); // Debug log
 
-    // Get places owned by the host
-    const places = await Place.find({ owner: req.userData.id });
-    
-    if (!places || places.length === 0) {
-      return res.json({
-        bookings: [],
-        totalPages: 0,
+      // Get places owned by the host
+      const places = await Place.find({ owner: req.userData.id });
+
+      if (!places || places.length === 0) {
+        return res.json({
+          bookings: [],
+          totalPages: 0,
+          currentPage: page,
+          totalItems: 0,
+          itemsPerPage: limit,
+        });
+      }
+
+      const placeIds = places.map((place) => place._id);
+
+      // Build query
+      let query = { place: { $in: placeIds } };
+      if (status !== "all") {
+        query.status = status;
+      }
+
+      // Get bookings count
+      const totalBookings = await Booking.countDocuments(query);
+
+      // Get bookings
+      const bookings = await Booking.find(query)
+        .populate({
+          path: "place",
+          select: "title photos price",
+          match: { isActive: true },
+        })
+        .populate({
+          path: "user",
+          select: "name email phone",
+        })
+        .skip(skip)
+        .limit(limit)
+        .sort({
+          createdAt: sort === "asc" ? 1 : -1,
+          status: 1,
+        });
+
+      // Filter out null populated fields
+      const validBookings = bookings.filter(
+        (booking) => booking.place && booking.user
+      );
+
+      res.json({
+        bookings: validBookings,
+        totalPages: Math.ceil(totalBookings / limit),
         currentPage: page,
-        totalItems: 0,
-        itemsPerPage: limit
+        totalItems: totalBookings,
+        itemsPerPage: limit,
+      });
+    } catch (error) {
+      console.error("Failed to fetch host bookings:", error);
+      res.status(500).json({
+        error: "Failed to retrieve bookings",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
-
-    const placeIds = places.map(place => place._id);
-
-    // Build query
-    let query = { place: { $in: placeIds } };
-    if (status !== 'all') {
-      query.status = status;
-    }
-
-    // Get bookings count
-    const totalBookings = await Booking.countDocuments(query);
-
-    // Get bookings
-    const bookings = await Booking.find(query)
-      .populate({
-        path: "place",
-        select: "title photos price",
-        match: { isActive: true }
-      })
-      .populate({
-        path: "user",
-        select: "name email phone"
-      })
-      .skip(skip)
-      .limit(limit)
-      .sort({ 
-        createdAt: sort === 'asc' ? 1 : -1,
-        status: 1 
-      });
-
-    // Filter out null populated fields
-    const validBookings = bookings.filter(booking => booking.place && booking.user);
-
-    res.json({
-      bookings: validBookings,
-      totalPages: Math.ceil(totalBookings / limit),
-      currentPage: page,
-      totalItems: totalBookings,
-      itemsPerPage: limit
-    });
-
-  } catch (error) {
-    console.error("Failed to fetch host bookings:", error);
-    res.status(500).json({ 
-      error: "Failed to retrieve bookings",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
   }
-});
+);
 
 app.get(
   "/host/places",
@@ -1897,35 +1914,42 @@ app.get(
     }
   }
 );
-app.get('/host/bookings/:id', authenticateToken, authorizeRole('host'), async (req, res) => {
-  try {
-    const booking = await Booking.findById(req.params.id)
-      .populate('place', 'title photos') // Get place details
-      .populate('user', 'name email phone') // Get user details
-      .populate({
-        path: 'place',
-        populate: {
-          path: 'owner',
-          select: 'name email'
-        }
-      });
+app.get(
+  "/host/bookings/:id",
+  authenticateToken,
+  authorizeRole("host"),
+  async (req, res) => {
+    try {
+      const booking = await Booking.findById(req.params.id)
+        .populate("place", "title photos") // Get place details
+        .populate("user", "name email phone") // Get user details
+        .populate({
+          path: "place",
+          populate: {
+            path: "owner",
+            select: "name email",
+          },
+        });
 
-    // Check if booking exists
-    if (!booking) {
-      return res.status(404).json({ error: 'Booking not found' });
+      // Check if booking exists
+      if (!booking) {
+        return res.status(404).json({ error: "Booking not found" });
+      }
+
+      // Check if the authenticated user is the host of this booking
+      if (booking.place.owner._id.toString() !== req.userData.id) {
+        return res
+          .status(403)
+          .json({ error: "Not authorized to view this booking" });
+      }
+
+      res.json(booking);
+    } catch (error) {
+      console.error("Error fetching booking details:", error);
+      res.status(500).json({ error: "Failed to fetch booking details" });
     }
-
-    // Check if the authenticated user is the host of this booking
-    if (booking.place.owner._id.toString() !== req.userData.id) {
-      return res.status(403).json({ error: 'Not authorized to view this booking' });
-    }
-
-    res.json(booking);
-  } catch (error) {
-    console.error('Error fetching booking details:', error);
-    res.status(500).json({ error: 'Failed to fetch booking details' });
   }
-});
+);
 
 app.get(
   "/host/users",
@@ -1961,54 +1985,54 @@ app.get(
     }
   }
 );
-app.get('/api/reviews/top', async (req, res) => {
+app.get("/api/reviews/top", async (req, res) => {
   try {
     const { limit = 3, minRating = 5 } = req.query;
-    
-    const topReviews = await Review.find({ 
+
+    const topReviews = await Review.find({
       rating: { $gte: parseInt(minRating) },
-      isActive: true 
+      isActive: true,
     })
       .populate({
-        path: 'user',
-        select: 'name photo',
-        match: { isActive: true }
+        path: "user",
+        select: "name photo",
+        match: { isActive: true },
       })
       .populate({
-        path: 'place',
-        select: 'title photos address',
-        match: { isActive: true }
+        path: "place",
+        select: "title photos address",
+        match: { isActive: true },
       })
-      .sort({ 
+      .sort({
         rating: -1,
-        createdAt: -1 
+        createdAt: -1,
       })
       .limit(parseInt(limit));
 
     // Filter out reviews where place or user is inactive/null
     const validReviews = topReviews
-      .filter(review => review.user && review.place)
-      .map(review => ({
+      .filter((review) => review.user && review.place)
+      .map((review) => ({
         _id: review._id,
         content: review.review_text,
         rating: review.rating,
         created_at: review.created_at,
         user: {
           name: review.user.name,
-          photo: review.user.photo || '/default-avatar.png'
+          photo: review.user.photo || "/default-avatar.png",
         },
         place: {
           _id: review.place._id,
           title: review.place.title,
           photos: review.place.photos,
-          address: review.place.address
-        }
+          address: review.place.address,
+        },
       }));
 
     res.json(validReviews);
   } catch (error) {
-    console.error('Error fetching top reviews:', error);
-    res.status(500).json({ error: 'Failed to fetch top reviews' });
+    console.error("Error fetching top reviews:", error);
+    res.status(500).json({ error: "Failed to fetch top reviews" });
   }
 });
 
@@ -2057,14 +2081,14 @@ app.post("/host/register", async (req, res) => {
     });
 
     // Find an admin user to send notification to
-    const adminUser = await User.findOne({ role: 'admin' });
+    const adminUser = await User.findOne({ role: "admin" });
     if (adminUser) {
       await createNotification(
         adminUser._id, // recipient should be admin's ID
         "New Host Registration",
         `New host registered: ${userDoc.name}`,
         `/admin/hosts/${userDoc._id}`,
-        'system' // use 'system' type instead of 'admin'
+        "system" // use 'system' type instead of 'admin'
       );
     }
 
@@ -4228,7 +4252,6 @@ transporter.verify((error, success) => {
   }
 });
 
-
 // Update the profile photo endpoint to use Cloudinary
 app.put(
   "/update-profile-photo",
@@ -4268,23 +4291,23 @@ app.put(
 );
 
 // In your WebSocket connection handler
-wss.on('connection', (ws, req) => {
+wss.on("connection", (ws, req) => {
   const { userId, chatId } = url.parse(req.url, true).query;
-  
+
   // Store client connection
   if (!clients.has(userId)) {
     clients.set(userId, new Set());
   }
   clients.get(userId).add(ws);
 
-  ws.on('message', async (message) => {
+  ws.on("message", async (message) => {
     try {
       const parsedMessage = JSON.parse(message);
-      
-      if (parsedMessage.type === 'chat') {
+
+      if (parsedMessage.type === "chat") {
         const messageData = {
           ...parsedMessage.data,
-          timestamp: new Date().toISOString() // Ensure timestamp is included
+          timestamp: new Date().toISOString(), // Ensure timestamp is included
         };
 
         // Save to database
@@ -4294,15 +4317,19 @@ wss.on('connection', (ws, req) => {
           await chat.save();
 
           // Broadcast to all participants
-          chat.participants.forEach(participantId => {
-            const participantConnections = clients.get(participantId.toString());
+          chat.participants.forEach((participantId) => {
+            const participantConnections = clients.get(
+              participantId.toString()
+            );
             if (participantConnections) {
-              participantConnections.forEach(clientWs => {
+              participantConnections.forEach((clientWs) => {
                 if (clientWs.readyState === WebSocket.OPEN) {
-                  clientWs.send(JSON.stringify({
-                    type: 'chat',
-                    data: messageData
-                  }));
+                  clientWs.send(
+                    JSON.stringify({
+                      type: "chat",
+                      data: messageData,
+                    })
+                  );
                 }
               });
             }
@@ -4310,11 +4337,11 @@ wss.on('connection', (ws, req) => {
         }
       }
     } catch (error) {
-      console.error('Error processing WebSocket message:', error);
+      console.error("Error processing WebSocket message:", error);
     }
   });
 
-  ws.on('close', () => {
+  ws.on("close", () => {
     if (clients.has(userId)) {
       clients.get(userId).delete(ws);
       if (clients.get(userId).size === 0) {
@@ -4415,8 +4442,6 @@ const updateUserDataVisibility = async (userId, isActive) => {
 
     // Update vouchers visibility
     await Voucher.updateMany({ owner: userId }, { isActive: isActive });
-
-    
 
     // Update chat messages visibility
     await Message.updateMany(
@@ -4707,7 +4732,7 @@ const createNotification = async (
       category = "general", // Category: general, user, host, booking, report, system
       expiresAt = null, // Optional expiration date
       actions = [], // Optional actions that can be taken
-      metadata = {} // Additional data
+      metadata = {}, // Additional data
     } = options;
 
     const notification = new Notification({
@@ -4722,7 +4747,7 @@ const createNotification = async (
       expiresAt,
       actions,
       metadata,
-      createdAt: new Date()
+      createdAt: new Date(),
     });
 
     await notification.save();
@@ -4741,144 +4766,164 @@ const createNotification = async (
 };
 
 // Admin notification endpoints
-app.get("/api/admin/notifications", authenticateToken, authorizeRole("admin"), async (req, res) => {
-  try {
-    const { 
-      status,
-      priority,
-      category,
-      startDate,
-      endDate,
-      limit = 50,
-      page = 1
-    } = req.query;
+app.get(
+  "/api/admin/notifications",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const {
+        status,
+        priority,
+        category,
+        startDate,
+        endDate,
+        limit = 50,
+        page = 1,
+      } = req.query;
 
-    const query = {};
+      const query = {};
 
-    // Filter by status
-    if (status) {
-      query.status = status;
-    }
-
-    // Filter by priority
-    if (priority) {
-      query.priority = priority;
-    }
-
-    // Filter by category
-    if (category) {
-      query.category = category;
-    }
-
-    // Filter by date range
-    if (startDate || endDate) {
-      query.createdAt = {};
-      if (startDate) {
-        query.createdAt.$gte = new Date(startDate);
+      // Filter by status
+      if (status) {
+        query.status = status;
       }
-      if (endDate) {
-        query.createdAt.$lte = new Date(endDate);
+
+      // Filter by priority
+      if (priority) {
+        query.priority = priority;
       }
+
+      // Filter by category
+      if (category) {
+        query.category = category;
+      }
+
+      // Filter by date range
+      if (startDate || endDate) {
+        query.createdAt = {};
+        if (startDate) {
+          query.createdAt.$gte = new Date(startDate);
+        }
+        if (endDate) {
+          query.createdAt.$lte = new Date(endDate);
+        }
+      }
+
+      const skip = (page - 1) * limit;
+
+      const notifications = await Notification.find(query)
+        .sort({ createdAt: -1, priority: 1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .populate("user", "name email");
+
+      const total = await Notification.countDocuments(query);
+
+      res.json({
+        notifications,
+        pagination: {
+          total,
+          pages: Math.ceil(total / limit),
+          currentPage: page,
+          limit,
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching admin notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
     }
-
-    const skip = (page - 1) * limit;
-
-    const notifications = await Notification.find(query)
-      .sort({ createdAt: -1, priority: 1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate('user', 'name email');
-
-    const total = await Notification.countDocuments(query);
-
-    res.json({
-      notifications,
-      pagination: {
-        total,
-        pages: Math.ceil(total / limit),
-        currentPage: page,
-        limit
-      }
-    });
-  } catch (error) {
-    console.error("Error fetching admin notifications:", error);
-    res.status(500).json({ error: "Failed to fetch notifications" });
   }
-});
+);
 
 // Mark notifications as read
-app.put("/api/admin/notifications/read", authenticateToken, authorizeRole("admin"), async (req, res) => {
-  try {
-    const { notificationIds } = req.body;
+app.put(
+  "/api/admin/notifications/read",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const { notificationIds } = req.body;
 
-    await Notification.updateMany(
-      { _id: { $in: notificationIds } },
-      { $set: { status: "read", readAt: new Date() } }
-    );
+      await Notification.updateMany(
+        { _id: { $in: notificationIds } },
+        { $set: { status: "read", readAt: new Date() } }
+      );
 
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Error marking notifications as read:", error);
-    res.status(500).json({ error: "Failed to update notifications" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notifications as read:", error);
+      res.status(500).json({ error: "Failed to update notifications" });
+    }
   }
-});
+);
 
 // Delete notifications
-app.delete("/api/admin/notifications", authenticateToken, authorizeRole("admin"), async (req, res) => {
-  try {
-    const { notificationIds } = req.body;
+app.delete(
+  "/api/admin/notifications",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const { notificationIds } = req.body;
 
-    await Notification.deleteMany({ _id: { $in: notificationIds } });
+      await Notification.deleteMany({ _id: { $in: notificationIds } });
 
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting notifications:", error);
-    res.status(500).json({ error: "Failed to delete notifications" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting notifications:", error);
+      res.status(500).json({ error: "Failed to delete notifications" });
+    }
   }
-});
+);
 
 // Example usage in existing endpoints:
 
 // When a report is updated
-app.put("/api/admin/reports/:id/status", authenticateToken, authorizeRole("admin"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
+app.put(
+  "/api/admin/reports/:id/status",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
 
-    const report = await Report.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true }
-    ).populate("reportedBy", "name email");
+      const report = await Report.findByIdAndUpdate(
+        id,
+        { status },
+        { new: true }
+      ).populate("reportedBy", "name email");
 
-    if (!report) {
-      return res.status(404).json({ error: "Report not found" });
-    }
-
-    // Create notification with enhanced options
-    await createNotification(
-      "report_update",
-      "Report Status Updated",
-      `Report #${report._id} has been marked as ${status}`,
-      `/reports/${report._id}`,
-      report.reportedBy?._id,
-      {
-        priority: status === "resolved" ? "normal" : "high",
-        category: "report",
-        metadata: {
-          reportId: report._id,
-          previousStatus: report.status,
-          newStatus: status
-        }
+      if (!report) {
+        return res.status(404).json({ error: "Report not found" });
       }
-    );
 
-    res.json(report);
-  } catch (error) {
-    console.error("Error updating report status:", error);
-    res.status(500).json({ error: "Failed to update report status" });
+      // Create notification with enhanced options
+      await createNotification(
+        "report_update",
+        "Report Status Updated",
+        `Report #${report._id} has been marked as ${status}`,
+        `/reports/${report._id}`,
+        report.reportedBy?._id,
+        {
+          priority: status === "resolved" ? "normal" : "high",
+          category: "report",
+          metadata: {
+            reportId: report._id,
+            previousStatus: report.status,
+            newStatus: status,
+          },
+        }
+      );
+
+      res.json(report);
+    } catch (error) {
+      console.error("Error updating report status:", error);
+      res.status(500).json({ error: "Failed to update report status" });
+    }
   }
-});
+);
 
 // When a booking is auto-completed
 const autoCompleteBookings = async () => {
@@ -4910,8 +4955,8 @@ const autoCompleteBookings = async () => {
           metadata: {
             bookingId: booking._id,
             placeId: booking.place._id,
-            revenue: booking.price
-          }
+            revenue: booking.price,
+          },
         }
       );
 
@@ -4946,7 +4991,7 @@ const autoCompleteBookings = async () => {
     }
   } catch (error) {
     console.error("Critical: Auto-complete bookings failed:", error);
-    
+
     // Create system notification for critical error
     await createNotification(
       "system_error",
@@ -4959,8 +5004,8 @@ const autoCompleteBookings = async () => {
         category: "system",
         metadata: {
           error: error.message,
-          timestamp: new Date()
-        }
+          timestamp: new Date(),
+        },
       }
     );
   }
@@ -5144,153 +5189,191 @@ function validateCardDetails(cardDetails) {
 // Add these endpoints for announcements
 
 // Create announcement with real metrics
-app.post('/api/host/announcements', authenticateToken, authorizeRole('host'), async (req, res) => {
-  try {
-    const { type, period, message } = req.body;
-    const hostId = req.userData.id;
+app.post(
+  "/api/host/announcements",
+  authenticateToken,
+  authorizeRole("host"),
+  async (req, res) => {
+    try {
+      const { type, period, message } = req.body;
+      const hostId = req.userData.id;
 
-    // Check if host can create announcement
-    const canCreate = await Announcement.canCreateAnnouncement(hostId, period);
-    if (!canCreate) {
-      return res.status(400).json({
-        error: `You can only create one ${period}ly announcement`
-      });
-    }
-
-    // Get host's places
-    const hostPlaces = await Place.find({ owner: hostId }).select('_id');
-    const placeIds = hostPlaces.map(place => place._id);
-
-    // Calculate metrics based on type and period
-    let metrics = { total: 0, percentageChange: 0 };
-    const endDate = new Date();
-    const startDate = new Date();
-    
-    if (period === 'week') {
-      startDate.setDate(startDate.getDate() - 7);
-    } else {
-      startDate.setMonth(startDate.getMonth() - 1);
-    }
-
-    if (type === 'revenue') {
-      // Get current period bookings
-      const currentBookings = await Booking.find({
-        place: { $in: placeIds },
-        createdAt: { $gte: startDate, $lte: endDate },
-        status: 'completed'
-      });
-      
-      metrics.total = currentBookings.reduce((sum, booking) => sum + booking.price, 0);
-      
-      // Calculate previous period for percentage change
-      const previousStart = new Date(startDate);
-      const previousEnd = new Date(startDate);
-      if (period === 'week') {
-        previousStart.setDate(previousStart.getDate() - 7);
-      } else {
-        previousStart.setMonth(previousStart.getMonth() - 1);
+      // Check if host can create announcement
+      const canCreate = await Announcement.canCreateAnnouncement(
+        hostId,
+        period
+      );
+      if (!canCreate) {
+        return res.status(400).json({
+          error: `You can only create one ${period}ly announcement`,
+        });
       }
-      
-      const previousBookings = await Booking.find({
-        place: { $in: placeIds },
-        createdAt: { $gte: previousStart, $lte: previousEnd },
-        status: 'completed'
-      });
-      
-      const previousTotal = previousBookings.reduce((sum, booking) => sum + booking.price, 0);
-      metrics.percentageChange = previousTotal ? ((metrics.total - previousTotal) / previousTotal) * 100 : 0;
-    } else {
-      // Bookings count
-      const currentBookingsCount = await Booking.countDocuments({
-        place: { $in: placeIds },
-        createdAt: { $gte: startDate, $lte: endDate },
-        status: 'completed'
-      });
-      
-      metrics.total = currentBookingsCount;
-      
-      const previousStart = new Date(startDate);
-      const previousEnd = new Date(startDate);
-      if (period === 'week') {
-        previousStart.setDate(previousStart.getDate() - 7);
+
+      // Get host's places
+      const hostPlaces = await Place.find({ owner: hostId }).select("_id");
+      const placeIds = hostPlaces.map((place) => place._id);
+
+      // Calculate metrics based on type and period
+      let metrics = { total: 0, percentageChange: 0 };
+      const endDate = new Date();
+      const startDate = new Date();
+
+      if (period === "week") {
+        startDate.setDate(startDate.getDate() - 7);
       } else {
-        previousStart.setMonth(previousStart.getMonth() - 1);
+        startDate.setMonth(startDate.getMonth() - 1);
       }
-      
-      const previousCount = await Booking.countDocuments({
-        place: { $in: placeIds },
-        createdAt: { $gte: previousStart, $lte: previousEnd },
-        status: 'completed'
+
+      if (type === "revenue") {
+        // Get current period bookings
+        const currentBookings = await Booking.find({
+          place: { $in: placeIds },
+          createdAt: { $gte: startDate, $lte: endDate },
+          status: "completed",
+        });
+
+        metrics.total = currentBookings.reduce(
+          (sum, booking) => sum + booking.price,
+          0
+        );
+
+        // Calculate previous period for percentage change
+        const previousStart = new Date(startDate);
+        const previousEnd = new Date(startDate);
+        if (period === "week") {
+          previousStart.setDate(previousStart.getDate() - 7);
+        } else {
+          previousStart.setMonth(previousStart.getMonth() - 1);
+        }
+
+        const previousBookings = await Booking.find({
+          place: { $in: placeIds },
+          createdAt: { $gte: previousStart, $lte: previousEnd },
+          status: "completed",
+        });
+
+        const previousTotal = previousBookings.reduce(
+          (sum, booking) => sum + booking.price,
+          0
+        );
+        metrics.percentageChange = previousTotal
+          ? ((metrics.total - previousTotal) / previousTotal) * 100
+          : 0;
+      } else {
+        // Bookings count
+        const currentBookingsCount = await Booking.countDocuments({
+          place: { $in: placeIds },
+          createdAt: { $gte: startDate, $lte: endDate },
+          status: "completed",
+        });
+
+        metrics.total = currentBookingsCount;
+
+        const previousStart = new Date(startDate);
+        const previousEnd = new Date(startDate);
+        if (period === "week") {
+          previousStart.setDate(previousStart.getDate() - 7);
+        } else {
+          previousStart.setMonth(previousStart.getMonth() - 1);
+        }
+
+        const previousCount = await Booking.countDocuments({
+          place: { $in: placeIds },
+          createdAt: { $gte: previousStart, $lte: previousEnd },
+          status: "completed",
+        });
+
+        metrics.percentageChange = previousCount
+          ? ((currentBookingsCount - previousCount) / previousCount) * 100
+          : 0;
+      }
+
+      const announcement = await Announcement.create({
+        host: hostId,
+        type,
+        period,
+        message,
+        metrics,
       });
-      
-      metrics.percentageChange = previousCount ? ((currentBookingsCount - previousCount) / previousCount) * 100 : 0;
+
+      await announcement.populate("host", "name email");
+      res.status(201).json(announcement);
+    } catch (error) {
+      console.error("Error creating announcement:", error);
+      res.status(500).json({ error: "Failed to create announcement" });
     }
-
-    const announcement = await Announcement.create({
-      host: hostId,
-      type,
-      period,
-      message,
-      metrics
-    });
-
-    await announcement.populate('host', 'name email');
-    res.status(201).json(announcement);
-  } catch (error) {
-    console.error('Error creating announcement:', error);
-    res.status(500).json({ error: 'Failed to create announcement' });
   }
-});
+);
 
 // Get host's announcements with real data
-app.get('/api/host/announcements', authenticateToken, authorizeRole('host'), async (req, res) => {
-  try {
-    const announcements = await Announcement.find({ host: req.userData.id })
-      .sort({ createdAt: -1 })
-      .populate('host', 'name email');
-    res.json(announcements);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch announcements' });
+app.get(
+  "/api/host/announcements",
+  authenticateToken,
+  authorizeRole("host"),
+  async (req, res) => {
+    try {
+      const announcements = await Announcement.find({ host: req.userData.id })
+        .sort({ createdAt: -1 })
+        .populate("host", "name email");
+      res.json(announcements);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch announcements" });
+    }
   }
-});
+);
 
 // Admin endpoints for announcements
-app.get('/api/admin/announcements', authenticateToken, authorizeRole('admin'), async (req, res) => {
-  try {
-    const announcements = await Announcement.find()
-      .sort({ createdAt: -1 })
-      .populate('host', 'name email');
-    res.json(announcements);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch announcements' });
+app.get(
+  "/api/admin/announcements",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const announcements = await Announcement.find()
+        .sort({ createdAt: -1 })
+        .populate("host", "name email");
+      res.json(announcements);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch announcements" });
+    }
   }
-});
+);
 
 // Toggle announcement status
-app.patch('/api/admin/announcements/:id/toggle', authenticateToken, authorizeRole('admin'), async (req, res) => {
-  try {
-    const announcement = await Announcement.findById(req.params.id);
-    if (!announcement) {
-      return res.status(404).json({ error: 'Announcement not found' });
+app.patch(
+  "/api/admin/announcements/:id/toggle",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const announcement = await Announcement.findById(req.params.id);
+      if (!announcement) {
+        return res.status(404).json({ error: "Announcement not found" });
+      }
+
+      announcement.isActive = !announcement.isActive;
+      await announcement.save();
+      res.json(announcement);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to toggle announcement status" });
     }
-    
-    announcement.isActive = !announcement.isActive;
-    await announcement.save();
-    res.json(announcement);
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to toggle announcement status' });
   }
-});
+);
 
 // Delete announcement
-app.delete('/api/admin/announcements/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
-  try {
-    await Announcement.findByIdAndDelete(req.params.id);
-    res.status(204).send();
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to delete announcement' });
+app.delete(
+  "/api/admin/announcements/:id",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      await Announcement.findByIdAndDelete(req.params.id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete announcement" });
+    }
   }
-});
+);
 function isValidLuhn(number) {
   let sum = 0;
   let isEven = false;
@@ -5322,7 +5405,6 @@ async function processCardPayment(cardDetails, amount) {
   return testCards.includes(cardDetails.cardNumber.replace(/\s/g, ""));
 }
 
-
 // Add this function after your imports
 
 // Middleware for handling host data visibility and deletion
@@ -5353,11 +5435,10 @@ const updateHostDataVisibility = async (
         { isActive: isActive, isDeleted: isDeleted }
       ),
 
-     
-Announcement.updateMany(
-  { host: hostId },
-  { isActive: isActive, isDeleted: isDeleted }
-),
+      Announcement.updateMany(
+        { host: hostId },
+        { isActive: isActive, isDeleted: isDeleted }
+      ),
       // Update reviews for host's places
       Review.updateMany(
         { place: { $in: hostPlaces } },
@@ -5493,68 +5574,67 @@ app.get("/api/vouchers", authenticateToken, async (req, res) => {
   }
 });
 
-
-app.get('/api/blog', async (req, res) => {
+app.get("/api/blog", async (req, res) => {
   try {
     const posts = await Blog.find()
-      .populate('author', 'name')
+      .populate("author", "name")
       .sort({ createdAt: -1 });
     res.json(posts);
   } catch (error) {
-    console.error('Error fetching blog posts:', error);
-    res.status(500).json({ error: 'Error fetching blog posts' });
+    console.error("Error fetching blog posts:", error);
+    res.status(500).json({ error: "Error fetching blog posts" });
   }
 });
 
-app.post('/api/blog', authenticateToken, async (req, res) => {
+app.post("/api/blog", authenticateToken, async (req, res) => {
   try {
     const { title, excerpt, content, image, category } = req.body;
-    
+
     // Validate required fields
     if (!title || !excerpt || !content || !category) {
-      return res.status(400).json({ error: 'All fields are required' });
+      return res.status(400).json({ error: "All fields are required" });
     }
 
     const post = await Blog.create({
       title,
       excerpt,
       content,
-      image: image || '', // Make image optional
+      image: image || "", // Make image optional
       category,
       author: req.userData.id, // Get author from authenticated user
     });
 
     // Populate author details in response
-    await post.populate('author', 'name');
-    
+    await post.populate("author", "name");
+
     res.status(201).json(post);
   } catch (error) {
-    console.error('Error creating blog post:', error);
-    res.status(500).json({ error: 'Error creating blog post' });
+    console.error("Error creating blog post:", error);
+    res.status(500).json({ error: "Error creating blog post" });
   }
 });
 
-app.put('/api/blog/:id', authenticateToken, async (req, res) => {
+app.put("/api/blog/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const update = await Blog.findOneAndUpdate(
       { _id: id, author: req.userData.id }, // Only allow update if user is author
       req.body,
       { new: true }
-    ).populate('author', 'name');
+    ).populate("author", "name");
 
     if (!update) {
-      return res.status(404).json({ error: 'Post not found or unauthorized' });
+      return res.status(404).json({ error: "Post not found or unauthorized" });
     }
 
     res.json(update);
   } catch (error) {
-    console.error('Error updating blog post:', error);
-    res.status(500).json({ error: 'Error updating blog post' });
+    console.error("Error updating blog post:", error);
+    res.status(500).json({ error: "Error updating blog post" });
   }
 });
 
-app.delete('/api/blog/:id', authenticateToken, async (req, res) => {
+app.delete("/api/blog/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const post = await Blog.findOneAndDelete({
@@ -5563,29 +5643,29 @@ app.delete('/api/blog/:id', authenticateToken, async (req, res) => {
     });
 
     if (!post) {
-      return res.status(404).json({ error: 'Post not found or unauthorized' });
+      return res.status(404).json({ error: "Post not found or unauthorized" });
     }
 
-    res.json({ message: 'Post deleted successfully' });
+    res.json({ message: "Post deleted successfully" });
   } catch (error) {
-    console.error('Error deleting blog post:', error);
-    res.status(500).json({ error: 'Error deleting blog post' });
+    console.error("Error deleting blog post:", error);
+    res.status(500).json({ error: "Error deleting blog post" });
   }
 });
-app.get('/api/blog/:id', async (req, res) => {
+app.get("/api/blog/:id", async (req, res) => {
   try {
     const post = await Blog.findById(req.params.id)
-      .populate('author', 'name')
+      .populate("author", "name")
       .exec();
-      
+
     if (!post) {
-      return res.status(404).json({ error: 'Post not found' });
+      return res.status(404).json({ error: "Post not found" });
     }
-    
+
     res.json(post);
   } catch (error) {
-    console.error('Error fetching blog post:', error);
-    res.status(500).json({ error: 'Error fetching blog post' });
+    console.error("Error fetching blog post:", error);
+    res.status(500).json({ error: "Error fetching blog post" });
   }
 });
 
@@ -5597,4 +5677,3 @@ const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
