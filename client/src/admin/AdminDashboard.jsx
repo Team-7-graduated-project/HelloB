@@ -792,6 +792,34 @@ function AdminDashboard() {
             }
           />
         </Routes>
+
+        {/* Admin Footer */}
+        <footer className="mt-auto pt-8 border-t border-gray-200">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-gray-600">
+              <p className="flex items-center gap-2">
+                &copy; {new Date().getFullYear()} HelloB Admin Dashboard
+              </p>
+              <div className="flex items-center gap-4">
+                <span>Version 1.0.0</span>
+                <span>•</span>
+                <Link 
+                  to="/admin/support" 
+                  className="hover:text-primary transition-colors"
+                >
+                  Support
+                </Link>
+                <span>•</span>
+                <Link 
+                  to="/admin/docs" 
+                  className="hover:text-primary transition-colors"
+                >
+                  Documentation
+                </Link>
+              </div>
+            </div>
+          </div>
+        </footer>
       </main>
 
       {/* Notifications Modal */}

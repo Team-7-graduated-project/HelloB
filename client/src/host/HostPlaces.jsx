@@ -274,7 +274,7 @@ function HostPlaces() {
         <div className="flex justify-center mt-8">
           <button
             onClick={() => setDisplayCount((prev) => prev + 5)}
-            className="px-6 py-3 bg-primary/5 text-primary rounded-xl hover:bg-primary/10 transition-all duration-200"
+                      className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
           >
             Load More Properties
           </button>

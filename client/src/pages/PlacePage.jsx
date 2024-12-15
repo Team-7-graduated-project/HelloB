@@ -1048,7 +1048,7 @@ export default function PlacePage() {
                               </h3>
                               <div className="flex items-center gap-2 text-sm text-gray-500">
                                 <FaClock className="text-gray-400" />
-                                {new Date(review.createdAt).toLocaleDateString(
+                                {new Date(review.created_at).toLocaleDateString(
                                   'en-US',
                                   {
                                     year: 'numeric',

@@ -242,7 +242,7 @@ function PlacesList() {
         <div className="flex justify-center mt-6">
           <button
             onClick={handleWatchMore}
-            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+            className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
           >
             Load More Places
           </button>

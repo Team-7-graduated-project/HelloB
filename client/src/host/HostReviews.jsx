@@ -72,7 +72,7 @@ function HostReviews() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center">
                     <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary font-semibold">
-                      {review.user.name.charAt(0).toUpperCase()}
+                      {review.user.photo || review.user.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="ml-3">
                       <p className="font-semibold text-gray-900">{review.user.name}</p>
@@ -101,7 +101,7 @@ function HostReviews() {
             <div className="mt-8 text-center">
               <button
                 onClick={() => setDisplayCount((prev) => prev + 6)}
-                className="px-6 py-3 bg-primary/5 text-primary rounded-xl hover:bg-primary/10 transition-all duration-200"
+                  className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
               >
                 Load More Reviews
               </button>

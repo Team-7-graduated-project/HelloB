@@ -240,8 +240,7 @@ export default function HostBookings() {
           <div className="p-4 flex justify-center">
             <button
               onClick={loadMore}
-              className="px-6 py-3 bg-primary/5 text-primary rounded-xl hover:bg-primary/10 
-                       transition-all duration-200 flex items-center gap-2"
+                      className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
             >
               Load More Bookings
             </button>

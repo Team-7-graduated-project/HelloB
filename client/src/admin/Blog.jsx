@@ -425,7 +425,7 @@ export default function ManageBlogPage() {
             <div className="flex justify-center mt-6">
               <button
                 onClick={handleLoadMore}
-                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+            className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
               >
                 Load More
               </button>
