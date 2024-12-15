@@ -150,7 +150,9 @@ export default function ProfilePage() {
       // Enhanced Gmail validation
       const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
       if (!gmailRegex.test(updatedUserData.email.toLowerCase())) {
-        setErrors({ email: "Please enter a valid Gmail address (example@gmail.com)" });
+        setErrors({
+          email: "Please enter a valid Gmail address (example@gmail.com)",
+        });
         return;
       }
 
@@ -298,8 +300,10 @@ export default function ProfilePage() {
                         </div>
                       )}
                     </div>
-                    <label className="absolute bottom-0 right-0 bg-white text-primary p-2 rounded-full cursor-pointer
-                              hover:bg-gray-50 transition-all transform hover:scale-110 shadow-lg">
+                    <label
+                      className="absolute bottom-0 right-0 bg-white text-primary p-2 rounded-full cursor-pointer
+                              hover:bg-gray-50 transition-all transform hover:scale-110 shadow-lg"
+                    >
                       <FaCamera className="text-lg" />
                       <input
                         type="file"
@@ -442,7 +446,7 @@ export default function ProfilePage() {
                           <button
                             onClick={sendVerificationEmail}
                             disabled={verificationStatus.sent}
-                            className="text-primary hover:text-primary-dark text-sm flex items-center gap-1"
+                            className="text-primary max-w-32 hover:text-primary-dark text-sm flex items-center gap-1"
                           >
                             <FaEnvelopeOpen />
                             {verificationStatus.sent
