@@ -1784,16 +1784,16 @@ app.get("/places/:id/reviews", async (req, res) => {
     const reviews = await Review.find({ place: id, isActive: true })
       .populate({
         path: "user",
-        select: "name photo createdAt",
+        select: "name photo created_at",
       })
-      .sort({ createdAt: -1 });
+      .sort({ created_at: -1 });
 
     // Format the reviews to match the frontend expectations
     const formattedReviews = reviews.map((review) => ({
       _id: review._id,
       rating: review.rating,
       review_text: review.review_text,
-      createdAt: review.createdAt,
+      created_at: review.created_at,
       user: {
         name: review.user.name,
         photo: review.user.photo,
