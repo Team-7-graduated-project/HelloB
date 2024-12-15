@@ -14,8 +14,7 @@ const validationRules = {
       required: "Voucher code is required",
       minLength: "Code must be at least 3 characters",
       maxLength: "Code cannot exceed 20 characters",
-      pattern:
-        "Code can only contain uppercase letters, numbers, hyphens and underscores",
+      pattern: "Code can only contain uppercase letters, numbers, hyphens and underscores",
     },
   },
   discount: {
@@ -30,14 +29,15 @@ const validationRules = {
   description: {
     required: true,
     minLength: 10,
+    maxLength: 500,
     message: {
       required: "Description is required",
       minLength: "Description must be at least 10 characters",
+      maxLength: "Description cannot exceed 500 characters",
     },
   },
   places: {
     required: true,
-    minLength: 1,
     message: {
       required: "Please select at least one place",
     },
@@ -123,33 +123,41 @@ export default function VoucherFormPage() {
     const errors = {};
 
     // Code validation
-    if (!code.trim()) {
+    if (!code) {
       errors.code = validationRules.code.message.required;
-    } else if (code.length < validationRules.code.minLength) {
-      errors.code = validationRules.code.message.minLength;
-    } else if (code.length > validationRules.code.maxLength) {
-      errors.code = validationRules.code.message.maxLength;
-    } else if (!validationRules.code.pattern.test(code)) {
-      errors.code = validationRules.code.message.pattern;
+    } else {
+      if (code.length < validationRules.code.minLength) {
+        errors.code = validationRules.code.message.minLength;
+      } else if (code.length > validationRules.code.maxLength) {
+        errors.code = validationRules.code.message.maxLength;
+      } else if (!validationRules.code.pattern.test(code)) {
+        errors.code = validationRules.code.message.pattern;
+      }
     }
 
     // Discount validation
-    const discountNum = Number(discount);
-    if (!discount) {
+    if (discount === "") {
       errors.discount = validationRules.discount.message.required;
-    } else if (isNaN(discountNum) || discountNum < 0 || discountNum > 100) {
-      errors.discount = validationRules.discount.message.range;
+    } else {
+      const discountNum = parseFloat(discount);
+      if (isNaN(discountNum) || discountNum < validationRules.discount.min || discountNum > validationRules.discount.max) {
+        errors.discount = validationRules.discount.message.range;
+      }
     }
 
     // Description validation
-    if (!description.trim()) {
+    if (!description) {
       errors.description = validationRules.description.message.required;
-    } else if (description.length < validationRules.description.minLength) {
-      errors.description = validationRules.description.message.minLength;
+    } else {
+      if (description.length < validationRules.description.minLength) {
+        errors.description = validationRules.description.message.minLength;
+      } else if (description.length > validationRules.description.maxLength) {
+        errors.description = validationRules.description.message.maxLength;
+      }
     }
 
     // Places validation
-    if (selectedPlaces.length === 0) {
+    if (!selectedPlaces.length) {
       errors.places = validationRules.places.message.required;
     }
 
@@ -158,6 +166,7 @@ export default function VoucherFormPage() {
       errors.expirationDate = validationRules.expirationDate.message.required;
     } else {
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
       const expDate = new Date(expirationDate);
       if (expDate < today) {
         errors.expirationDate = validationRules.expirationDate.message.future;
@@ -167,7 +176,7 @@ export default function VoucherFormPage() {
     // Usage limit validation
     if (!usageLimit) {
       errors.usageLimit = validationRules.usageLimit.message.required;
-    } else if (Number(usageLimit) < validationRules.usageLimit.min) {
+    } else if (parseInt(usageLimit) < validationRules.usageLimit.min) {
       errors.usageLimit = validationRules.usageLimit.message.min;
     }
 
@@ -175,17 +184,17 @@ export default function VoucherFormPage() {
   };
 
   const handleBlur = (field) => {
-    setTouched((prev) => ({ ...prev, [field]: true }));
-    const errors = validateField(field);
-    setFormErrors((prev) => ({ ...prev, ...errors }));
+    setTouched(prev => ({ ...prev, [field]: true }));
+    const fieldErrors = validateField(field);
+    setFormErrors(prev => ({ ...prev, ...fieldErrors }));
   };
 
   const validateField = (field) => {
     const errors = {};
 
     switch (field) {
-      case "code":
-        if (!code.trim()) {
+      case 'code':
+        if (!code) {
           errors.code = validationRules.code.message.required;
         } else if (code.length < validationRules.code.minLength) {
           errors.code = validationRules.code.message.minLength;
@@ -193,7 +202,27 @@ export default function VoucherFormPage() {
           errors.code = validationRules.code.message.pattern;
         }
         break;
-      // Add other field validations...
+
+      case 'discount':
+        if (discount === "") {
+          errors.discount = validationRules.discount.message.required;
+        } else {
+          const discountNum = parseFloat(discount);
+          if (isNaN(discountNum) || discountNum < validationRules.discount.min || discountNum > validationRules.discount.max) {
+            errors.discount = validationRules.discount.message.range;
+          }
+        }
+        break;
+
+      case 'description':
+        if (!description) {
+          errors.description = validationRules.description.message.required;
+        } else if (description.length < validationRules.description.minLength) {
+          errors.description = validationRules.description.message.minLength;
+        }
+        break;
+
+      // Add other field validations as needed
     }
 
     return errors;
@@ -338,241 +367,250 @@ export default function VoucherFormPage() {
   );
 
   return (
-    <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-lg shadow-md">
-      <button
-        type="button"
-        onClick={() => navigate(-1)}
-        className="flex items-center text-blue-600 hover:text-blue-800 mb-6"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5 mr-2"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
-            d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-            clipRule="evenodd"
-          />
-        </svg>
-        Back
-      </button>
-
-      <h1 className="text-2xl font-bold mb-6">
-        {id ? "Edit Voucher" : "Create New Voucher"}
-      </h1>
-
-      {error && (
-        <div className="bg-red-50 text-red-500 p-4 rounded-lg mb-6">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={saveVoucher} className="space-y-6">
-        <div>
-          <label className="block text-gray-700 font-semibold mb-2">
-            Voucher Code
-            <span className="text-red-500 ml-1">*</span>
-          </label>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => {
-              setCode(e.target.value.toUpperCase());
-              if (touched.code) {
-                handleBlur("code");
-              }
-            }}
-            onBlur={() => handleBlur("code")}
-            placeholder="e.g., SUMMER2024"
-            className={`w-full p-2 border rounded-lg transition-all duration-200
-              ${
-                formErrors.code
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
-              }
-              ${
-                touched.code && !formErrors.code && code
-                  ? "border-green-500 focus:ring-green-500"
-                  : ""
-              }
-            `}
-            maxLength={20}
-          />
-          {formErrors.code && touched.code && (
-            <p className="mt-1 text-sm text-red-500 transition-all">
-              {formErrors.code}
+    <div className="max-w-3xl mx-auto my-8">
+      {/* Header Section */}
+      <div className="bg-white rounded-t-2xl shadow-sm p-6 border-b">
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 text-gray-600"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">
+              {id ? "Edit Voucher" : "Create New Voucher"}
+            </h1>
+            <p className="text-gray-600 text-sm mt-1">
+              {id ? "Update your voucher details" : "Create a new voucher for your places"}
             </p>
-          )}
-          <p className="mt-1 text-sm text-gray-500">
-            {code.length}/{validationRules.code.maxLength} characters
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-gray-700 font-semibold mb-2">
-            Discount Percentage (%)
-            <span className="text-red-500 ml-1">*</span>
-          </label>
-          <div className="relative">
-            <input
-              type="number"
-              value={discount}
-              onChange={(e) => {
-                const value = Math.max(
-                  0,
-                  Math.min(100, Number(e.target.value))
-                );
-                setDiscount(value);
-                if (touched.discount) {
-                  handleBlur("discount");
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "-" || e.key === "e") {
-                  e.preventDefault();
-                }
-              }}
-              onBlur={() => handleBlur("discount")}
-              placeholder="Enter discount percentage"
-              className={`w-full p-2 pl-4 pr-8 border rounded-lg transition-all duration-200
-                ${
-                  formErrors.discount
-                    ? "border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:ring-blue-500"
-                }
-              `}
-              min="0"
-              max="100"
-              step="1"
-            />
-            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-              %
-            </span>
           </div>
-          {formErrors.discount && touched.discount && (
-            <p className="mt-1 text-sm text-red-500 transition-all">
-              {formErrors.discount}
-            </p>
-          )}
         </div>
 
-        <div>
-          <label className="block text-gray-700 font-semibold mb-2">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg flex items-center gap-2">
+            <FaTimes className="flex-shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
+      </div>
+
+      {/* Form Section */}
+      <form onSubmit={saveVoucher} className="bg-white rounded-b-2xl shadow-sm divide-y">
+        {/* Voucher Code Section */}
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Code Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Voucher Code
+                <span className="text-red-500 ml-1">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={code}
+                  onChange={(e) => {
+                    setCode(e.target.value.toUpperCase());
+                    if (touched.code) handleBlur("code");
+                  }}
+                  onBlur={() => handleBlur("code")}
+                  placeholder="e.g., SUMMER2024"
+                  className={`
+                    w-full px-4 py-2.5 rounded-lg border bg-white
+                    focus:ring-2 focus:ring-offset-0 transition-all duration-200
+                    ${
+                      formErrors.code
+                        ? "border-red-300 focus:border-red-300 focus:ring-red-200"
+                        : touched.code && code
+                        ? "border-green-300 focus:border-green-300 focus:ring-green-200"
+                        : "border-gray-300 focus:border-primary focus:ring-primary/20"
+                    }
+                  `}
+                  maxLength={20}
+                />
+                {touched.code && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {formErrors.code ? (
+                      <FaTimes className="text-red-500" />
+                    ) : code ? (
+                      <CheckIcon className="h-5 w-5 text-green-500" />
+                    ) : null}
+                  </div>
+                )}
+              </div>
+              {formErrors.code && touched.code && (
+                <p className="mt-1.5 text-sm text-red-500">{formErrors.code}</p>
+              )}
+              <p className="mt-1.5 text-sm text-gray-500">
+                {code.length}/{validationRules.code.maxLength} characters
+              </p>
+            </div>
+
+            {/* Discount Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Discount Percentage
+                <span className="text-red-500 ml-1">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={discount}
+                  onChange={(e) => {
+                    const value = Math.max(0, Math.min(100, Number(e.target.value)));
+                    setDiscount(value);
+                    if (touched.discount) handleBlur("discount");
+                  }}
+                  onBlur={() => handleBlur("discount")}
+                  placeholder="Enter discount value"
+                  className={`
+                    w-full px-4 py-2.5 rounded-lg border bg-white pr-12
+                    focus:ring-2 focus:ring-offset-0 transition-all duration-200
+                    ${
+                      formErrors.discount
+                        ? "border-red-300 focus:border-red-300 focus:ring-red-200"
+                        : "border-gray-300 focus:border-primary focus:ring-primary/20"
+                    }
+                  `}
+                  min="0"
+                  max="100"
+                />
+                <div className="absolute left-11 top-1/2 -translate-y-1/2 text-gray-500">%</div>
+              </div>
+              {formErrors.discount && touched.discount && (
+                <p className="mt-1.5 text-sm text-red-500">{formErrors.discount}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Description Section */}
+        <div className="p-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Description
+            <span className="text-red-500 ml-1">*</span>
           </label>
-          <input
-            type="text"
+          <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Enter voucher description, e.g., at least 20 characters"
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <PlaceSelection />
-
-        <div>
-          <label className="block text-gray-700 font-semibold mb-2">
-            Usage Limit
-            <span className="text-red-500 ml-1">*</span>
-          </label>
-          <input
-            type="number"
-            value={usageLimit}
-            onChange={(e) => {
-              const value = Math.max(1, Number(e.target.value));
-              setUsageLimit(value);
-              if (touched.usageLimit) {
-                handleBlur("usageLimit");
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "-" || e.key === "e") {
-                e.preventDefault();
-              }
-            }}
-            onBlur={() => handleBlur("usageLimit")}
-            className={`w-full p-2 border rounded-lg transition-all duration-200
+            onBlur={() => handleBlur("description")}
+            placeholder="Describe your voucher..."
+            rows="3"
+            className={`
+              w-full px-4 py-2.5 rounded-lg border bg-white
+              focus:ring-2 focus:ring-offset-0 transition-all duration-200
               ${
-                formErrors.usageLimit
-                  ? "border-red-500 focus:ring-red-500"
-                  : "border-gray-300 focus:ring-blue-500"
+                formErrors.description
+                  ? "border-red-300 focus:border-red-300 focus:ring-red-200"
+                  : "border-gray-300 focus:border-primary focus:ring-primary/20"
               }
             `}
-            min="1"
-            step="1"
-            required
           />
-          {formErrors.usageLimit && touched.usageLimit && (
-            <p className="mt-1 text-sm text-red-500 transition-all">
-              {formErrors.usageLimit}
-            </p>
+          {formErrors.description && touched.description && (
+            <p className="mt-1.5 text-sm text-red-500">{formErrors.description}</p>
           )}
-          <p className="text-sm text-gray-500 mt-1">
-            Maximum number of times this voucher can be used
-          </p>
         </div>
 
-        <div>
-          <label className="block text-gray-700 font-semibold mb-2">
-            Expiration Date
-          </label>
-          <input
-            type="date"
-            value={expirationDate}
-            onChange={(e) => setExpirationDate(e.target.value)}
-            className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-            min={new Date().toISOString().split("T")[0]}
-            required
-          />
+        {/* Places Selection */}
+        <div className="p-6">
+          <PlaceSelection />
         </div>
 
-        <button
-          type="submit"
-          onClick={() => {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          disabled={loading || Object.keys(formErrors).length > 0}
-          className={`
-            w-full py-3 px-6 rounded-lg
-            transition-all duration-200
-            ${
-              loading || Object.keys(formErrors).length > 0
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 transform hover:scale-[1.02]"
-            }
-            text-white font-semibold
-          `}
-        >
-          {loading ? (
-            <div className="flex items-center justify-center">
-              <svg
-                className="animate-spin h-5 w-5 mr-3"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-              Saving...
+        {/* Usage Limit & Expiration */}
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Usage Limit
+                <span className="text-red-500 ml-1">*</span>
+              </label>
+              <input
+                type="number"
+                value={usageLimit}
+                onChange={(e) => setUsageLimit(Math.max(1, Number(e.target.value)))}
+                min="1"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+              <p className="mt-1.5 text-sm text-gray-500">
+                Maximum number of times this voucher can be used
+              </p>
             </div>
-          ) : (
-            "Save Voucher"
-          )}
-        </button>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Expiration Date
+                <span className="text-red-500 ml-1">*</span>
+              </label>
+              <input
+                type="date"
+                value={expirationDate}
+                onChange={(e) => setExpirationDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <div className="p-6 bg-gray-50 rounded-b-2xl flex items-center justify-end gap-4">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="px-6 py-2.5 rounded-lg border border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading || Object.keys(formErrors).length > 0}
+            className={`
+              px-6 py-2.5 rounded-lg font-medium
+              transition-all duration-200
+              ${
+                loading || Object.keys(formErrors).length > 0
+                  ? "bg-gray-300 cursor-not-allowed"
+                  : "bg-primary text-white hover:bg-primary-dark"
+              }
+            `}
+          >
+            {loading ? (
+              <div className="flex items-center gap-2">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                <span>Saving...</span>
+              </div>
+            ) : (
+              "Save Voucher"
+            )}
+          </button>
+        </div>
       </form>
     </div>
   );

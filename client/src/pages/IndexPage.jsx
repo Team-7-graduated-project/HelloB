@@ -406,7 +406,7 @@ export default function IndexPage({
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-12 h-12 flex-shrink-0 rounded-full overflow-hidden">
                     <img
-                      src={review.user.photo}
+                      src={review.user.photo || "Anonymous"}
                       alt={review.user.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {

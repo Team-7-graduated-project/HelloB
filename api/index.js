@@ -1039,23 +1039,26 @@ app.post(
 );
 
 // Get host's vouchers
-app.get(
-  "/host/vouchers",
-  authenticateToken,
-  authorizeRole("host"),
-  async (req, res) => {
-    try {
-      const vouchers = await Voucher.find({ owner: req.userData.id })
-        .populate("applicablePlaces", "title")
-        .populate("owner", "name")
-        .sort({ createdAt: -1 });
+app.get("/host/vouchers", authenticateToken, async (req, res) => {
+  try {
+    const vouchers = await Voucher.find({ owner: req.userData.id })
+      .populate('applicablePlaces', 'title');
 
-      res.json(vouchers);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch vouchers" });
-    }
+    // Update the active status based on expiration date
+    const vouchersWithStatus = vouchers.map(voucher => {
+      const isExpired = new Date(voucher.expirationDate) < new Date();
+      return {
+        ...voucher.toObject(),
+        active: isExpired ? false : voucher.active
+      };
+    });
+
+    res.json(vouchersWithStatus);
+  } catch (error) {
+    console.error('Error fetching vouchers:', error);
+    res.status(500).json({ error: 'Failed to fetch vouchers' });
   }
-);
+});
 
 // Update host's voucher
 app.put(

@@ -101,6 +101,12 @@ export default function VoucherListPage() {
     }
   };
 
+  const isExpired = (date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(date) < today;
+  };
+
   const renderTableRow = (voucher) => {
     if (editingVoucher && editingVoucher._id === voucher._id) {
       return (
@@ -368,13 +374,27 @@ export default function VoucherListPage() {
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <span className="font-medium text-gray-900">{voucher.code}</span>
-                      <span className={`text-sm ${voucher.active ? 'text-green-600' : 'text-red-600'}`}>
-                        {voucher.active ? 'Active' : 'Inactive'}
+                      <span className={`text-sm ${
+                        isExpired(voucher.expirationDate) 
+                          ? 'text-red-600'
+                          : voucher.active 
+                            ? 'text-green-600' 
+                            : 'text-red-600'
+                      }`}>
+                        {isExpired(voucher.expirationDate) 
+                          ? 'Expired'
+                          : voucher.active 
+                            ? 'Active' 
+                            : 'Inactive'}
                       </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                      isExpired(voucher.expirationDate)
+                        ? 'bg-gray-100 text-gray-800'
+                        : 'bg-green-100 text-green-800'
+                    }`}>
                       {voucher.discount}% OFF
                     </span>
                   </td>
@@ -385,11 +405,14 @@ export default function VoucherListPage() {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`text-sm ${
-                      new Date(voucher.expirationDate) < new Date() 
-                        ? 'text-red-600' 
+                      isExpired(voucher.expirationDate)
+                        ? 'text-red-600 font-medium'
                         : 'text-gray-600'
                     }`}>
                       {new Date(voucher.expirationDate).toLocaleDateString()}
+                      {isExpired(voucher.expirationDate) && (
+                        <span className="block text-xs text-red-500">Expired</span>
+                      )}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -413,13 +436,15 @@ export default function VoucherListPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => handleEdit(voucher)}
-                        className="inline-flex items-center px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
-                      >
-                        <FaEdit className="mr-1" />
-                        Edit
-                      </button>
+                      {!isExpired(voucher.expirationDate) && (
+                        <button
+                          onClick={() => handleEdit(voucher)}
+                          className="inline-flex items-center px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                        >
+                          <FaEdit className="mr-1" />
+                          Edit
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(voucher._id)}
                         className="inline-flex items-center px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
