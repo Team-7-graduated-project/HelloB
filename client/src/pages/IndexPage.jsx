@@ -417,7 +417,7 @@ export default function IndexPage({
                   <div>
                     <div className="font-semibold">{review.user.name}</div>
                     <div className="text-sm text-gray-500">
-                      {new Date(review.createdAt).toLocaleDateString('en-US', {
+                      {new Date(review.created_at).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric'

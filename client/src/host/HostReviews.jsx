@@ -72,7 +72,7 @@ function HostReviews() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center">
                     <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-primary font-semibold">
-                      {review.user.photo || review.user.name.charAt(0).toUpperCase()}
+                      { review.user.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="ml-3">
                       <p className="font-semibold text-gray-900">{review.user.name}</p>
