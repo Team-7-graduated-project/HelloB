@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FaTimes, FaPlus, FaEdit, FaTrash, FaSpinner, FaTicketAlt } from "react-icons/fa";
 
 export default function VoucherListPage() {
@@ -9,6 +9,7 @@ export default function VoucherListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [editingVoucher, setEditingVoucher] = useState(null);
+  const navigate = useNavigate();
 
   // Update fetchVouchers function
   const fetchVouchers = async () => {
@@ -55,7 +56,7 @@ export default function VoucherListPage() {
 
   // Handle edit click - navigate to the edit page
   const handleEdit = (voucher) => {
-    setEditingVoucher(voucher);
+    navigate(`/host/vouchers/edit/${voucher._id}`);
   };
 
   const handleSaveEdit = async (voucherId) => {
@@ -302,16 +303,18 @@ export default function VoucherListPage() {
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
           <div className="flex space-x-2">
-            <button
-              onClick={() => handleEdit(voucher)}
-              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+            <Link
+              to={`/host/vouchers/edit/${voucher._id}`}
+              className="inline-flex items-center px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
             >
+              <FaEdit className="mr-1" />
               Edit
-            </button>
+            </Link>
             <button
               onClick={() => handleDelete(voucher._id)}
-              className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              className="inline-flex items-center px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
             >
+              <FaTrash className="mr-1" />
               Delete
             </button>
           </div>
@@ -437,13 +440,13 @@ export default function VoucherListPage() {
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
                       {!isExpired(voucher.expirationDate) && (
-                        <button
-                          onClick={() => handleEdit(voucher)}
+                        <Link
+                          to={`/host/vouchers/edit/${voucher._id}`}
                           className="inline-flex items-center px-3 py-1.5 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
                         >
                           <FaEdit className="mr-1" />
                           Edit
-                        </button>
+                        </Link>
                       )}
                       <button
                         onClick={() => handleDelete(voucher._id)}

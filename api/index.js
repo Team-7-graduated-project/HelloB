@@ -1060,33 +1060,37 @@ app.get("/host/vouchers", authenticateToken, async (req, res) => {
   }
 });
 
-// Update host's voucher
-app.put(
-  "/host/vouchers/:id",
-  authenticateToken,
-  authorizeRole("host"),
-  async (req, res) => {
-    try {
-      const voucher = await Voucher.findOneAndUpdate(
-        { _id: req.params.id, owner: req.userData.id },
-        { ...req.body, owner: req.userData.id },
-        { new: true, runValidators: true }
-      );
+// Update the PUT route for editing vouchers
+app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
+  try {
+    const voucher = await Voucher.findOne({
+      _id: req.params.id,
+      owner: req.userData.id
+    });
 
-      if (!voucher) {
-        return res
-          .status(404)
-          .json({ error: "Voucher not found or you don't have permission" });
-      }
-
-      res.json(voucher);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to update voucher" });
+    if (!voucher) {
+      return res.status(404).json({ error: "Voucher not found" });
     }
-  }
-);
 
-// Delete host's voucher
+    // Check if voucher is expired
+    if (new Date(voucher.expirationDate) < new Date()) {
+      return res.status(400).json({ error: "Cannot edit expired vouchers" });
+    }
+
+    // Update voucher
+    const updatedVoucher = await Voucher.findOneAndUpdate(
+      { _id: req.params.id, owner: req.userData.id },
+      req.body,
+      { new: true, runValidators: true }
+    ).populate('applicablePlaces', 'title');
+
+    res.json(updatedVoucher);
+  } catch (error) {
+    console.error('Error updating voucher:', error);
+    res.status(500).json({ error: 'Failed to update voucher' });
+  }
+});
+
 app.delete(
   "/host/vouchers/:id",
   authenticateToken,
@@ -1524,7 +1528,6 @@ app.get("/api/host/metrics", authenticateToken, async (req, res) => {
     });
   }
 });
-
 
 
 app.delete("/places/:id", authenticateToken, async (req, res) => {
@@ -5644,8 +5647,3 @@ server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-// Host bookings route
-
-// Add this endpoint to check if user has reviewed
-
-// Add this endpoint to get top reviews
