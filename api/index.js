@@ -1676,14 +1676,19 @@ app.post("/bookings", authenticateToken, async (req, res) => {
       status: "pending"
     });
 
-    // Create notification for the owner
-    await createNotification(
-      placeDoc.owner,
-      "New Booking",
-      `New booking request for ${placeDoc.title}`,
-      `/host/bookings/${booking._id}`,
-      'booking'
-    );
+    // Create notification for the place owner
+    try {
+      await createNotification(
+        placeDoc.owner.toString(), // Make sure owner ID is a string
+        "New Booking Request",
+        `You have a new booking request for ${placeDoc.title}`,
+        `/host/bookings/${booking._id}`,
+        'booking'  // Use 'booking' type for booking notifications
+      );
+    } catch (notificationError) {
+      console.error("Failed to create notification:", notificationError);
+      // Continue with the booking process even if notification fails
+    }
 
     res.json(booking);
   } catch (err) {
