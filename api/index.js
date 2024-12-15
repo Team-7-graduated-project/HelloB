@@ -2110,12 +2110,17 @@ app.post("/host/register", async (req, res) => {
       role: "host",
     });
 
-    await createNotification(
-      "admin",
-      "New Host Registration",
-      `New host registered: ${userDoc.name}`,
-      `/admin/hosts/${userDoc._id}`
-    );
+    // Find an admin user to send notification to
+    const adminUser = await User.findOne({ role: 'admin' });
+    if (adminUser) {
+      await createNotification(
+        adminUser._id, // recipient should be admin's ID
+        "New Host Registration",
+        `New host registered: ${userDoc.name}`,
+        `/admin/hosts/${userDoc._id}`,
+        'system' // use 'system' type instead of 'admin'
+      );
+    }
 
     res.json({ success: true, message: "Host registration successful" });
   } catch (e) {

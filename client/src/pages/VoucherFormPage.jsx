@@ -95,29 +95,29 @@ export default function VoucherFormPage() {
     const fetchVoucherData = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`/host/vouchers/${id}`, {
-          withCredentials: true,
-        });
+        const response = await axios.get(`/host/vouchers/${id}`);
         const data = response.data;
-        setCode(data.code || "");
-        setDiscount(data.discount || "");
-        setDescription(data.description || "");
+        
+        setCode(data.code || '');
+        setDiscount(data.discount || '');
+        setDescription(data.description || '');
         setUsageLimit(data.usageLimit || 1);
-        setSelectedPlaces(data.applicablePlaces || []);
+        setSelectedPlaces(data.applicablePlaces?.map(p => p._id) || []);
+        
         if (data.expirationDate) {
-          setExpirationDate(
-            new Date(data.expirationDate).toISOString().split("T")[0]
-          );
+          setExpirationDate(new Date(data.expirationDate).toISOString().split('T')[0]);
         }
-      } catch {
-        setError("Failed to load voucher data");
+      } catch (error) {
+        console.error('Error fetching voucher:', error);
+        setError('Failed to load voucher data');
+        navigate('/host/vouchers');
       } finally {
         setLoading(false);
       }
     };
 
     fetchVoucherData();
-  }, [id]);
+  }, [id, navigate]);
 
   const validateForm = () => {
     const errors = {};
@@ -255,26 +255,26 @@ export default function VoucherFormPage() {
       return;
     }
 
-    // Define voucherData here
-    const voucherData = {
-      code: code.toUpperCase().trim(),
-      discount: Number(discount),
-      description: description.trim(),
-      expirationDate: new Date(expirationDate).toISOString(),
-      usageLimit: Number(usageLimit),
-      applicablePlaces: selectedPlaces,
-    };
-
-    setLoading(true);
     try {
+      setLoading(true);
+      const voucherData = {
+        code: code.toUpperCase(),
+        discount: Number(discount),
+        description,
+        expirationDate,
+        usageLimit: Number(usageLimit),
+        applicablePlaces: selectedPlaces,
+      };
+
       if (id) {
         await axios.put(`/host/vouchers/${id}`, voucherData);
       } else {
-        await axios.post("/host/vouchers", voucherData);
+        await axios.post('/host/vouchers', voucherData);
       }
-      navigate("/host/vouchers");
+
+      navigate('/host/vouchers');
     } catch (error) {
-      setError(error.response?.data?.error || "Failed to save voucher");
+      setError(error.response?.data?.error || 'Failed to save voucher');
     } finally {
       setLoading(false);
     }
@@ -373,7 +373,7 @@ export default function VoucherFormPage() {
         <div className="flex items-center gap-4 mb-6">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/host/vouchers')}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <svg
@@ -391,10 +391,10 @@ export default function VoucherFormPage() {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-800">
-              {id ? "Edit Voucher" : "Create New Voucher"}
+              {id ? 'Edit Voucher' : 'Create New Voucher'}
             </h1>
             <p className="text-gray-600 text-sm mt-1">
-              {id ? "Update your voucher details" : "Create a new voucher for your places"}
+              {id ? 'Update your voucher details' : 'Create a new voucher for your places'}
             </p>
           </div>
         </div>

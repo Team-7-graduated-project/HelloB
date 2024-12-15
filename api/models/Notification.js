@@ -2,29 +2,34 @@ const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
 const notificationSchema = new Schema({
-  type: {
-    type: String,
-    required: true,
-    enum: ["booking", "place", "user", "payment", "system"],
+  recipient: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
   title: {
     type: String,
-    required: true,
+    required: true
   },
   message: {
     type: String,
-    required: true,
+    required: true
   },
-  status: {
+  type: {
     type: String,
-    enum: ["unread", "read"],
-    default: "unread",
+    enum: ['system', 'booking', 'review', 'host', 'admin', 'user'],
+    default: 'system'
   },
   link: String,
+  status: {
+    type: String,
+    enum: ['read', 'unread'],
+    default: 'unread'
+  },
   createdAt: {
     type: Date,
-    default: Date.now,
-  },
+    default: Date.now
+  }
 });
 
 const Notification = mongoose.model("Notification", notificationSchema);
