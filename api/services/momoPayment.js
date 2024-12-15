@@ -46,23 +46,31 @@ class MomoPayment {
         .update(rawSignature)
         .digest("hex");
 
-      const requestBody = JSON.stringify({
-        partnerCode: this.partnerCode,
-        accessKey: this.accessKey,
-        requestId: requestId,
-        amount: amount,
-        orderId: orderId,
-        orderInfo: orderInfo,
-        redirectUrl: redirectUrl,
-        ipnUrl: ipnUrl,
-        extraData: extraData,
-        requestType: requestType,
-        signature: signature,
-        lang: "vi",
-        paymentOption: "atm",
-      });
-
       return new Promise((resolve, reject) => {
+        const requestBody = JSON.stringify({
+          partnerCode: this.partnerCode,
+          partnerName: "Test",
+          storeId: "MomoTestStore",
+          requestId: requestId,
+          amount: amount,
+          orderId: orderId,
+          orderInfo: orderInfo,
+          redirectUrl: redirectUrl,
+          ipnUrl: ipnUrl,
+          extraData: extraData,
+          requestType: requestType,
+          signature: signature,
+          lang: "vi",
+        });
+
+        console.log("MoMo Request:", {
+          body: JSON.parse(requestBody),
+          signature: signature,
+          rawSignature: rawSignature,
+          redirectUrl: redirectUrl,
+          bookingId: bookingId,
+        });
+
         const options = {
           hostname: this.endpoint,
           port: 443,
@@ -76,6 +84,7 @@ class MomoPayment {
 
         const req = https.request(options, (res) => {
           let data = "";
+
           res.on("data", (chunk) => {
             data += chunk;
           });
@@ -83,13 +92,14 @@ class MomoPayment {
           res.on("end", () => {
             try {
               const response = JSON.parse(data);
-              console.log("MoMo Response:", response);
-              if (response.errorCode === 0) {
-                resolve(response);
-              } else {
-                reject(new Error(response.message || "Payment request failed"));
-              }
+              console.log("MoMo Response:", {
+                ...response,
+                bookingId: bookingId,
+                redirectUrl: redirectUrl,
+              });
+              resolve(response);
             } catch (error) {
+              console.error("Error parsing MoMo response:", error);
               reject(error);
             }
           });

@@ -15,7 +15,7 @@ const PaymentOptionSchema = new Schema({
   method: {
     type: String,
     required: true,
-    enum: ["card", "momo", "payLater", "atm"],
+    enum: ["card", "momo", "payLater"],
   },
   amount: {
     type: Number,
@@ -40,12 +40,6 @@ const PaymentOptionSchema = new Schema({
   createdAt: {
     type: Date,
     default: Date.now,
-  },
-  paymentDetails: {
-    transactionId: String,
-    paymentType: String,
-    cardType: String,
-    bankCode: String,
   },
 });
 

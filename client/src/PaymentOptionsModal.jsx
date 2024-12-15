@@ -539,7 +539,8 @@ export default function PaymentOptionsModal({
         bookingId,
         userId,
         amount: Math.round(finalPrice * 23000), // Convert to VND
-        paymentMethod: selectedOption === "payLater" ? "payLater" : "atm", // Specify ATM
+        paymentMethod:
+          selectedOption === "payLater" ? "payLater" : paymentMethod,
         selectedOption,
         ...(discount > 0 && {
           voucherCode: couponCode.toUpperCase(),
@@ -548,26 +549,34 @@ export default function PaymentOptionsModal({
       };
 
       if (selectedOption === "payNow" && paymentMethod === "momo") {
-        const response = await axios.post("/payment-options/momo", payload);
-        
-        if (response.data.payUrl) {
-          // Redirect to Momo payment page
-          window.location.href = response.data.payUrl;
+        const response = await axios.post("/payment-options/momo", payload, {
+          withCredentials: true,
+        });
+
+        if (response.data.data) {
+          window.location.href = response.data.data;
           return;
         }
         throw new Error("No payment URL received");
       }
 
-      // Handle other payment methods...
+      const response = await axios.post("/payment-options", payload, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setSuccessMessage("Payment processed successfully!");
+        onClose({
+          status: response.data.booking.paymentStatus,
+          method: response.data.booking.paymentMethod,
+        });
+      }
     } catch (error) {
       console.error("Payment Error:", error);
-      let errorMessage = "Failed to process payment. Please try again.";
-      
-      if (error.response?.data?.message === "Transaction failed due to insufficient funds") {
-        errorMessage = "Your card has insufficient funds. Please try another card or payment method.";
-      }
-      
-      setErrorMessage(errorMessage);
+      setErrorMessage(
+        error.response?.data?.message ||
+          "Failed to process payment request. Please try again."
+      );
     } finally {
       setIsProcessing(false);
     }
