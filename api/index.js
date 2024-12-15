@@ -1060,36 +1060,6 @@ app.get("/host/vouchers", authenticateToken, async (req, res) => {
   }
 });
 
-// Update the PUT route for editing vouchers
-app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
-  try {
-    const voucher = await Voucher.findOne({
-      _id: req.params.id,
-      owner: req.userData.id
-    });
-
-    if (!voucher) {
-      return res.status(404).json({ error: "Voucher not found" });
-    }
-
-    // Check if voucher is expired
-    if (new Date(voucher.expirationDate) < new Date()) {
-      return res.status(400).json({ error: "Cannot edit expired vouchers" });
-    }
-
-    // Update voucher
-    const updatedVoucher = await Voucher.findOneAndUpdate(
-      { _id: req.params.id, owner: req.userData.id },
-      req.body,
-      { new: true, runValidators: true }
-    ).populate('applicablePlaces', 'title');
-
-    res.json(updatedVoucher);
-  } catch (error) {
-    console.error('Error updating voucher:', error);
-    res.status(500).json({ error: 'Failed to update voucher' });
-  }
-});
 
 app.delete(
   "/host/vouchers/:id",
