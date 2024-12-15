@@ -1654,70 +1654,41 @@ app.get("/places/:id/bookings", authenticateToken, async (req, res) => {
 // Modify your booking creation endpoint
 app.post("/bookings", authenticateToken, async (req, res) => {
   try {
-    // Check if user is admin or host
-    if (req.userData.role === "admin" || req.userData.role === "host") {
-      return res.status(403).json({
-        error: "Administrators and hosts are not allowed to make bookings",
-      });
+    const { check_in, check_out, name, phone, place, price, max_guests } = req.body;
+
+    // Get the place to find its owner
+    const placeDoc = await Place.findById(place);
+    if (!placeDoc) {
+      return res.status(404).json({ message: "Place not found" });
     }
 
-    const {
-      place: placeId,
-      check_in,
-      check_out,
-      max_guests,
-      name,
-      phone,
-      price,
-    } = req.body;
-
-    // Check if user is trying to book their own place
-    const place = await Place.findById(placeId);
-    if (!place) {
-      return res.status(404).json({ error: "Place not found" });
-    }
-
-    if (place.owner.toString() === req.userData.id) {
-      return res.status(403).json({
-        error: "You cannot book your own property",
-      });
-    }
-
-    // Rest of your existing booking creation code
+    // Create the booking with owner field
     const booking = await Booking.create({
-      place: placeId,
-      user: req.userData.id,
       check_in,
       check_out,
-      max_guests,
       name,
       phone,
+      place,
       price,
-      status: "confirmed",
+      max_guests,
+      user: req.userData.id,    // The person making the booking
+      owner: placeDoc.owner,    // The owner of the place
+      status: "pending"
     });
 
-    // Notify host about new booking
+    // Create notification for the owner
     await createNotification(
-      "new_booking",
-      "New Booking Received",
-      `New booking for ${place.title} from ${req.userData.name}`,
+      placeDoc.owner,
+      "New Booking",
+      `New booking request for ${placeDoc.title}`,
       `/host/bookings/${booking._id}`,
-      place.owner
-    );
-
-    // Notify user about booking confirmation
-    await createNotification(
-      "booking_confirmed",
-      "Booking Confirmed",
-      `Your booking for ${place.title} has been confirmed`,
-      `/account/bookings/${booking._id}`,
-      req.userData.id
+      'booking'
     );
 
     res.json(booking);
-  } catch (error) {
-    console.error("Error creating booking:", error);
-    res.status(500).json({ error: "Could not create booking" });
+  } catch (err) {
+    console.error("Error creating booking:", err);
+    res.status(500).json({ message: err.message });
   }
 });
 
