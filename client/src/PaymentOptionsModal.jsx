@@ -539,8 +539,7 @@ export default function PaymentOptionsModal({
         bookingId,
         userId,
         amount: Math.round(finalPrice * 23000), // Convert to VND
-        paymentMethod:
-          selectedOption === "payLater" ? "payLater" : paymentMethod,
+        paymentMethod: selectedOption === "payLater" ? "payLater" : "atm", // Specify ATM
         selectedOption,
         ...(discount > 0 && {
           voucherCode: couponCode.toUpperCase(),
@@ -549,34 +548,26 @@ export default function PaymentOptionsModal({
       };
 
       if (selectedOption === "payNow" && paymentMethod === "momo") {
-        const response = await axios.post("/payment-options/momo", payload, {
-          withCredentials: true,
-        });
-
-        if (response.data.data) {
-          window.location.href = response.data.data;
+        const response = await axios.post("/payment-options/momo", payload);
+        
+        if (response.data.payUrl) {
+          // Redirect to Momo payment page
+          window.location.href = response.data.payUrl;
           return;
         }
         throw new Error("No payment URL received");
       }
 
-      const response = await axios.post("/payment-options", payload, {
-        withCredentials: true,
-      });
-
-      if (response.data.success) {
-        setSuccessMessage("Payment processed successfully!");
-        onClose({
-          status: response.data.booking.paymentStatus,
-          method: response.data.booking.paymentMethod,
-        });
-      }
+      // Handle other payment methods...
     } catch (error) {
       console.error("Payment Error:", error);
-      setErrorMessage(
-        error.response?.data?.message ||
-          "Failed to process payment request. Please try again."
-      );
+      let errorMessage = "Failed to process payment. Please try again.";
+      
+      if (error.response?.data?.message === "Transaction failed due to insufficient funds") {
+        errorMessage = "Your card has insufficient funds. Please try another card or payment method.";
+      }
+      
+      setErrorMessage(errorMessage);
     } finally {
       setIsProcessing(false);
     }
