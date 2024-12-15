@@ -13,6 +13,7 @@ import {
   FaHotel,
   FaUmbrellaBeach,
   FaEnvelope,
+  FaQuestionCircle,
   FaCompass,
   FaHeart,
   FaMountain,
@@ -74,6 +75,7 @@ export default function IndexPage({
     { type: "villa", label: "Villa", icon: FaWarehouse },
     { type: "hotel", label: "Hotel", icon: FaHotel },
     { type: "resort", label: "Resort", icon: FaUmbrellaBeach },
+    { type: "other", label: "Other", icon: FaQuestionCircle },
   ];
 
   const fetchPlaces = useCallback(async () => {
@@ -120,15 +122,15 @@ export default function IndexPage({
 
   const fetchTopReviews = useCallback(async () => {
     try {
-      const { data } = await axios.get('/api/reviews/top', {
+      const { data } = await axios.get("/api/reviews/top", {
         params: {
           limit: 3,
-          minRating: 5
-        }
+          minRating: 5,
+        },
       });
       setTopReviews(data);
     } catch (error) {
-      console.error('Failed to fetch top reviews:', error);
+      console.error("Failed to fetch top reviews:", error);
     }
   }, []);
 
@@ -238,7 +240,7 @@ export default function IndexPage({
       {/* Hero Section */}
       <section className="relative mb-16">
         <HomeCarousel places={popularPlaces.slice(0, 5)} />
-        
+
         {/* Search Bar Overlay */}
         <div className="absolute top-8 left-1/2 -translate-x-1/2 w-full max-w-5xl px-4 z-10">
           <div className="backdrop-blur-sx  bg-white/10 p-4 rounded-2xl">
@@ -359,13 +361,33 @@ export default function IndexPage({
             <FaCompass className="text-primary group-hover:scale-110 transition-transform" />
             Explore by Category
           </h2>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[
-              { icon: FaUmbrellaBeach, title: "Beach Getaways", count: "250+", color: "bg-blue-500" },
-              { icon: FaMountain, title: "Mountain Retreats", count: "180+", color: "bg-green-500" },
-              { icon: FaCity, title: "City Experiences", count: "320+", color: "bg-purple-500" },
-              { icon: FaHeart, title: "Romantic Stays", count: "150+", color: "bg-red-500" },
+              {
+                icon: FaUmbrellaBeach,
+                title: "Beach Getaways",
+                count: "250+",
+                color: "bg-blue-500",
+              },
+              {
+                icon: FaMountain,
+                title: "Mountain Retreats",
+                count: "180+",
+                color: "bg-green-500",
+              },
+              {
+                icon: FaCity,
+                title: "City Experiences",
+                count: "320+",
+                color: "bg-purple-500",
+              },
+              {
+                icon: FaHeart,
+                title: "Romantic Stays",
+                count: "150+",
+                color: "bg-red-500",
+              },
             ].map((category, index) => (
               <Link
                 key={index}
@@ -373,12 +395,16 @@ export default function IndexPage({
                 onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
                 className="group relative overflow-hidden rounded-2xl aspect-square shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                <div className={`absolute inset-0 ${category.color} opacity-80`}></div>
+                <div
+                  className={`absolute inset-0 ${category.color} opacity-80`}
+                ></div>
                 <div className="absolute inset-0 p-6 flex flex-col justify-between text-white">
                   <category.icon className="text-4xl group-hover:scale-110 transition-transform" />
                   <div>
                     <h3 className="text-xl font-bold mb-2">{category.title}</h3>
-                    <p className="text-sm opacity-90">{category.count} listings</p>
+                    <p className="text-sm opacity-90">
+                      {category.count} listings
+                    </p>
                   </div>
                 </div>
               </Link>
@@ -394,7 +420,7 @@ export default function IndexPage({
             <FaStar className="text-primary group-hover:scale-110 transition-transform" />
             Guest Experiences
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {topReviews.map((review) => (
               <Link
@@ -410,17 +436,17 @@ export default function IndexPage({
                       alt={review.user.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        e.target.src = '/default-avatar.png';
+                        e.target.src = "/default-avatar.png";
                       }}
                     />
                   </div>
                   <div>
                     <div className="font-semibold">{review.user.name}</div>
                     <div className="text-sm text-gray-500">
-                      {new Date(review.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
+                      {new Date(review.created_at).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
                       })}
                     </div>
                   </div>
@@ -436,7 +462,9 @@ export default function IndexPage({
                   <h3 className="font-medium text-lg group-hover:text-primary transition-colors line-clamp-1">
                     {review.place.title}
                   </h3>
-                  <div className="text-sm text-gray-500 mb-3 line-clamp-1">{review.place.address}</div>
+                  <div className="text-sm text-gray-500 mb-3 line-clamp-1">
+                    {review.place.address}
+                  </div>
                 </div>
 
                 {/* Review Content */}
@@ -455,7 +483,7 @@ export default function IndexPage({
                       alt={review.place.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       onError={(e) => {
-                        e.target.src = '/default-place-image.jpg';
+                        e.target.src = "/default-place-image.jpg";
                       }}
                     />
                   </div>
@@ -466,7 +494,6 @@ export default function IndexPage({
         </div>
       </section>
 
-      
       <BackToTop />
     </div>
   );
