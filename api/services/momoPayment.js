@@ -17,7 +17,7 @@ class MomoPayment {
       const orderInfo = `Payment for booking #${bookingId}`;
       const redirectUrl = `${process.env.CLIENT_URL}/account/bookings/${bookingId}`;
       const ipnUrl = `${process.env.API_URL}/payment/momo/notify/${bookingId}`;
-      const requestType = "captureWallet";
+      const requestType = "payWithATM";
       const extraData = Buffer.from(
         JSON.stringify({
           bookingId,
@@ -63,7 +63,7 @@ class MomoPayment {
         lang: "vi",
       };
 
-      console.log("MoMo Request:", {
+      console.log("MoMo ATM Request:", {
         ...requestBody,
         signature: signature,
         rawSignature: rawSignature,
@@ -91,12 +91,12 @@ class MomoPayment {
           res.on("end", () => {
             try {
               const response = JSON.parse(data);
-              console.log("MoMo Response:", response);
+              console.log("MoMo ATM Response:", response);
               
               if (response.resultCode === 0) {
                 resolve(response);
               } else {
-                reject(new Error(response.message || "MoMo payment failed"));
+                reject(new Error(response.message || "MoMo ATM payment failed"));
               }
             } catch (error) {
               console.error("Error parsing MoMo response:", error);

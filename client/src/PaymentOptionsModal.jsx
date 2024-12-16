@@ -347,10 +347,11 @@ export default function PaymentOptionsModal({
             },
             {
               id: "momo",
-              label: "Momo Card Payment",
+              label: "ATM/Credit Card via MoMo",
               icon: FaCreditCard,
               color: "purple",
-              description: "Pay with ATM/Credit card via Momo",
+              description: "Pay with ATM/Credit card via MoMo",
+              testInfo: <MomoTestInfo />
             },
             {
               id: "payLater",
@@ -359,7 +360,7 @@ export default function PaymentOptionsModal({
               color: "green",
               description: "Pay when you arrive",
             },
-          ].map(({ id, label, icon: Icon, color, description }) => (
+          ].map(({ id, label, icon: Icon, color, description, testInfo }) => (
             <button
               key={id}
               onClick={() => {
@@ -381,6 +382,7 @@ export default function PaymentOptionsModal({
                 <span className="font-medium block">{label}</span>
                 <span className="text-sm text-gray-600">{description}</span>
               </div>
+              {paymentMethod === id && testInfo}
             </button>
           ))}
         </div>
@@ -652,6 +654,19 @@ export default function PaymentOptionsModal({
     setSuccessMessage("");
     onClose(null); // Pass null to indicate cancellation
   };
+
+  const MomoTestInfo = () => (
+    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+      <h4 className="font-medium text-blue-800 mb-2">Test Card Information:</h4>
+      <div className="space-y-2 text-sm text-blue-700">
+        <p><span className="font-medium">Bank:</span> NCB (Vietnam)</p>
+        <p><span className="font-medium">Card Number:</span> 9704198526191432198</p>
+        <p><span className="font-medium">Name:</span> NGUYEN VAN A</p>
+        <p><span className="font-medium">Expiry:</span> 07/15</p>
+        <p><span className="font-medium">OTP:</span> 123456</p>
+      </div>
+    </div>
+  );
 
   if (!isOpen) return null;
 
