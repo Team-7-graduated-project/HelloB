@@ -49,13 +49,21 @@ const bookingSchema = new Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid", "failed"],
+      enum: ["pending", "paid", "failed", "refunded"],
       default: "pending",
     },
     paymentMethod: {
       type: String,
-      enum: ["card", "momo", "payLater"],
+      enum: ["card", "momo", "payLater", "none"],
+      default: "none"
     },
+    paymentAmount: {
+      type: Number,
+      required: true,
+      default: 0
+    },
+    voucherCode: String,
+    discountAmount: Number,
     paymentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PaymentOption",

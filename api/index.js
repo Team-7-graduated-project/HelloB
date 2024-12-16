@@ -2213,15 +2213,16 @@ app.get("/places/:id/host-places", async (req, res) => {
 });
 
 // Add or update the payment routes
+// Update the payment-options endpoint
 app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
     const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount, cardDetails } = req.body;
 
-    // Validate required fields
-    if (!bookingId || !userId || !amount) {
+    // Enhanced validation
+    if (!bookingId || !userId || !amount || !selectedOption) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields"
+        message: "Missing required fields: bookingId, userId, amount, or selectedOption"
       });
     }
 
@@ -2229,12 +2230,20 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     const booking = await Booking.findOne({ 
       _id: bookingId,
       user: userId 
-    }).populate('place');
+    });
     
     if (!booking) {
       return res.status(404).json({ 
         success: false,
-        message: "Booking not found" 
+        message: "Booking not found or unauthorized" 
+      });
+    }
+
+    // Validate payment method for payNow option
+    if (selectedOption === "payNow" && !paymentMethod) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment method is required for pay now option"
       });
     }
 
@@ -2242,8 +2251,16 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     if (selectedOption === "payLater") {
       booking.paymentStatus = "pending";
       booking.paymentMethod = "payLater";
+      booking.status = "pending";
     } else if (selectedOption === "payNow") {
       if (paymentMethod === "card") {
+        if (!cardDetails) {
+          return res.status(400).json({
+            success: false,
+            message: "Card details are required for card payment"
+          });
+        }
+
         // Process card payment
         const isPaymentSuccessful = await processCardPayment(cardDetails, amount);
         if (!isPaymentSuccessful) {
@@ -2252,8 +2269,9 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
             message: "Card payment failed. Please check your details and try again." 
           });
         }
-        booking.paymentStatus = "completed";
+        booking.paymentStatus = "paid";
         booking.paymentMethod = "card";
+        booking.status = "confirmed";
       } else {
         return res.status(400).json({ 
           success: false,
@@ -2284,7 +2302,8 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
       booking: {
         paymentStatus: booking.paymentStatus,
         paymentMethod: booking.paymentMethod,
-        amount: booking.paymentAmount
+        amount: booking.paymentAmount,
+        status: booking.status
       }
     });
 
@@ -2292,7 +2311,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     console.error("Payment processing error:", error);
     res.status(500).json({ 
       success: false,
-      message: "Payment processing failed. Please try again." 
+      message: "An unexpected error occurred while processing the payment. Please try again." 
     });
   }
 });

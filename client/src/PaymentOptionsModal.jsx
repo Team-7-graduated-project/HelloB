@@ -562,59 +562,36 @@ export default function PaymentOptionsModal({
         throw new Error("Please select a payment option");
       }
 
-      // Validate card details for card payments
-      if (selectedOption === "payNow" && paymentMethod === "card") {
-        if (!cardDetails || !isCardDetailsValid(cardDetails)) {
-          throw new Error("Please enter valid card details");
-        }
-      }
-
-      // Handle MoMo payment
-      if (selectedOption === "payNow" && paymentMethod === "momo") {
-        try {
-          const momoResponse = await axios.post(
-            "/payment-options/momo",
-            {
-              bookingId,
-              userId,
-              amount: Math.round(finalPrice * 23000),
-              ...(discount > 0 && {
-                voucherCode: couponCode.toUpperCase(),
-                discountAmount: discount,
-              }),
-            },
-            {
-              withCredentials: true,
-            }
-          );
-
-          if (momoResponse.data.data) {
-            window.location.href = momoResponse.data.data;
-            return;
-          }
-          throw new Error("No payment URL received");
-        } catch (momoError) {
-          throw new Error(
-            momoError.response?.data?.message || "MoMo payment failed"
-          );
-        }
-      }
-
-      // Prepare payload for other payment methods
-      const payload = {
+      // Prepare base payload
+      const basePayload = {
         bookingId,
         userId,
         amount: Math.round(finalPrice * 23000),
-        paymentMethod: selectedOption === "payLater" ? "payLater" : paymentMethod,
         selectedOption,
-        ...(paymentMethod === "card" && { cardDetails }),
         ...(discount > 0 && {
           voucherCode: couponCode.toUpperCase(),
           discountAmount: discount,
         }),
       };
 
-      const response = await axios.post("/payment-options", payload, {
+      // Handle different payment methods
+      if (selectedOption === "payNow") {
+        if (paymentMethod === "card") {
+          if (!isCardDetailsValid(cardDetails)) {
+            throw new Error("Please enter valid card details");
+          }
+          basePayload.paymentMethod = "card";
+          basePayload.cardDetails = cardDetails;
+        } else if (paymentMethod === "momo") {
+          basePayload.paymentMethod = "momo";
+        } else {
+          throw new Error("Invalid payment method");
+        }
+      } else {
+        basePayload.paymentMethod = "payLater";
+      }
+
+      const response = await axios.post("/payment-options", basePayload, {
         withCredentials: true,
       });
 
@@ -635,7 +612,7 @@ export default function PaymentOptionsModal({
       setErrorMessage(
         error.response?.data?.message || 
         error.message || 
-        "Failed to process payment request. Please try again."
+        "Payment processing failed. Please try again."
       );
     } finally {
       setIsProcessing(false);
