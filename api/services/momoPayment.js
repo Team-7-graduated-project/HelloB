@@ -11,32 +11,25 @@ class MomoPayment {
 
   async createPayment({ amount, bookingId, userId }) {
     try {
-      const requestId = this.partnerCode + new Date().getTime();
+      const roundedAmount = Math.round(amount);
+      
+      const requestId = `${this.partnerCode}_${Date.now()}`;
       const orderId = requestId;
       const orderInfo = `Payment for booking #${bookingId}`;
       const redirectUrl = `${process.env.CLIENT_URL}/account/bookings/${bookingId}`;
       const ipnUrl = `${process.env.API_URL}/payment/momo/notify/${bookingId}`;
-      const extraData = Buffer.from(
-        JSON.stringify({
-          bookingId,
-          userId,
-          key: "payment",
-          orderId: requestId,
-          returnUrl: `/account/bookings/${bookingId}`,
-          paymentId: null,
-        })
-      ).toString("base64");
+      const extraData = "";
 
       const rawSignature = [
+        `partnerCode=${this.partnerCode}`,
         `accessKey=${this.accessKey}`,
-        `amount=${amount}`,
-        `extraData=${extraData}`,
-        `ipnUrl=${ipnUrl}`,
+        `requestId=${requestId}`,
+        `amount=${roundedAmount}`,
         `orderId=${orderId}`,
         `orderInfo=${orderInfo}`,
-        `partnerCode=${this.partnerCode}`,
         `redirectUrl=${redirectUrl}`,
-        `requestId=${requestId}`,
+        `ipnUrl=${ipnUrl}`,
+        `extraData=${extraData}`,
         `requestType=payWithATM`
       ].join("&");
 
@@ -47,10 +40,9 @@ class MomoPayment {
 
       const requestBody = {
         partnerCode: this.partnerCode,
-        partnerName: "Test Store",
-        storeId: "MomoTestStore",
+        accessKey: this.accessKey,
         requestId: requestId,
-        amount: amount,
+        amount: roundedAmount,
         orderId: orderId,
         orderInfo: orderInfo,
         redirectUrl: redirectUrl,
@@ -62,9 +54,10 @@ class MomoPayment {
         lang: "vi"
       };
 
-      console.log("MoMo ATM Request:", {
+      console.log("MoMo Request:", {
         ...requestBody,
-        rawSignature
+        rawSignature,
+        amount: roundedAmount
       });
 
       return new Promise((resolve, reject) => {
@@ -89,9 +82,11 @@ class MomoPayment {
             try {
               const response = JSON.parse(data);
               console.log("MoMo Response:", response);
+              
               if (response.resultCode === 0) {
                 resolve(response);
               } else {
+                console.error("MoMo Error Response:", response);
                 reject(new Error(response.message || "MoMo payment failed"));
               }
             } catch (error) {

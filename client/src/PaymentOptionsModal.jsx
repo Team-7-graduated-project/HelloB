@@ -561,10 +561,13 @@ export default function PaymentOptionsModal({
       // Handle MoMo payment separately
       if (selectedOption === "payNow" && paymentMethod === "momo") {
         try {
+          const momoAmount = Math.round(finalPrice * 23000); // Convert to VND
+          console.log('Sending amount to MoMo:', momoAmount); // Debug log
+
           const momoResponse = await axios.post("/payment-options/momo", {
             bookingId,
             userId,
-            amount: Math.round(finalPrice * 23000),
+            amount: momoAmount,
             ...(discount > 0 && {
               voucherCode: couponCode.toUpperCase(),
               discountAmount: discount,
