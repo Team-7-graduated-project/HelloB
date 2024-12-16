@@ -2220,6 +2220,7 @@ app.get("/places/:id/host-places", async (req, res) => {
 });
 
 // Add or update the payment routes
+// Update the payment-options endpoint
 app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
     const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount, cardDetails } = req.body;
