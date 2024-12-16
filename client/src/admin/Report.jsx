@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axiosInstance from '../axiosConfig';
+import { useNavigate } from 'react-router-dom';
 import { 
   FaSearch, FaSpinner, FaFlag, FaEdit, FaCheck, 
   FaExclamationTriangle, FaFilter, FaCalendarAlt 
@@ -7,6 +8,7 @@ import {
 import { format } from "date-fns";
 
 function ManageReportsPage() {
+  const navigate = useNavigate();
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -28,7 +30,12 @@ function ManageReportsPage() {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get("/api/admin/reports");
+      const response = await axiosInstance.get("/api/admin/reports", {
+        withCredentials: true,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
       
       if (response.data.success) {
         setReports(response.data.reports);
@@ -38,7 +45,12 @@ function ManageReportsPage() {
       }
     } catch (error) {
       console.error("Failed to load reports:", error);
-      alert(error.response?.data?.error || "Failed to load reports");
+      if (error.response?.status === 401) {
+        // Redirect to login if unauthorized
+        navigate('/login');
+      } else {
+        alert(error.response?.data?.error || "Failed to load reports");
+      }
     } finally {
       setLoading(false);
     }

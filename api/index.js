@@ -4096,8 +4096,6 @@ app.put(
   }
 );
 
-// Get all reports (Admin only)
-// Get all reports (Admin only)
 app.get(
   "/api/admin/reports",
   authenticateToken,
