@@ -87,7 +87,6 @@ app.use(
       "https://hello-b.vercel.app",
       "https://clientt-g7c3.onrender.com",
       "https://hello-b.onrender.com",
-      ""
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -125,32 +124,26 @@ mongoose
     process.exit(1);
   });
 
-  const authenticateToken = (req, res, next) => {
-    // Check for token in cookies or Authorization header
-    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
-  
-    if (!token) {
-      return res.status(401).json({ error: "Access denied. No token provided." });
+const authenticateToken = (req, res, next) => {
+  // Check for token in cookies or Authorization header
+  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Access denied. No token provided." });
+  }
+
+  try {
+    const verified = jwt.verify(token, jwtSecret);
+    if (!verified || !verified.id) {
+      return res.status(401).json({ error: "Invalid token structure" });
     }
-  
-    try {
-      const verified = jwt.verify(token, jwtSecret);
-      if (!verified || !verified.id) {
-        return res.status(401).json({ error: "Invalid token structure" });
-      }
-      req.userData = verified;
-      next();
-    } catch (error) {
-      if (error.name === 'TokenExpiredError') {
-        return res.status(401).json({ 
-          error: "Token has expired", 
-          code: "TOKEN_EXPIRED"
-        });
-      }
-      console.error("Token verification failed:", error);
-      res.status(401).json({ error: "Invalid token", details: error.message });
-    }
-  };
+    req.userData = verified; // Attach the verified user data to the request
+    next();
+  } catch (error) {
+    console.error("Token verification failed:", error);
+    res.status(401).json({ error: "Invalid token", details: error.message });
+  }
+};
 
 // Role-based authorization middleware
 function authorizeRole(...allowedRoles) {
@@ -2219,7 +2212,7 @@ app.get("/places/:id/host-places", async (req, res) => {
   }
 });
 
-// Update the payment-options endpoint
+// Add or update the payment routes
 app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
     const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount, cardDetails } = req.body;
@@ -2303,6 +2296,43 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     });
   }
 });
+
+// Update the card payment processing function
+async function processCardPayment(cardDetails, amount) {
+  try {
+    if (!cardDetails) return false;
+    
+    // Add proper validation
+    const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
+    
+    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
+      return false;
+    }
+
+    // Validate card number format
+    const cleanCardNumber = cardNumber.replace(/\s/g, "");
+    if (cleanCardNumber.length !== 16) {
+      return false;
+    }
+
+    // Validate expiry date
+    const [month, year] = expiryDate.split("/");
+    if (!month || !year) return false;
+    
+    const now = new Date();
+    const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
+    if (expiry < now) {
+      return false;
+    }
+
+    // For testing: only approve specific test card numbers
+    const testCards = ["4111111111111111", "5555555555554444"];
+    return testCards.includes(cleanCardNumber);
+  } catch (error) {
+    console.error("Card processing error:", error);
+    return false;
+  }
+}
 
 app.post("/payment-options/momo", authenticateToken, async (req, res) => {
   try {
@@ -5552,39 +5582,12 @@ function isValidLuhn(number) {
 }
 
 async function processCardPayment(cardDetails, amount) {
-  try {
-    if (!cardDetails) return false;
-    
-    // Add proper validation
-    const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
-    
-    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
-      return false;
-    }
+  // Simulate payment processing delay
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // Validate card number format
-    const cleanCardNumber = cardNumber.replace(/\s/g, "");
-    if (cleanCardNumber.length !== 16) {
-      return false;
-    }
-
-    // Validate expiry date
-    const [month, year] = expiryDate.split("/");
-    if (!month || !year) return false;
-    
-    const now = new Date();
-    const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
-    if (expiry < now) {
-      return false;
-    }
-
-    // For testing: only approve specific test card numbers
-    const testCards = ["4111111111111111", "5555555555554444"];
-    return testCards.includes(cleanCardNumber);
-  } catch (error) {
-    console.error("Card processing error:", error);
-    return false;
-  }
+  // For testing: approve payments with specific test card numbers
+  const testCards = ["4111111111111111", "5555555555554444"];
+  return testCards.includes(cardDetails.cardNumber.replace(/\s/g, ""));
 }
 
 // Middleware for handling host data visibility and deletion
@@ -5861,3 +5864,86 @@ server.listen(PORT, () => {
 // Add these routes for voucher management
 
 // Get single voucher
+app.get("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
+  try {
+    const voucher = await Voucher.findOne({
+      _id: req.params.id,
+      owner: req.userData.id
+    }).populate('applicablePlaces');
+    
+    if (!voucher) {
+      return res.status(404).json({ error: "Voucher not found" });
+    }
+    
+    res.json(voucher);
+  } catch (error) {
+    console.error("Error fetching voucher:", error);
+    res.status(500).json({ error: "Failed to fetch voucher" });
+  }
+});
+
+// Update voucher
+app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
+  try {
+    const voucher = await Voucher.findOne({
+      _id: req.params.id,
+      owner: req.userData.id
+    });
+
+    if (!voucher) {
+      return res.status(404).json({ error: "Voucher not found" });
+    }
+
+    // Check if code is being changed and if it's already in use
+    if (req.body.code !== voucher.code) {
+      const existingVoucher = await Voucher.findOne({ 
+        code: req.body.code,
+        owner: req.userData.id,
+        _id: { $ne: req.params.id }
+      });
+      
+      if (existingVoucher) {
+        return res.status(400).json({ error: "Voucher code already exists" });
+      }
+    }
+
+    // Update voucher
+    const updatedVoucher = await Voucher.findByIdAndUpdate(
+      req.params.id,
+      {
+        code: req.body.code,
+        discount: req.body.discount,
+        description: req.body.description,
+        expirationDate: req.body.expirationDate,
+        usageLimit: req.body.usageLimit,
+        applicablePlaces: req.body.applicablePlaces,
+        active: true
+      },
+      { new: true }
+    ).populate('applicablePlaces');
+
+    // Notify admin about voucher update
+    const adminId = await getAdminUserId();
+    await createNotification(
+      'system',
+      'Voucher Updated',
+      `Host ${req.userData.name} has updated voucher: ${updatedVoucher.code}`,
+      `/admin/vouchers/${updatedVoucher._id}`,
+      adminId,
+      {
+        priority: 'normal',
+        category: 'general',
+        metadata: {
+          voucherId: updatedVoucher._id,
+          hostId: req.userData.id,
+          changes: req.body
+        }
+      }
+    );
+
+    res.json(updatedVoucher);
+  } catch (error) {
+    console.error("Error updating voucher:", error);
+    res.status(500).json({ error: "Failed to update voucher" });
+  }
+});

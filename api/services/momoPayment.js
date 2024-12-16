@@ -46,29 +46,31 @@ class MomoPayment {
         .update(rawSignature)
         .digest("hex");
 
-      const requestBody = {
-        partnerCode: this.partnerCode,
-        partnerName: "Test Store",
-        storeId: "MomoTestStore",
-        requestId: requestId,
-        amount: amount,
-        orderId: orderId,
-        orderInfo: orderInfo,
-        redirectUrl: redirectUrl,
-        ipnUrl: ipnUrl,
-        extraData: extraData,
-        requestType: requestType,
-        signature: signature,
-        lang: "vi",
-      };
-
-      console.log("MoMo ATM Request:", {
-        ...requestBody,
-        signature: signature,
-        rawSignature: rawSignature,
-      });
-
       return new Promise((resolve, reject) => {
+        const requestBody = JSON.stringify({
+          partnerCode: this.partnerCode,
+          partnerName: "Test",
+          storeId: "MomoTestStore",
+          requestId: requestId,
+          amount: amount,
+          orderId: orderId,
+          orderInfo: orderInfo,
+          redirectUrl: redirectUrl,
+          ipnUrl: ipnUrl,
+          extraData: extraData,
+          requestType: requestType,
+          signature: signature,
+          lang: "vi",
+        });
+
+        console.log("MoMo Request:", {
+          body: JSON.parse(requestBody),
+          signature: signature,
+          rawSignature: rawSignature,
+          redirectUrl: redirectUrl,
+          bookingId: bookingId,
+        });
+
         const options = {
           hostname: this.endpoint,
           port: 443,
@@ -76,7 +78,7 @@ class MomoPayment {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(JSON.stringify(requestBody)),
+            "Content-Length": Buffer.byteLength(requestBody),
           },
         };
 
@@ -90,13 +92,12 @@ class MomoPayment {
           res.on("end", () => {
             try {
               const response = JSON.parse(data);
-              console.log("MoMo ATM Response:", response);
-              
-              if (response.resultCode === 0) {
-                resolve(response);
-              } else {
-                reject(new Error(response.message || "MoMo ATM payment failed"));
-              }
+              console.log("MoMo Response:", {
+                ...response,
+                bookingId: bookingId,
+                redirectUrl: redirectUrl,
+              });
+              resolve(response);
             } catch (error) {
               console.error("Error parsing MoMo response:", error);
               reject(error);
@@ -109,7 +110,7 @@ class MomoPayment {
           reject(error);
         });
 
-        req.write(JSON.stringify(requestBody));
+        req.write(requestBody);
         req.end();
       });
     } catch (error) {
