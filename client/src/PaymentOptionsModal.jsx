@@ -530,35 +530,60 @@ export default function PaymentOptionsModal({
     );
   };
 
-  const handlePayment = async () => {
+  const handlePayment = async (cardDetails) => {
+    if (isProcessing) return; // Prevent multiple submissions
+
     try {
       setIsProcessing(true);
       setErrorMessage("");
+      setSuccessMessage("");
 
+      // Validate card details for card payments
+      if (selectedOption === "payNow" && paymentMethod === "card") {
+        if (!cardDetails || !isCardDetailsValid(cardDetails)) {
+          setErrorMessage("Please enter valid card details");
+          return;
+        }
+      }
+
+      // Handle MoMo payment separately
+      if (selectedOption === "payNow" && paymentMethod === "momo") {
+        try {
+          const momoResponse = await axios.post("/payment-options/momo", {
+            bookingId,
+            userId,
+            amount: Math.round(finalPrice * 23000),
+            ...(discount > 0 && {
+              voucherCode: couponCode.toUpperCase(),
+              discountAmount: discount,
+            }),
+          }, {
+            withCredentials: true,
+          });
+
+          if (momoResponse.data.data) {
+            window.location.href = momoResponse.data.data;
+            return;
+          }
+          throw new Error("No payment URL received");
+        } catch (momoError) {
+          throw new Error(momoError.response?.data?.message || "MoMo payment failed");
+        }
+      }
+
+      // Handle card and pay later options
       const payload = {
         bookingId,
         userId,
-        amount: Math.round(finalPrice * 23000), // Convert to VND
-        paymentMethod:
-          selectedOption === "payLater" ? "payLater" : paymentMethod,
+        amount: Math.round(finalPrice * 23000),
+        paymentMethod: selectedOption === "payLater" ? "payLater" : paymentMethod,
         selectedOption,
+        ...(paymentMethod === "card" && { cardDetails }),
         ...(discount > 0 && {
           voucherCode: couponCode.toUpperCase(),
           discountAmount: discount,
         }),
       };
-
-      if (selectedOption === "payNow" && paymentMethod === "momo") {
-        const response = await axios.post("/payment-options/momo", payload, {
-          withCredentials: true,
-        });
-
-        if (response.data.data) {
-          window.location.href = response.data.data;
-          return;
-        }
-        throw new Error("No payment URL received");
-      }
 
       const response = await axios.post("/payment-options", payload, {
         withCredentials: true,
@@ -566,20 +591,36 @@ export default function PaymentOptionsModal({
 
       if (response.data.success) {
         setSuccessMessage("Payment processed successfully!");
-        onClose({
-          status: response.data.booking.paymentStatus,
-          method: response.data.booking.paymentMethod,
-        });
+        // Short delay to show success message
+        setTimeout(() => {
+          onClose({
+            status: response.data.booking.paymentStatus,
+            method: response.data.booking.paymentMethod,
+            amount: response.data.booking.amount
+          });
+        }, 1500);
+      } else {
+        throw new Error(response.data.message || "Payment failed");
       }
     } catch (error) {
       console.error("Payment Error:", error);
       setErrorMessage(
-        error.response?.data?.message ||
-          "Failed to process payment request. Please try again."
+        error.response?.data?.message || 
+        error.message || 
+        "Failed to process payment request. Please try again."
       );
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleModalClose = () => {
+    if (isProcessing) {
+      return; // Prevent closing while processing
+    }
+    setErrorMessage("");
+    setSuccessMessage("");
+    onClose(null); // Pass null to indicate cancellation
   };
 
   if (!isOpen) return null;
@@ -605,7 +646,7 @@ export default function PaymentOptionsModal({
 
         {/* Cancel Button */}
         <button
-          onClick={onClose}
+          onClick={handleModalClose}
           className="mt-4 w-full py-2 text-red-600 hover:text-red-700 font-medium"
         >
           Cancel
