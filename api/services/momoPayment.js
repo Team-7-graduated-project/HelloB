@@ -21,21 +21,23 @@ class MomoPayment {
       const extraData = "";
 
       const rawSignature = [
-        `partnerCode=${this.partnerCode}`,
         `accessKey=${this.accessKey}`,
-        `requestId=${requestId}`,
         `amount=${roundedAmount}`,
+        `extraData=${extraData}`,
+        `ipnUrl=${ipnUrl}`,
         `orderId=${orderId}`,
         `orderInfo=${orderInfo}`,
+        `partnerCode=${this.partnerCode}`,
         `redirectUrl=${redirectUrl}`,
-        `ipnUrl=${ipnUrl}`,
-        `extraData=${extraData}`,
+        `requestId=${requestId}`,
         `requestType=payWithATM`
       ].join("&");
 
+      const signatureData = rawSignature + ".";
+
       const signature = crypto
         .createHmac("sha256", this.secretKey)
-        .update(rawSignature)
+        .update(signatureData)
         .digest("hex");
 
       const requestBody = {
@@ -56,8 +58,8 @@ class MomoPayment {
 
       console.log("MoMo Request:", {
         ...requestBody,
-        rawSignature,
-        amount: roundedAmount
+        signatureData,
+        signature
       });
 
       return new Promise((resolve, reject) => {
