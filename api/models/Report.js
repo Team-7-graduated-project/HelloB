@@ -16,6 +16,7 @@ const ReportSchema = new mongoose.Schema({
       "inappropriate_content",
       "spam",
       "scam",
+      "abuse",
       "offensive_behavior",
       "other",
     ],
@@ -32,7 +33,7 @@ const ReportSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["pending", "investigating", "resolved", "dismissed"],
+    enum: ["pending", "investigating", "resolved"],
     default: "pending",
   },
   adminNotes: {

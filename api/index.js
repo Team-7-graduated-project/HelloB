@@ -4096,26 +4096,37 @@ app.put(
   }
 );
 
+// Get all reports (Admin only)
 app.get(
   "/api/admin/reports",
   authenticateToken,
   authorizeRole("admin"),
   async (req, res) => {
     try {
-      const reports = await Report.find()
+      // Fetch reports with populated references
+      const reports = await Report.find({})
         .populate("reportedBy", "name email")
         .populate("place", "title address photos")
         .sort({ createdAt: -1 });
+
+      if (!reports) {
+        return res.status(404).json({
+          success: false,
+          error: "No reports found"
+        });
+      }
 
       res.json({
         success: true,
         reports: reports
       });
+
     } catch (error) {
       console.error("Error fetching reports:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
-        error: "Failed to fetch reports" 
+        error: "Failed to fetch reports",
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }

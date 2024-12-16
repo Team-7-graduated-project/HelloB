@@ -22,6 +22,7 @@ function ManageReportsPage() {
     type: "all",
     dateRange: "all"
   });
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchReports();
@@ -30,12 +31,9 @@ function ManageReportsPage() {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get("/api/admin/reports", {
-        withCredentials: true,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      setError(null);
+
+      const response = await axiosInstance.get("/api/admin/reports");
       
       if (response.data.success) {
         setReports(response.data.reports);
@@ -46,10 +44,9 @@ function ManageReportsPage() {
     } catch (error) {
       console.error("Failed to load reports:", error);
       if (error.response?.status === 401) {
-        // Redirect to login if unauthorized
         navigate('/login');
       } else {
-        alert(error.response?.data?.error || "Failed to load reports");
+        setError(error.response?.data?.error || error.message || "Failed to load reports");
       }
     } finally {
       setLoading(false);
@@ -283,6 +280,16 @@ function ManageReportsPage() {
           </select>
         </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-6">
+          <div className="flex items-center gap-2">
+            <FaExclamationTriangle />
+            <p>{error}</p>
+          </div>
+        </div>
+      )}
 
       {/* Loading State */}
       {loading ? (
