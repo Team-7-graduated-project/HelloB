@@ -5004,67 +5004,6 @@ app.delete(
 
 // When a report is updated
 app.put(
-  "/api/admin/reports/:id/status",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { status } = req.body;
-
-      const report = await Report.findByIdAndUpdate(
-        id,
-        { status },
-        { new: true }
-      ).populate("reportedBy", "name email");
-
-      if (!report) {
-        return res.status(404).json({ 
-          success: false,
-          error: "Report not found" 
-        });
-      }
-
-      // Get admin user for notification
-      const admin = await User.findOne({ role: 'admin' });
-      if (!admin) {
-        throw new Error('No admin user found');
-      }
-
-      // Create notification for status change
-      await Notification.create({
-        type: 'report',
-        title: 'Report Status Updated',
-        message: `Report #${report._id} has been marked as ${status}`,
-        recipient: report.reportedBy._id, // Notify the user who reported
-        link: `/reports/${report._id}`,
-        metadata: {
-          reportId: report._id,
-          oldStatus: report.status,
-          newStatus: status,
-          updatedBy: req.userData.id
-        }
-      });
-
-      res.json({
-        success: true,
-        report,
-        message: `Report successfully marked as ${status}`
-      });
-
-    } catch (error) {
-      console.error("Error updating report status:", error);
-      res.status(500).json({ 
-        success: false,
-        error: "Failed to update report status",
-        message: error.message 
-      });
-    }
-  }
-);
-
-// Update report (Add admin notes)
-app.put(
   "/api/admin/reports/:id",
   authenticateToken,
   authorizeRole("admin"),
@@ -5090,19 +5029,24 @@ app.put(
         });
       }
 
-      // Create notification for report update
-      await Notification.create({
-        type: 'report',
-        title: 'Report Updated',
-        message: `Admin has added notes to your report`,
-        recipient: report.reportedBy._id,
-        link: `/reports/${report._id}`,
-        metadata: {
-          reportId: report._id,
-          updatedBy: req.userData.id,
-          hasNotes: !!adminNotes
-        }
-      });
+      // Create notification for the user who reported
+      if (report.reportedBy) {
+        await Notification.create({
+          type: 'report', // Using valid enum value from Notification model
+          title: 'Report Updated',
+          message: `Your report has been updated with admin notes`,
+          recipient: report.reportedBy._id, // Set the reporter as recipient
+          link: `/reports/${report._id}`,
+          priority: 'normal',
+          category: 'general',
+          metadata: {
+            reportId: report._id,
+            updatedBy: req.userData.id,
+            hasNotes: !!adminNotes,
+            status: status
+          }
+        });
+      }
 
       res.json({
         success: true,
@@ -5115,6 +5059,65 @@ app.put(
       res.status(500).json({ 
         success: false,
         error: "Failed to update report",
+        message: error.message 
+      });
+    }
+  }
+);
+
+// Update report status endpoint
+app.put(
+  "/api/admin/reports/:id/status",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+
+      const report = await Report.findByIdAndUpdate(
+        id,
+        { status },
+        { new: true }
+      ).populate("reportedBy", "name email");
+
+      if (!report) {
+        return res.status(404).json({ 
+          success: false,
+          error: "Report not found" 
+        });
+      }
+
+      // Create notification for the user who reported
+      if (report.reportedBy) {
+        await Notification.create({
+          type: 'report', // Using valid enum value
+          title: 'Report Status Updated',
+          message: `Your report status has been updated to: ${status}`,
+          recipient: report.reportedBy._id,
+          link: `/reports/${report._id}`,
+          priority: status === 'resolved' ? 'high' : 'normal',
+          category: 'general',
+          metadata: {
+            reportId: report._id,
+            oldStatus: report.status,
+            newStatus: status,
+            updatedBy: req.userData.id
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        report,
+        message: `Report successfully marked as ${status}`
+      });
+
+    } catch (error) {
+      console.error("Error updating report status:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to update report status",
         message: error.message 
       });
     }
