@@ -2217,6 +2217,14 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
     const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount, cardDetails } = req.body;
 
+    // Validate required fields
+    if (!bookingId || !userId || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields"
+      });
+    }
+
     // Validate the booking exists and belongs to the user
     const booking = await Booking.findOne({ 
       _id: bookingId,
@@ -2246,12 +2254,6 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
         }
         booking.paymentStatus = "completed";
         booking.paymentMethod = "card";
-      } else if (paymentMethod === "momo") {
-        // Handle MoMo payment separately
-        return res.status(400).json({ 
-          success: false,
-          message: "Please use the MoMo payment endpoint" 
-        });
       } else {
         return res.status(400).json({ 
           success: false,
@@ -2277,50 +2279,6 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     booking.paymentAmount = amount;
     await booking.save();
 
-    // Create notifications
-    try {
-      // Notify admin
-      const adminId = await getAdminUserId();
-      await createNotification(
-        'payment',
-        `Payment ${booking.paymentStatus}`,
-        `Booking #${booking._id} payment ${booking.paymentStatus} via ${booking.paymentMethod}`,
-        `/admin/bookings/${booking._id}`,
-        adminId,
-        {
-          priority: booking.paymentStatus === 'completed' ? 'normal' : 'high',
-          category: 'booking',
-          metadata: {
-            bookingId: booking._id,
-            amount: amount,
-            paymentMethod: booking.paymentMethod,
-            paymentStatus: booking.paymentStatus
-          }
-        }
-      );
-
-      // Notify host
-      await createNotification(
-        'payment',
-        `New Booking Payment`,
-        `Payment ${booking.paymentStatus} for ${booking.place.title}`,
-        `/host/bookings/${booking._id}`,
-        booking.place.owner,
-        {
-          priority: 'high',
-          category: 'booking',
-          metadata: {
-            bookingId: booking._id,
-            amount: amount,
-            paymentMethod: booking.paymentMethod
-          }
-        }
-      );
-    } catch (notificationError) {
-      console.error("Error creating payment notifications:", notificationError);
-      // Continue even if notifications fail
-    }
-
     res.json({
       success: true,
       booking: {
@@ -2341,32 +2299,39 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
 
 // Update the card payment processing function
 async function processCardPayment(cardDetails, amount) {
-  if (!cardDetails) return false;
-  
-  // Add proper validation
-  const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
-  
-  if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
+  try {
+    if (!cardDetails) return false;
+    
+    // Add proper validation
+    const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
+    
+    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
+      return false;
+    }
+
+    // Validate card number format
+    const cleanCardNumber = cardNumber.replace(/\s/g, "");
+    if (cleanCardNumber.length !== 16) {
+      return false;
+    }
+
+    // Validate expiry date
+    const [month, year] = expiryDate.split("/");
+    if (!month || !year) return false;
+    
+    const now = new Date();
+    const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
+    if (expiry < now) {
+      return false;
+    }
+
+    // For testing: only approve specific test card numbers
+    const testCards = ["4111111111111111", "5555555555554444"];
+    return testCards.includes(cleanCardNumber);
+  } catch (error) {
+    console.error("Card processing error:", error);
     return false;
   }
-
-  // Validate card number format
-  const cleanCardNumber = cardNumber.replace(/\s/g, "");
-  if (cleanCardNumber.length !== 16) {
-    return false;
-  }
-
-  // Validate expiry date
-  const [month, year] = expiryDate.split("/");
-  const now = new Date();
-  const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
-  if (expiry < now) {
-    return false;
-  }
-
-  // For testing: only approve specific test card numbers
-  const testCards = ["4111111111111111", "5555555555554444"];
-  return testCards.includes(cleanCardNumber);
 }
 
 app.post("/payment-options/momo", authenticateToken, async (req, res) => {

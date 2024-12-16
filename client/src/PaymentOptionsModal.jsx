@@ -522,16 +522,25 @@ export default function PaymentOptionsModal({
 
   const isCardDetailsValid = (cardDetails) => {
     const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
-    return (
-      cardNumber.replace(/\s/g, "").length >= 16 &&
-      cardHolder.length >= 3 &&
-      expiryDate.length === 5 &&
-      cvv.length >= 3
-    );
+    
+    if (!cardNumber || !cardHolder || !expiryDate || !cvv) return false;
+    
+    // Basic validation
+    const cleanCardNumber = cardNumber.replace(/\s/g, "");
+    if (cleanCardNumber.length !== 16) return false;
+    
+    if (cardHolder.trim().length < 3) return false;
+    
+    const [month, year] = expiryDate.split("/");
+    if (!month || !year) return false;
+    
+    if (cvv.length < 3) return false;
+    
+    return true;
   };
 
   const handlePayment = async (cardDetails) => {
-    if (isProcessing) return; // Prevent multiple submissions
+    if (isProcessing) return;
 
     try {
       setIsProcessing(true);
@@ -542,6 +551,7 @@ export default function PaymentOptionsModal({
       if (selectedOption === "payNow" && paymentMethod === "card") {
         if (!cardDetails || !isCardDetailsValid(cardDetails)) {
           setErrorMessage("Please enter valid card details");
+          setIsProcessing(false);
           return;
         }
       }
@@ -571,7 +581,7 @@ export default function PaymentOptionsModal({
         }
       }
 
-      // Handle card and pay later options
+      // Prepare payload
       const payload = {
         bookingId,
         userId,
@@ -591,7 +601,6 @@ export default function PaymentOptionsModal({
 
       if (response.data.success) {
         setSuccessMessage("Payment processed successfully!");
-        // Short delay to show success message
         setTimeout(() => {
           onClose({
             status: response.data.booking.paymentStatus,
