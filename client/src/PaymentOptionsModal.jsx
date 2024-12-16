@@ -522,12 +522,21 @@ export default function PaymentOptionsModal({
 
   const isCardDetailsValid = (cardDetails) => {
     const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
-    return (
-      cardNumber.replace(/\s/g, "").length >= 16 &&
-      cardHolder.length >= 3 &&
-      expiryDate.length === 5 &&
-      cvv.length >= 3
-    );
+    
+    if (!cardNumber || !cardHolder || !expiryDate || !cvv) return false;
+    
+    // Basic validation
+    const cleanCardNumber = cardNumber.replace(/\s/g, "");
+    if (cleanCardNumber.length !== 16) return false;
+    
+    if (cardHolder.trim().length < 3) return false;
+    
+    const [month, year] = expiryDate.split("/");
+    if (!month || !year) return false;
+    
+    if (cvv.length < 3) return false;
+    
+    return true;
   };
 
   const handlePayment = async (cardDetails) => {
@@ -538,30 +547,53 @@ export default function PaymentOptionsModal({
       setErrorMessage("");
       setSuccessMessage("");
 
+      // Validate card details for card payments
+      if (selectedOption === "payNow" && paymentMethod === "card") {
+        if (!cardDetails || !isCardDetailsValid(cardDetails)) {
+          setErrorMessage("Please enter valid card details");
+          setIsProcessing(false);
+          return;
+        }
+      }
+
+      // Handle MoMo payment separately
+      if (selectedOption === "payNow" && paymentMethod === "momo") {
+        try {
+          const momoResponse = await axios.post("/payment-options/momo", {
+            bookingId,
+            userId,
+            amount: Math.round(finalPrice * 23000),
+            ...(discount > 0 && {
+              voucherCode: couponCode.toUpperCase(),
+              discountAmount: discount,
+            }),
+          }, {
+            withCredentials: true,
+          });
+
+          if (momoResponse.data.data) {
+            window.location.href = momoResponse.data.data;
+            return;
+          }
+          throw new Error("No payment URL received");
+        } catch (momoError) {
+          throw new Error(momoError.response?.data?.message || "MoMo payment failed");
+        }
+      }
+
+      // Prepare payload
       const payload = {
         bookingId,
         userId,
-        amount: Math.round(finalPrice * 23000), // Convert to VND
-        paymentMethod:
-          selectedOption === "payLater" ? "payLater" : paymentMethod,
+        amount: Math.round(finalPrice * 23000),
+        paymentMethod: selectedOption === "payLater" ? "payLater" : paymentMethod,
         selectedOption,
+        ...(paymentMethod === "card" && { cardDetails }),
         ...(discount > 0 && {
           voucherCode: couponCode.toUpperCase(),
           discountAmount: discount,
         }),
       };
-
-      if (selectedOption === "payNow" && paymentMethod === "momo") {
-        const response = await axios.post("/payment-options/momo", payload, {
-          withCredentials: true,
-        });
-
-        if (response.data.data) {
-          window.location.href = response.data.data;
-          return;
-        }
-        throw new Error("No payment URL received");
-      }
 
       const response = await axios.post("/payment-options", payload, {
         withCredentials: true,
@@ -576,18 +608,11 @@ export default function PaymentOptionsModal({
             amount: response.data.booking.amount
           });
         }, 1500);
+      } else {
+        throw new Error(response.data.message || "Payment failed");
       }
     } catch (error) {
       console.error("Payment Error:", error);
-      if (error.response?.status === 401 && error.response?.data?.code === "TOKEN_EXPIRED") {
-        // Handle token expiration - you might want to redirect to login or refresh token
-        setErrorMessage("Your session has expired. Please log in again.");
-        // Optionally trigger a logout or token refresh
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-        return;
-      }
       setErrorMessage(
         error.response?.data?.message || 
         error.message || 

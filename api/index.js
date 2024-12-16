@@ -2219,7 +2219,6 @@ app.get("/places/:id/host-places", async (req, res) => {
   }
 });
 
-// Add or update the payment routes
 // Update the payment-options endpoint
 app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
@@ -2260,7 +2259,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
             message: "Card payment failed. Please check your details and try again." 
           });
         }
-        booking.paymentStatus = "paid"; // Changed from 'completed' to 'paid'
+        booking.paymentStatus = "completed";
         booking.paymentMethod = "card";
       } else {
         return res.status(400).json({ 
@@ -2304,59 +2303,6 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     });
   }
 });
-
-// Update the card payment processing function
-async function processCardPayment(cardDetails, amount) {
-  try {
-    // Validate cardDetails exists
-    if (!cardDetails || typeof cardDetails !== 'object') {
-      console.error("Invalid card details object");
-      return false;
-    }
-
-    // Destructure with default values to prevent undefined errors
-    const { 
-      cardNumber = '', 
-      cardHolder = '', 
-      expiryDate = '', 
-      cvv = '' 
-    } = cardDetails;
-
-    // Basic validation
-    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
-      console.error("Missing required card fields");
-      return false;
-    }
-
-    // Clean and validate card number
-    const cleanCardNumber = cardNumber.replace(/\s/g, "");
-    if (cleanCardNumber.length !== 16) {
-      console.error("Invalid card number length");
-      return false;
-    }
-
-    // Validate expiry date
-    const [month, year] = expiryDate.split("/");
-    if (!month || !year) {
-      console.error("Invalid expiry date format");
-      return false;
-    }
-
-    const now = new Date();
-    const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
-    if (expiry < now) {
-      console.error("Card has expired");
-      return false;
-    }
-
-    // Test card numbers for development
-    const testCards = ["4111111111111111", "5555555555554444"];
-    return testCards.includes(cleanCardNumber);
-  } catch (error) {
-    console.error("Card processing error:", error);
-    return false;
-  }
-}
 
 app.post("/payment-options/momo", authenticateToken, async (req, res) => {
   try {
@@ -5606,12 +5552,39 @@ function isValidLuhn(number) {
 }
 
 async function processCardPayment(cardDetails, amount) {
-  // Simulate payment processing delay
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  try {
+    if (!cardDetails) return false;
+    
+    // Add proper validation
+    const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
+    
+    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
+      return false;
+    }
 
-  // For testing: approve payments with specific test card numbers
-  const testCards = ["4111111111111111", "5555555555554444"];
-  return testCards.includes(cardDetails.cardNumber.replace(/\s/g, ""));
+    // Validate card number format
+    const cleanCardNumber = cardNumber.replace(/\s/g, "");
+    if (cleanCardNumber.length !== 16) {
+      return false;
+    }
+
+    // Validate expiry date
+    const [month, year] = expiryDate.split("/");
+    if (!month || !year) return false;
+    
+    const now = new Date();
+    const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
+    if (expiry < now) {
+      return false;
+    }
+
+    // For testing: only approve specific test card numbers
+    const testCards = ["4111111111111111", "5555555555554444"];
+    return testCards.includes(cleanCardNumber);
+  } catch (error) {
+    console.error("Card processing error:", error);
+    return false;
+  }
 }
 
 // Middleware for handling host data visibility and deletion
