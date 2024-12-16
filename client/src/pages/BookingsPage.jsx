@@ -16,7 +16,7 @@ export default function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const location = useLocation();
-  const isHistoryPage = location.pathname.includes("/history");
+  const isHistoryPage = location.pathname.includes("/history"); 
 
   const checkBookingStatus = useCallback((booking) => {
     if (!booking?.check_out || !booking?.status) {

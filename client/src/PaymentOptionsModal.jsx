@@ -571,15 +571,6 @@ export default function PaymentOptionsModal({
         return;
       }
 
-      // Validate card details for card payments
-      if (selectedOption === "payNow" && paymentMethod === "card") {
-        if (!cardDetails || !isCardDetailsValid(cardDetails)) {
-          setErrorMessage("Please enter valid card details");
-          setIsProcessing(false);
-          return;
-        }
-      }
-
       // Prepare payload with better validation
       const payload = {
         bookingId,
@@ -593,6 +584,13 @@ export default function PaymentOptionsModal({
           discountAmount: discount,
         }),
       };
+
+      // Ensure paymentMethod is set
+      if (!payload.paymentMethod) {
+        setErrorMessage("Please select a payment method");
+        setIsProcessing(false);
+        return;
+      }
 
       const response = await axios.post("/payment-options", payload, {
         withCredentials: true,
