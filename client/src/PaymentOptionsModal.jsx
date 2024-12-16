@@ -530,10 +530,13 @@ export default function PaymentOptionsModal({
     );
   };
 
-  const handlePayment = async () => {
+  const handlePayment = async (cardDetails) => {
+    if (isProcessing) return;
+
     try {
       setIsProcessing(true);
       setErrorMessage("");
+      setSuccessMessage("");
 
       const payload = {
         bookingId,
@@ -566,16 +569,29 @@ export default function PaymentOptionsModal({
 
       if (response.data.success) {
         setSuccessMessage("Payment processed successfully!");
-        onClose({
-          status: response.data.booking.paymentStatus,
-          method: response.data.booking.paymentMethod,
-        });
+        setTimeout(() => {
+          onClose({
+            status: response.data.booking.paymentStatus,
+            method: response.data.booking.paymentMethod,
+            amount: response.data.booking.amount
+          });
+        }, 1500);
       }
     } catch (error) {
       console.error("Payment Error:", error);
+      if (error.response?.status === 401 && error.response?.data?.code === "TOKEN_EXPIRED") {
+        // Handle token expiration - you might want to redirect to login or refresh token
+        setErrorMessage("Your session has expired. Please log in again.");
+        // Optionally trigger a logout or token refresh
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+        return;
+      }
       setErrorMessage(
-        error.response?.data?.message ||
-          "Failed to process payment request. Please try again."
+        error.response?.data?.message || 
+        error.message || 
+        "Failed to process payment request. Please try again."
       );
     } finally {
       setIsProcessing(false);
