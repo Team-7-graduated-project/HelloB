@@ -580,12 +580,12 @@ export default function PaymentOptionsModal({
         }
       }
 
-      // Prepare payload with better validation
+      // Prepare payload
       const payload = {
         bookingId,
         userId,
         amount: Math.round(finalPrice * 23000),
-        paymentMethod: selectedOption === "payLater" ? "payLater" : paymentMethod,
+        paymentMethod, // Ensure this is always set
         selectedOption,
         ...(paymentMethod === "card" && { cardDetails }),
         ...(discount > 0 && couponCode && {
@@ -607,7 +607,8 @@ export default function PaymentOptionsModal({
         
         setTimeout(() => {
           onClose({
-            status: response.data.booking.paymentStatus,
+            status: response.data.booking.status,
+            paymentStatus: response.data.booking.paymentStatus,
             method: response.data.booking.paymentMethod,
             amount: response.data.booking.amount,
           });
