@@ -7,7 +7,6 @@ class MomoPayment {
     this.accessKey = "klm05TvNBzhg7h7j";
     this.secretKey = "at67qH6mk8w5Y1nAyMoYKMWACiEi2bsa";
     this.endpoint = "test-payment.momo.vn";
-    this.testPhoneNumber = "0919123456";
   }
 
   async createPayment({ amount, bookingId, userId }) {
@@ -17,7 +16,6 @@ class MomoPayment {
       const orderInfo = `Payment for booking #${bookingId}`;
       const redirectUrl = `${process.env.CLIENT_URL}/account/bookings/${bookingId}`;
       const ipnUrl = `${process.env.API_URL}/payment/momo/notify/${bookingId}`;
-      const requestType = "payWithATM";
       const extraData = Buffer.from(
         JSON.stringify({
           bookingId,
@@ -39,7 +37,7 @@ class MomoPayment {
         `partnerCode=${this.partnerCode}`,
         `redirectUrl=${redirectUrl}`,
         `requestId=${requestId}`,
-        `requestType=${requestType}`,
+        `requestType=payWithATM`
       ].join("&");
 
       const signature = crypto
@@ -52,22 +50,21 @@ class MomoPayment {
         partnerName: "Test Store",
         storeId: "MomoTestStore",
         requestId: requestId,
-        amount: Math.round(amount),
+        amount: amount,
         orderId: orderId,
         orderInfo: orderInfo,
         redirectUrl: redirectUrl,
         ipnUrl: ipnUrl,
         extraData: extraData,
         requestType: "payWithATM",
-        bankCode: "NCB",
+        bankCode: "SML",
         signature: signature,
-        lang: "vi",
+        lang: "vi"
       };
 
       console.log("MoMo ATM Request:", {
         ...requestBody,
-        signature: signature,
-        rawSignature: rawSignature,
+        rawSignature
       });
 
       return new Promise((resolve, reject) => {
@@ -78,13 +75,12 @@ class MomoPayment {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(JSON.stringify(requestBody)),
-          },
+            "Content-Length": Buffer.byteLength(JSON.stringify(requestBody))
+          }
         };
 
         const req = https.request(options, (res) => {
           let data = "";
-
           res.on("data", (chunk) => {
             data += chunk;
           });
@@ -92,12 +88,11 @@ class MomoPayment {
           res.on("end", () => {
             try {
               const response = JSON.parse(data);
-              console.log("MoMo ATM Response:", response);
-              
+              console.log("MoMo Response:", response);
               if (response.resultCode === 0) {
                 resolve(response);
               } else {
-                reject(new Error(response.message || "MoMo ATM payment failed"));
+                reject(new Error(response.message || "MoMo payment failed"));
               }
             } catch (error) {
               console.error("Error parsing MoMo response:", error);
