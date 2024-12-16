@@ -4097,6 +4097,7 @@ app.put(
 );
 
 // Get all reports (Admin only)
+// Get all reports (Admin only)
 app.get(
   "/api/admin/reports",
   authenticateToken,
@@ -4105,19 +4106,23 @@ app.get(
     try {
       const reports = await Report.find()
         .populate("reportedBy", "name email")
-        .populate("place", "title address")
+        .populate("place", "title address photos")
         .sort({ createdAt: -1 });
-      res.json(reports);
+
+      res.json({
+        success: true,
+        reports: reports
+      });
     } catch (error) {
       console.error("Error fetching reports:", error);
-      res.status(500).json({ error: "Failed to fetch reports" });
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch reports" 
+      });
     }
   }
 );
 
-
-// Update report (Add admin notes) (Admin only)
-// Update report (Add admin notes) (Admin only)
 app.put(
   "/api/admin/reports/:id",
   authenticateToken,

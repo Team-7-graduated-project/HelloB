@@ -29,11 +29,16 @@ function ManageReportsPage() {
     try {
       setLoading(true);
       const response = await axiosInstance.get("/api/admin/reports");
-      setReports(response.data);
-      setFilteredReports(response.data);
+      
+      if (response.data.success) {
+        setReports(response.data.reports);
+        setFilteredReports(response.data.reports);
+      } else {
+        throw new Error(response.data.error || "Failed to load reports");
+      }
     } catch (error) {
       console.error("Failed to load reports:", error);
-      alert("Failed to load reports");
+      alert(error.response?.data?.error || "Failed to load reports");
     } finally {
       setLoading(false);
     }
@@ -276,58 +281,77 @@ function ManageReportsPage() {
         <>
           {/* Reports Grid */}
           <div className="grid gap-4">
-            {filteredReports.slice(0, visibleReports).map((report) => (
-              <div key={report._id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-all duration-200">
-                <div className="flex justify-between items-start gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-                        {report.status}
-                      </span>
-                      {getPriorityBadge(report.type)}
-                      <span className="text-xs text-gray-500">
-                        {format(new Date(report.createdAt), "PP")}
-                      </span>
-                      <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">
-                        {report.type}
-                      </span>
-                    </div>
-                    
-                    <h3 className="text-base font-medium text-gray-900">{report.title}</h3>
-                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{report.description}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Reported by: {report.reportedBy?.name}
-                    </p>
-                    
-                    {report.adminNotes && (
-                      <div className="mt-2 bg-gray-50 p-2 rounded text-xs text-gray-600">
-                        {report.adminNotes}
+            {filteredReports.length > 0 ? (
+              filteredReports.slice(0, visibleReports).map((report) => (
+                <div key={report._id} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-all duration-200">
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                          {report.status}
+                        </span>
+                        {getPriorityBadge(report.type)}
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(report.createdAt), "PP")}
+                        </span>
+                        <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">
+                          {report.type}
+                        </span>
                       </div>
-                    )}
-                  </div>
+                      
+                      <h3 className="text-base font-medium text-gray-900">{report.title}</h3>
+                      <p className="text-sm text-gray-600 mt-1 line-clamp-2">{report.description}</p>
+                      
+                      {report.place && (
+                        <div className="mt-2 text-sm text-gray-500">
+                          <span className="font-medium">Reported Place: </span>
+                          {report.place.title}
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-gray-500 mt-1">
+                        Reported by: {report.reportedBy?.name || 'Unknown User'}
+                      </p>
+                      
+                      {report.adminNotes && (
+                        <div className="mt-2 bg-gray-50 p-2 rounded text-xs text-gray-600">
+                          <span className="font-medium">Admin Notes: </span>
+                          {report.adminNotes}
+                        </div>
+                      )}
+                    </div>
 
-                  <div className="flex gap-2 shrink-0">
-                    <button
-                      onClick={() => setEditingReport(report)}
-                      className="p-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                      title="Add Notes"
-                    >
-                      <FaEdit size={24} />
-                    </button>
-                    {report.status !== "resolved" && (
+                    <div className="flex gap-2 shrink-0">
                       <button
-                        onClick={() => handleStatusChange(report._id, "resolved")}
-                        className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-                        disabled={processingId === report._id}
-                        title="Resolve"
+                        onClick={() => setEditingReport(report)}
+                        className="p-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                        title="Add Notes"
                       >
-                        <FaCheck size={14} />
+                        <FaEdit size={14} />
                       </button>
-                    )}
+                      {report.status !== "resolved" && (
+                        <button
+                          onClick={() => handleStatusChange(report._id, "resolved")}
+                          className="p-1.5 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                          disabled={processingId === report._id}
+                          title="Resolve"
+                        >
+                          {processingId === report._id ? (
+                            <FaSpinner className="animate-spin" size={14} />
+                          ) : (
+                            <FaCheck size={14} />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
+              ))
+            ) : (
+              <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+                <div className="text-gray-500 mb-4">No reports found</div>
               </div>
-            ))}
+            )}
           </div>
 
           {/* Load More Button */}
