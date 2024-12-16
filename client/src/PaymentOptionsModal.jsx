@@ -613,6 +613,15 @@ export default function PaymentOptionsModal({
       }
     } catch (error) {
       console.error("Payment Error:", error);
+      if (error.response?.status === 401 && error.response?.data?.code === "TOKEN_EXPIRED") {
+        // Handle token expiration - you might want to redirect to login or refresh token
+        setErrorMessage("Your session has expired. Please log in again.");
+        // Optionally trigger a logout or token refresh
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+        return;
+      }
       setErrorMessage(
         error.response?.data?.message || 
         error.message || 

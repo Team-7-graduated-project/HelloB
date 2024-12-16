@@ -124,26 +124,32 @@ mongoose
     process.exit(1);
   });
 
-const authenticateToken = (req, res, next) => {
-  // Check for token in cookies or Authorization header
-  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "Access denied. No token provided." });
-  }
-
-  try {
-    const verified = jwt.verify(token, jwtSecret);
-    if (!verified || !verified.id) {
-      return res.status(401).json({ error: "Invalid token structure" });
+  const authenticateToken = (req, res, next) => {
+    // Check for token in cookies or Authorization header
+    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+  
+    if (!token) {
+      return res.status(401).json({ error: "Access denied. No token provided." });
     }
-    req.userData = verified; // Attach the verified user data to the request
-    next();
-  } catch (error) {
-    console.error("Token verification failed:", error);
-    res.status(401).json({ error: "Invalid token", details: error.message });
-  }
-};
+  
+    try {
+      const verified = jwt.verify(token, jwtSecret);
+      if (!verified || !verified.id) {
+        return res.status(401).json({ error: "Invalid token structure" });
+      }
+      req.userData = verified;
+      next();
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ 
+          error: "Token has expired", 
+          code: "TOKEN_EXPIRED"
+        });
+      }
+      console.error("Token verification failed:", error);
+      res.status(401).json({ error: "Invalid token", details: error.message });
+    }
+  };
 
 // Role-based authorization middleware
 function authorizeRole(...allowedRoles) {
@@ -2252,7 +2258,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
             message: "Card payment failed. Please check your details and try again." 
           });
         }
-        booking.paymentStatus = "completed";
+        booking.paymentStatus = "paid"; // Changed from 'completed' to 'paid'
         booking.paymentMethod = "card";
       } else {
         return res.status(400).json({ 
@@ -2300,32 +2306,48 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
 // Update the card payment processing function
 async function processCardPayment(cardDetails, amount) {
   try {
-    if (!cardDetails) return false;
-    
-    // Add proper validation
-    const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
-    
-    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
+    // Validate cardDetails exists
+    if (!cardDetails || typeof cardDetails !== 'object') {
+      console.error("Invalid card details object");
       return false;
     }
 
-    // Validate card number format
+    // Destructure with default values to prevent undefined errors
+    const { 
+      cardNumber = '', 
+      cardHolder = '', 
+      expiryDate = '', 
+      cvv = '' 
+    } = cardDetails;
+
+    // Basic validation
+    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
+      console.error("Missing required card fields");
+      return false;
+    }
+
+    // Clean and validate card number
     const cleanCardNumber = cardNumber.replace(/\s/g, "");
     if (cleanCardNumber.length !== 16) {
+      console.error("Invalid card number length");
       return false;
     }
 
     // Validate expiry date
     const [month, year] = expiryDate.split("/");
-    if (!month || !year) return false;
-    
-    const now = new Date();
-    const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
-    if (expiry < now) {
+    if (!month || !year) {
+      console.error("Invalid expiry date format");
       return false;
     }
 
-    // For testing: only approve specific test card numbers
+    const now = new Date();
+    const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
+    if (expiry < now) {
+      console.error("Card has expired");
+      return false;
+    }
+
+    // Test card numbers for development
     const testCards = ["4111111111111111", "5555555555554444"];
     return testCards.includes(cleanCardNumber);
   } catch (error) {
