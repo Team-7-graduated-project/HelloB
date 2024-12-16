@@ -223,6 +223,25 @@ app.post("/register", async (req, res) => {
       emailVerificationExpires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
     });
 
+    // Notify admin about new user registration
+    const adminId = await getAdminUserId();
+    await createNotification(
+      'user',
+      'New User Registration',
+      `New user registered: ${userDoc.name} (${userDoc.email})`,
+      `/admin/users/${userDoc._id}`,
+      adminId,
+      {
+        priority: 'normal',
+        category: 'user',
+        metadata: {
+          userId: userDoc._id,
+          userRole: userDoc.role,
+          registrationDate: new Date()
+        }
+      }
+    );
+
     // Send verification email
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${userDoc.emailVerificationToken}`;
     await transporter.sendMail({
@@ -248,13 +267,6 @@ app.post("/register", async (req, res) => {
         </div>
       `,
     });
-
-    await createNotification(
-      "admin",
-      "New User Registration",
-      `New user registered: ${userDoc.name}`,
-      `/admin/users/${userDoc._id}`
-    );
 
     res.json({
       success: true,
@@ -1713,19 +1725,42 @@ app.post("/bookings", authenticateToken, async (req, res) => {
       status: "pending",
     });
 
-    // Create notification for the place owner
-    try {
-      await createNotification(
-        placeDoc.owner.toString(), // Make sure owner ID is a string
-        "New Booking Request",
-        `You have a new booking request for ${placeDoc.title}`,
-        `/host/bookings/${booking._id}`,
-        "booking" // Use 'booking' type for booking notifications
-      );
-    } catch (notificationError) {
-      console.error("Failed to create notification:", notificationError);
-      // Continue with the booking process even if notification fails
-    }
+    // Notify admin about new booking
+    const adminId = await getAdminUserId();
+    await createNotification(
+      'booking',
+      'New Booking Created',
+      `New booking received for ${placeDoc.title}`,
+      `/admin/bookings/${booking._id}`,
+      adminId,
+      {
+        priority: 'normal',
+        category: 'booking',
+        metadata: {
+          bookingId: booking._id,
+          amount: price,
+          userId: req.userData.id
+        }
+      }
+    );
+
+    // Notify host about new booking
+    await createNotification(
+      'booking',
+      'New Booking Request',
+      `You have a new booking request for ${placeDoc.title}`,
+      `/host/bookings/${booking._id}`,
+      placeDoc.owner,
+      {
+        priority: 'high',
+        category: 'booking',
+        metadata: {
+          bookingId: booking._id,
+          placeId: place,
+          amount: price
+        }
+      }
+    );
 
     res.json(booking);
   } catch (err) {

@@ -17,7 +17,19 @@ const notificationSchema = new Schema({
   },
   type: {
     type: String,
-    enum: ['system', 'booking', 'review', 'host', 'admin', 'user', 'property', 'system_error', 'booking_auto_completed'],
+    enum: [
+      'system', 
+      'booking', 
+      'review', 
+      'host', 
+      'admin', 
+      'user', 
+      'property',
+      'payment',
+      'blog',
+      'system_error', 
+      'booking_auto_completed'
+    ],
     default: 'system'
   },
   link: String,
