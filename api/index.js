@@ -161,7 +161,20 @@ function authorizeRole(...allowedRoles) {
   };
 }
 
-// Routes
+// Add these helper functions after your imports and before your routes
+const getAdminUserId = async () => {
+  try {
+    const admin = await User.findOne({ role: 'admin' });
+    if (!admin) {
+      throw new Error('No admin user found');
+    }
+    return admin._id;
+  } catch (error) {
+    console.error('Error finding admin user:', error);
+    throw error;
+  }
+};
+
 
 // Test route
 app.get("/test", (req, res) => {
@@ -1284,79 +1297,41 @@ app.post(
         amenities_description,
       });
 
-      // Add this helper function at the top of your file
-      const getAdminUserId = async () => {
-        try {
-          const admin = await User.findOne({ role: 'admin' });
-          if (!admin) {
-            throw new Error('No admin user found');
+      // Notify admin about new place
+      const adminId = await getAdminUserId();
+      await createNotification(
+        'property',
+        'New Property Listed',
+        `${req.userData.name} has listed a new property: ${place.title}`,
+        `/admin/places/${place._id}`,
+        adminId,
+        {
+          priority: 'high',
+          category: 'property',
+          metadata: {
+            placeId: place._id,
+            hostId: req.userData.id,
+            propertyType: place.property_type
           }
-          return admin._id;
-        } catch (error) {
-          console.error('Error finding admin user:', error);
-          throw error;
         }
-      };
+      );
 
-      // Update the createNotification function
-      const createNotification = async (type, title, message, link, recipientId, options = {}) => {
-        try {
-          // If recipientId is 'admin', get the actual admin user ID
-          const actualRecipientId = recipientId === 'admin' 
-            ? await getAdminUserId()
-            : recipientId;
-
-          if (!actualRecipientId) {
-            throw new Error('Valid recipient ID is required');
+      // Notify host about successful listing
+      await createNotification(
+        'property',
+        'Property Listing Submitted',
+        `Your property "${place.title}" has been successfully listed and is pending review.`,
+        `/host/places/${place._id}`,
+        req.userData.id,
+        {
+          priority: 'normal',
+          category: 'property',
+          metadata: {
+            placeId: place._id,
+            propertyType: place.property_type
           }
-
-          const notification = await Notification.create({
-            type,
-            title,
-            message,
-            link,
-            recipient: actualRecipientId,
-            priority: options.priority || 'normal',
-            category: options.category || 'general',
-            metadata: options.metadata || {},
-            status: 'unread'
-          });
-
-          return notification;
-        } catch (error) {
-          console.error('Error creating notification:', error);
-          throw error;
         }
-      };
-
-      // Update the place creation notification
-      app.post("/host/places", authenticateToken, authorizeRole("host"), async (req, res) => {
-        try {
-          // ... existing place creation code ...
-
-          const adminId = await getAdminUserId();
-          
-          await createNotification(
-            'property',
-            'New Property Added',
-            `${req.userData.name} added a new property: ${place.title}`,
-            `/admin/places/${place._id}`,
-            adminId,
-            {
-              priority: 'normal',
-              category: 'property'
-            }
-          );
-
-          res.status(201).json(place);
-        } catch (error) {
-          console.error("Error creating place:", error);
-          res.status(400).json({
-            error: "Failed to create place",
-            message: error.message,
-          });
-        }
-      });
+      );
 
       res.status(201).json(place);
     } catch (error) {
@@ -4170,7 +4145,7 @@ app.post("/chats", authenticateToken, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Failed to create/get chat" });
   }
-});
+);
 
 // Send message
 app.post("/chats/:chatId/messages", authenticateToken, async (req, res) => {
@@ -5583,8 +5558,6 @@ async function processCardPayment(cardDetails, amount) {
   return testCards.includes(cardDetails.cardNumber.replace(/\s/g, ""));
 }
 
-// Add this function after your imports
-
 // Middleware for handling host data visibility and deletion
 const updateHostDataVisibility = async (
   hostId,
@@ -5854,4 +5827,91 @@ const PORT = process.env.PORT || 4000;
 // Start the server of websocket
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+});
+
+// Add these routes for voucher management
+
+// Get single voucher
+app.get("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
+  try {
+    const voucher = await Voucher.findOne({
+      _id: req.params.id,
+      owner: req.userData.id
+    }).populate('applicablePlaces');
+    
+    if (!voucher) {
+      return res.status(404).json({ error: "Voucher not found" });
+    }
+    
+    res.json(voucher);
+  } catch (error) {
+    console.error("Error fetching voucher:", error);
+    res.status(500).json({ error: "Failed to fetch voucher" });
+  }
+});
+
+// Update voucher
+app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
+  try {
+    const voucher = await Voucher.findOne({
+      _id: req.params.id,
+      owner: req.userData.id
+    });
+
+    if (!voucher) {
+      return res.status(404).json({ error: "Voucher not found" });
+    }
+
+    // Check if code is being changed and if it's already in use
+    if (req.body.code !== voucher.code) {
+      const existingVoucher = await Voucher.findOne({ 
+        code: req.body.code,
+        owner: req.userData.id,
+        _id: { $ne: req.params.id }
+      });
+      
+      if (existingVoucher) {
+        return res.status(400).json({ error: "Voucher code already exists" });
+      }
+    }
+
+    // Update voucher
+    const updatedVoucher = await Voucher.findByIdAndUpdate(
+      req.params.id,
+      {
+        code: req.body.code,
+        discount: req.body.discount,
+        description: req.body.description,
+        expirationDate: req.body.expirationDate,
+        usageLimit: req.body.usageLimit,
+        applicablePlaces: req.body.applicablePlaces,
+        active: true
+      },
+      { new: true }
+    ).populate('applicablePlaces');
+
+    // Notify admin about voucher update
+    const adminId = await getAdminUserId();
+    await createNotification(
+      'system',
+      'Voucher Updated',
+      `Host ${req.userData.name} has updated voucher: ${updatedVoucher.code}`,
+      `/admin/vouchers/${updatedVoucher._id}`,
+      adminId,
+      {
+        priority: 'normal',
+        category: 'general',
+        metadata: {
+          voucherId: updatedVoucher._id,
+          hostId: req.userData.id,
+          changes: req.body
+        }
+      }
+    );
+
+    res.json(updatedVoucher);
+  } catch (error) {
+    console.error("Error updating voucher:", error);
+    res.status(500).json({ error: "Failed to update voucher" });
+  }
 });

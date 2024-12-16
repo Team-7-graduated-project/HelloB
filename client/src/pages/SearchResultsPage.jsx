@@ -315,16 +315,11 @@ export default function SearchResultsPage() {
         {/* Results Grid with Stagger Animation */}
         {!loading && !error && results.length > 0 && (
           <>
-            <Link
-              to={`/place/${results[0]._id}`}
-              onClick={() => {
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {results.map((place, index) => (
-                <div
+                <Link
                   key={place._id}
+                  to={`/place/${place._id}`}
                   onClick={() => {
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
@@ -407,10 +402,9 @@ export default function SearchResultsPage() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
-            </Link>
-            {/* Add pagination */}
+            </div>
             {renderPagination()}
           </>
         )}

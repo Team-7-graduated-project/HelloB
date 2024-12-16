@@ -109,6 +109,7 @@ function App() {
                   <Route path="/favorites" element={<FavoritesPage />} />
                   <Route path="/messages" element={<MessagesPage />} />
                   <Route path="/account/messages" element={<MessagesPage />} />
+                  <Route path="/host/vouchers/edit/:id" element={<VoucherFormPage />} />
                 </Route>
               </Routes>
             </ErrorBoundary>

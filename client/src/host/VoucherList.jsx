@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
-import { FaPlus, FaSpinner, FaTrash } from "react-icons/fa";
+import { FaPlus, FaSpinner, FaTrash, FaEdit } from "react-icons/fa";
 
 export default function VoucherListPage() {
   const [vouchers, setVouchers] = useState([]);
@@ -192,6 +192,13 @@ export default function VoucherListPage() {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
+                      <Link
+                        to={`vouchers/edit/${voucher._id}`}
+                        className="inline-flex items-center px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                      >
+                        <FaEdit className="mr-1" />
+                        Edit
+                      </Link>
                       <button
                         onClick={() => handleDelete(voucher._id)}
                         className="inline-flex items-center px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
