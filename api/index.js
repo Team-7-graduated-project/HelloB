@@ -1678,20 +1678,36 @@ app.get("/places/:id/bookings", authenticateToken, async (req, res) => {
 app.post("/bookings", authenticateToken, async (req, res) => {
   try {
     const {
-      place,
+      place: placeId,
       check_in,
       check_out,
       max_guests,
       name,
       phone,
       price,
-      owner,
     } = req.body;
 
+    // First get the place to get the owner
+    const place = await Place.findById(placeId);
+    if (!place) {
+      return res.status(404).json({ error: "Place not found" });
+    }
+
+    // Add this validation before creating the booking
+    if (!place.owner) {
+      return res.status(400).json({ error: "Place has no owner assigned" });
+    }
+
+    // Verify the owner exists
+    const ownerExists = await User.exists({ _id: place.owner });
+    if (!ownerExists) {
+      return res.status(400).json({ error: "Invalid place owner" });
+    }
+
     const bookingDoc = await Booking.create({
-      place,
+      place: placeId,
       user: req.userData.id,
-      owner,
+      owner: place.owner, // Set the owner from the place
       check_in,
       check_out,
       max_guests,
@@ -1703,6 +1719,30 @@ app.post("/bookings", authenticateToken, async (req, res) => {
       paymentMethod: "payLater", // Set default payment method
     });
 
+    // Optionally notify the owner about new booking
+    try {
+      await createNotification(
+        'booking',
+        'New Booking Request',
+        `You have a new booking request for ${place.title}`,
+        `/host/bookings/${bookingDoc._id}`,
+        place.owner,
+        {
+          priority: 'high',
+          category: 'booking',
+          metadata: {
+            bookingId: bookingDoc._id,
+            placeId: placeId,
+            amount: price
+          }
+        }
+      );
+    } catch (notificationError) {
+      console.error("Error sending notification:", notificationError);
+      // Continue with booking creation even if notification fails
+    }
+
+    // Return the created booking
     res.json(bookingDoc);
   } catch (err) {
     console.error("Error creating booking:", err);
