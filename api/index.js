@@ -4145,7 +4145,7 @@ app.post("/chats", authenticateToken, async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: "Failed to create/get chat" });
   }
-);
+});
 
 // Send message
 app.post("/chats/:chatId/messages", authenticateToken, async (req, res) => {
