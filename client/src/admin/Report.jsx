@@ -161,6 +161,11 @@ function ManageReportsPage() {
 
   const handleEdit = async (report) => {
     try {
+      if (!report.adminNotes?.trim()) {
+        alert("Please add some notes before saving");
+        return;
+      }
+
       const response = await axios.put(
         `/api/admin/reports/${report._id}`,
         {
@@ -173,11 +178,18 @@ function ManageReportsPage() {
       );
 
       if (response.data.success) {
+        // Update the reports state with the new data
         const updatedReports = reports.map((r) =>
           r._id === report._id ? response.data.report : r
         );
+        
         setReports(updatedReports);
-        setFilteredReports(updatedReports);
+        setFilteredReports(
+          filteredReports.map((r) =>
+            r._id === report._id ? response.data.report : r
+          )
+        );
+        
         setEditingReport(null);
         alert("Report notes updated successfully");
       } else {
@@ -186,6 +198,7 @@ function ManageReportsPage() {
     } catch (error) {
       console.error("Failed to update report:", error);
       alert(error.response?.data?.error || "Failed to update report");
+      // Keep the edit modal open if there's an error
     }
   };
 
@@ -360,7 +373,12 @@ function ManageReportsPage() {
               </button>
               <button
                 onClick={() => handleEdit(editingReport)}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                disabled={!editingReport.adminNotes?.trim()}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  !editingReport.adminNotes?.trim()
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-primary text-white hover:bg-primary-dark"
+                }`}
               >
                 Save Notes
               </button>

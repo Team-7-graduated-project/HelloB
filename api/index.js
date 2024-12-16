@@ -3997,6 +3997,7 @@ app.get(
 
 
 // Update report (Add admin notes) (Admin only)
+// Update report (Add admin notes) (Admin only)
 app.put(
   "/api/admin/reports/:id",
   authenticateToken,
@@ -4006,36 +4007,62 @@ app.put(
       const { id } = req.params;
       const { adminNotes, status } = req.body;
 
-      const report = await Report.findByIdAndUpdate(
-        id,
-        {
-          adminNotes,
-          status,
-          updatedAt: new Date(),
-        },
-        { new: true }
-      ).populate("reportedBy", "name email");
-
+      // Find report and populate reportedBy
+      const report = await Report.findById(id).populate("reportedBy", "name email");
+      
       if (!report) {
-        return res.status(404).json({ error: "Report not found" });
+        return res.status(404).json({ 
+          success: false,
+          error: "Report not found" 
+        });
       }
 
-      // Create notification for report update
-      await createNotification(
-        "report_update",
-        "Report Updated",
-        `Admin notes have been added to report #${report._id}`,
-        `/reports/${report._id}`
-      );
+      // Update report
+      report.adminNotes = adminNotes;
+      report.status = status;
+      report.updatedAt = new Date();
+      await report.save();
 
-      res.json(report);
+      // Create notification for the user who reported
+      if (report.reportedBy) {
+        await Notification.create({
+          type: 'report', // Using valid enum value
+          title: 'Report Updated',
+          message: `An admin has added notes to your report`,
+          recipient: report.reportedBy._id,
+          link: `/reports/${report._id}`,
+          priority: 'normal',
+          category: 'general',
+          metadata: {
+            reportId: report._id,
+            updatedBy: req.userData.id,
+            hasNotes: true,
+            status: status
+          }
+        });
+      }
+
+      // Fetch updated report with populated fields
+      const updatedReport = await Report.findById(id)
+        .populate("reportedBy", "name email")
+        .populate("place", "title address");
+
+      res.json({
+        success: true,
+        report: updatedReport,
+        message: "Report updated successfully"
+      });
+
     } catch (error) {
       console.error("Error updating report:", error);
-      res.status(500).json({ error: "Failed to update report" });
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to update report",
+        message: error.message 
+      });
     }
   }
 );
-
 // Create new report (Authenticated users)
 // Add report endpoint
 app.post("/api/reports", authenticateToken, async (req, res) => {
