@@ -523,10 +523,12 @@ export default function PaymentOptionsModal({
   const isCardDetailsValid = (cardDetails) => {
     const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
     
-    // Remove spaces from card number
-    const cleanCardNumber = cardNumber.replace(/\s/g, '');
-    
+    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
+      return false;
+    }
+
     // Basic validation
+    const cleanCardNumber = cardNumber.replace(/\s/g, "");
     if (cleanCardNumber.length !== 16) {
       return false;
     }
@@ -535,21 +537,12 @@ export default function PaymentOptionsModal({
       return false;
     }
 
-    // Validate expiry date format (MM/YY)
-    const [month, year] = expiryDate.split('/');
+    const [month, year] = expiryDate.split("/");
     if (!month || !year || month.length !== 2 || year.length !== 2) {
       return false;
     }
 
-    // Check if card is not expired
-    const currentDate = new Date();
-    const cardDate = new Date(2000 + parseInt(year), parseInt(month) - 1);
-    if (cardDate < currentDate) {
-      return false;
-    }
-
-    // Validate CVV (3-4 digits)
-    if (!/^\d{3,4}$/.test(cvv)) {
+    if (cvv.length < 3 || cvv.length > 4) {
       return false;
     }
 
@@ -565,30 +558,57 @@ export default function PaymentOptionsModal({
       setSuccessMessage("");
 
       // Validate payment method selection
-      if (!paymentMethod) {
-        setErrorMessage("Please select a payment method");
-        setIsProcessing(false);
-        return;
+      if (!selectedOption) {
+        throw new Error("Please select a payment option");
       }
 
       // Validate card details for card payments
       if (selectedOption === "payNow" && paymentMethod === "card") {
         if (!cardDetails || !isCardDetailsValid(cardDetails)) {
-          setErrorMessage("Please enter valid card details");
-          setIsProcessing(false);
-          return;
+          throw new Error("Please enter valid card details");
         }
       }
 
-      // Prepare payload
+      // Handle MoMo payment
+      if (selectedOption === "payNow" && paymentMethod === "momo") {
+        try {
+          const momoResponse = await axios.post(
+            "/payment-options/momo",
+            {
+              bookingId,
+              userId,
+              amount: Math.round(finalPrice * 23000),
+              ...(discount > 0 && {
+                voucherCode: couponCode.toUpperCase(),
+                discountAmount: discount,
+              }),
+            },
+            {
+              withCredentials: true,
+            }
+          );
+
+          if (momoResponse.data.data) {
+            window.location.href = momoResponse.data.data;
+            return;
+          }
+          throw new Error("No payment URL received");
+        } catch (momoError) {
+          throw new Error(
+            momoError.response?.data?.message || "MoMo payment failed"
+          );
+        }
+      }
+
+      // Prepare payload for other payment methods
       const payload = {
         bookingId,
         userId,
         amount: Math.round(finalPrice * 23000),
-        paymentMethod, // Ensure this is always set
+        paymentMethod: selectedOption === "payLater" ? "payLater" : paymentMethod,
         selectedOption,
         ...(paymentMethod === "card" && { cardDetails }),
-        ...(discount > 0 && couponCode && {
+        ...(discount > 0 && {
           voucherCode: couponCode.toUpperCase(),
           discountAmount: discount,
         }),
@@ -599,16 +619,10 @@ export default function PaymentOptionsModal({
       });
 
       if (response.data.success) {
-        setSuccessMessage(
-          response.data.booking.paymentStatus === "paid" 
-            ? "Payment processed successfully!" 
-            : "Booking confirmed successfully!"
-        );
-        
+        setSuccessMessage("Payment processed successfully!");
         setTimeout(() => {
           onClose({
-            status: response.data.booking.status,
-            paymentStatus: response.data.booking.paymentStatus,
+            status: response.data.booking.paymentStatus,
             method: response.data.booking.paymentMethod,
             amount: response.data.booking.amount,
           });
@@ -621,7 +635,7 @@ export default function PaymentOptionsModal({
       setErrorMessage(
         error.response?.data?.message || 
         error.message || 
-        "Payment processing failed. Please try again."
+        "Failed to process payment request. Please try again."
       );
     } finally {
       setIsProcessing(false);

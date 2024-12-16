@@ -1677,76 +1677,76 @@ app.get("/places/:id/bookings", authenticateToken, async (req, res) => {
 // Modify your booking creation endpoint
 app.post("/bookings", authenticateToken, async (req, res) => {
   try {
-    const {
-      place: placeId,
+    const { check_in, check_out, name, phone, place, price, max_guests } = req.body;
+
+    // Get the place details first
+    const placeDoc = await Place.findById(place);
+    if (!placeDoc) {
+      return res.status(404).json({ message: "Place not found" });
+    }
+
+    // Create the booking
+    const booking = await Booking.create({
       check_in,
       check_out,
-      max_guests,
       name,
       phone,
+      place,
       price,
-    } = req.body;
-
-    // First get the place to get the owner
-    const place = await Place.findById(placeId);
-    if (!place) {
-      return res.status(404).json({ error: "Place not found" });
-    }
-
-    // Add this validation before creating the booking
-    if (!place.owner) {
-      return res.status(400).json({ error: "Place has no owner assigned" });
-    }
-
-    // Verify the owner exists
-    const ownerExists = await User.exists({ _id: place.owner });
-    if (!ownerExists) {
-      return res.status(400).json({ error: "Invalid place owner" });
-    }
-
-    const bookingDoc = await Booking.create({
-      place: placeId,
+      max_guests,
       user: req.userData.id,
-      owner: place.owner, // Set the owner from the place
-      check_in,
-      check_out,
-      max_guests,
-      name,
-      phone,
-      price,
+      owner: placeDoc.owner,
       status: "pending",
-      paymentStatus: "pending",
-      paymentMethod: "payLater", // Set default payment method
     });
 
-    // Optionally notify the owner about new booking
     try {
+      // Get admin ID for notification
+      const adminId = await getAdminUserId();
+
+      // Notify admin about new booking
+      await createNotification(
+        'booking',
+        'New Booking Created',
+        `New booking received for ${placeDoc.title}`,
+        `/admin/bookings/${booking._id}`,
+        adminId,
+        {
+          priority: 'normal',
+          category: 'booking',
+          metadata: {
+            bookingId: booking._id,
+            amount: price,
+            userId: req.userData.id
+          }
+        }
+      );
+
+      // Notify host about new booking
       await createNotification(
         'booking',
         'New Booking Request',
-        `You have a new booking request for ${place.title}`,
-        `/host/bookings/${bookingDoc._id}`,
-        place.owner,
+        `You have a new booking request for ${placeDoc.title}`,
+        `/host/bookings/${booking._id}`,
+        placeDoc.owner,
         {
           priority: 'high',
           category: 'booking',
           metadata: {
-            bookingId: bookingDoc._id,
-            placeId: placeId,
+            bookingId: booking._id,
+            placeId: place,
             amount: price
           }
         }
       );
     } catch (notificationError) {
-      console.error("Error sending notification:", notificationError);
-      // Continue with booking creation even if notification fails
+      // Log notification error but don't fail the booking
+      console.error("Error creating notifications:", notificationError);
     }
 
-    // Return the created booking
-    res.json(bookingDoc);
+    res.json(booking);
   } catch (err) {
     console.error("Error creating booking:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -2217,26 +2217,34 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
     const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount, cardDetails } = req.body;
 
-    // Find and update booking
+    // Validate required fields
+    if (!bookingId || !userId || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields"
+      });
+    }
+
+    // Validate the booking exists and belongs to the user
     const booking = await Booking.findOne({ 
       _id: bookingId,
       user: userId 
-    });
+    }).populate('place');
     
     if (!booking) {
       return res.status(404).json({ 
         success: false,
-        message: "Booking not found or unauthorized" 
+        message: "Booking not found" 
       });
     }
 
-    // Handle payment based on selected option
+    // Handle different payment options
     if (selectedOption === "payLater") {
-      booking.status = "confirmed";
       booking.paymentStatus = "pending";
       booking.paymentMethod = "payLater";
     } else if (selectedOption === "payNow") {
       if (paymentMethod === "card") {
+        // Process card payment
         const isPaymentSuccessful = await processCardPayment(cardDetails, amount);
         if (!isPaymentSuccessful) {
           return res.status(400).json({ 
@@ -2244,18 +2252,25 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
             message: "Card payment failed. Please check your details and try again." 
           });
         }
-        booking.status = "confirmed";
-        booking.paymentStatus = "paid";
+        booking.paymentStatus = "completed";
         booking.paymentMethod = "card";
-      } else if (paymentMethod === "momo") {
-        booking.status = "pending";
-        booking.paymentStatus = "pending";
-        booking.paymentMethod = "momo";
+      } else {
+        return res.status(400).json({ 
+          success: false,
+          message: "Invalid payment method" 
+        });
       }
     }
 
     // Apply voucher if provided
     if (voucherCode && discountAmount) {
+      const voucher = await Voucher.findOne({ code: voucherCode });
+      if (!voucher) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Invalid voucher code" 
+        });
+      }
       booking.voucherCode = voucherCode;
       booking.discountAmount = discountAmount;
     }
@@ -2267,7 +2282,6 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     res.json({
       success: true,
       booking: {
-        status: booking.status,
         paymentStatus: booking.paymentStatus,
         paymentMethod: booking.paymentMethod,
         amount: booking.paymentAmount
@@ -2278,7 +2292,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     console.error("Payment processing error:", error);
     res.status(500).json({ 
       success: false,
-      message: "Payment processing failed. Please try again later."
+      message: "Payment processing failed. Please try again." 
     });
   }
 });

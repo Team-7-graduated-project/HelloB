@@ -19,7 +19,7 @@ export default function BookingsPage() {
   const isHistoryPage = location.pathname.includes("/history");
 
   const checkBookingStatus = useCallback((booking) => {
-    if (!booking?.check_out || !booking?.status) {
+    if (!booking?.check_out || !booking?.status || !booking?.paymentStatus) {
       return booking?.status || "pending";
     }
 
@@ -31,7 +31,8 @@ export default function BookingsPage() {
     if (
       now.getTime() > checkOutDate.getTime() &&
       booking.status === "confirmed" &&
-      booking.paymentStatus === "paid"
+      booking.paymentStatus === "paid" &&
+      !booking.isCheckoutProcessed // Add flag to prevent multiple processing
     ) {
       return "completed";
     }
