@@ -580,39 +580,6 @@ export default function PaymentOptionsModal({
         }
       }
 
-      // Handle MoMo payment
-      if (selectedOption === "payNow" && paymentMethod === "momo") {
-        try {
-          const momoResponse = await axios.post(
-            "/payment-options/momo",
-            {
-              bookingId,
-              userId,
-              amount: Math.round(finalPrice * 23000),
-              ...(discount > 0 && {
-                voucherCode: couponCode?.toUpperCase(),
-                discountAmount: discount,
-              }),
-            },
-            {
-              withCredentials: true,
-            }
-          );
-
-          if (momoResponse.data.data) {
-            window.location.href = momoResponse.data.data;
-            return;
-          }
-          throw new Error("No payment URL received");
-        } catch (momoError) {
-          console.error("MoMo Error:", momoError);
-          throw new Error(
-            momoError.response?.data?.message || 
-            "MoMo payment initialization failed"
-          );
-        }
-      }
-
       // Prepare payload with better validation
       const payload = {
         bookingId,
@@ -632,7 +599,12 @@ export default function PaymentOptionsModal({
       });
 
       if (response.data.success) {
-        setSuccessMessage("Payment processed successfully!");
+        setSuccessMessage(
+          response.data.booking.paymentStatus === "paid" 
+            ? "Payment processed successfully!" 
+            : "Booking confirmed successfully!"
+        );
+        
         setTimeout(() => {
           onClose({
             status: response.data.booking.paymentStatus,

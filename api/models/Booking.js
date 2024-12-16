@@ -49,12 +49,13 @@ const bookingSchema = new Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ["pending", "paid", "failed"],
-      default: "pending",
+      enum: ['pending', 'paid', 'failed', 'cancelled'],
+      default: 'pending'
     },
     paymentMethod: {
       type: String,
-      enum: ["card", "momo", "payLater"],
+      enum: ['card', 'momo', 'payLater'],
+      required: true
     },
     paymentId: {
       type: mongoose.Schema.Types.ObjectId,

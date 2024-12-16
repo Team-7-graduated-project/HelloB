@@ -2244,8 +2244,11 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
             message: "Card payment failed. Please check your details and try again." 
           });
         }
-        booking.paymentStatus = "completed";
+        booking.paymentStatus = "paid"; // Changed from 'completed' to 'paid'
         booking.paymentMethod = "card";
+      } else if (paymentMethod === "momo") {
+        booking.paymentStatus = "pending";
+        booking.paymentMethod = "momo";
       } else {
         return res.status(400).json({ 
           success: false,
