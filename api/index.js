@@ -3995,41 +3995,6 @@ app.get(
   }
 );
 
-// Update report status (Admin only)
-app.put(
-  "/api/admin/reports/:id/status",
-  authenticateToken,
-  authorizeRole("admin"),
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { status } = req.body;
-
-      const report = await Report.findByIdAndUpdate(
-        id,
-        { status },
-        { new: true }
-      ).populate("reportedBy", "name email");
-
-      if (!report) {
-        return res.status(404).json({ error: "Report not found" });
-      }
-
-      // Create notification for status change
-      await createNotification(
-        "report_update",
-        "Report Status Updated",
-        `Report #${report._id} has been marked as ${status}`,
-        `/reports/${report._id}`
-      );
-
-      res.json(report);
-    } catch (error) {
-      console.error("Error updating report status:", error);
-      res.status(500).json({ error: "Failed to update report status" });
-    }
-  }
-);
 
 // Update report (Add admin notes) (Admin only)
 app.put(
@@ -5054,35 +5019,107 @@ app.put(
       ).populate("reportedBy", "name email");
 
       if (!report) {
-        return res.status(404).json({ error: "Report not found" });
+        return res.status(404).json({ 
+          success: false,
+          error: "Report not found" 
+        });
       }
 
-      // Create notification with enhanced options
-      await createNotification(
-        "report_update",
-        "Report Status Updated",
-        `Report #${report._id} has been marked as ${status}`,
-        `/reports/${report._id}`,
-        report.reportedBy?._id,
-        {
-          priority: status === "resolved" ? "normal" : "high",
-          category: "report",
-          metadata: {
-            reportId: report._id,
-            previousStatus: report.status,
-            newStatus: status,
-          },
-        }
-      );
+      // Get admin user for notification
+      const admin = await User.findOne({ role: 'admin' });
+      if (!admin) {
+        throw new Error('No admin user found');
+      }
 
-      res.json(report);
+      // Create notification for status change
+      await Notification.create({
+        type: 'report',
+        title: 'Report Status Updated',
+        message: `Report #${report._id} has been marked as ${status}`,
+        recipient: report.reportedBy._id, // Notify the user who reported
+        link: `/reports/${report._id}`,
+        metadata: {
+          reportId: report._id,
+          oldStatus: report.status,
+          newStatus: status,
+          updatedBy: req.userData.id
+        }
+      });
+
+      res.json({
+        success: true,
+        report,
+        message: `Report successfully marked as ${status}`
+      });
+
     } catch (error) {
       console.error("Error updating report status:", error);
-      res.status(500).json({ error: "Failed to update report status" });
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to update report status",
+        message: error.message 
+      });
     }
   }
 );
 
+// Update report (Add admin notes)
+app.put(
+  "/api/admin/reports/:id",
+  authenticateToken,
+  authorizeRole("admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { adminNotes, status } = req.body;
+
+      const report = await Report.findByIdAndUpdate(
+        id,
+        {
+          adminNotes,
+          status,
+          updatedAt: new Date()
+        },
+        { new: true }
+      ).populate("reportedBy", "name email");
+
+      if (!report) {
+        return res.status(404).json({ 
+          success: false,
+          error: "Report not found" 
+        });
+      }
+
+      // Create notification for report update
+      await Notification.create({
+        type: 'report',
+        title: 'Report Updated',
+        message: `Admin has added notes to your report`,
+        recipient: report.reportedBy._id,
+        link: `/reports/${report._id}`,
+        metadata: {
+          reportId: report._id,
+          updatedBy: req.userData.id,
+          hasNotes: !!adminNotes
+        }
+      });
+
+      res.json({
+        success: true,
+        report,
+        message: "Report updated successfully"
+      });
+
+    } catch (error) {
+      console.error("Error updating report:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to update report",
+        message: error.message 
+      });
+    }
+  }
+);
 // When a booking is auto-completed
 const autoCompleteBookings = async () => {
   try {

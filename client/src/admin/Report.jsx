@@ -131,19 +131,29 @@ function ManageReportsPage() {
   const handleStatusChange = async (reportId, newStatus) => {
     try {
       setProcessingId(reportId);
-      await axios.put(`/api/admin/reports/${reportId}/status`, {
-        status: newStatus,
-      });
-
-      const updatedReports = reports.map((report) =>
-        report._id === reportId ? { ...report, status: newStatus } : report
+      const response = await axios.put(
+        `/api/admin/reports/${reportId}/status`,
+        {
+          status: newStatus
+        },
+        {
+          withCredentials: true
+        }
       );
-      setReports(updatedReports);
-      setFilteredReports(updatedReports);
-      alert(`Report marked as ${newStatus}`);
+
+      if (response.data.success) {
+        const updatedReports = reports.map((report) =>
+          report._id === reportId ? { ...report, status: newStatus } : report
+        );
+        setReports(updatedReports);
+        setFilteredReports(updatedReports);
+        alert(`Report successfully marked as ${newStatus}`);
+      } else {
+        throw new Error(response.data.message || "Failed to update status");
+      }
     } catch (error) {
       console.error("Failed to update report status:", error);
-      alert("Failed to update report status");
+      alert(error.response?.data?.error || "Failed to update report status");
     } finally {
       setProcessingId(null);
     }
@@ -151,20 +161,31 @@ function ManageReportsPage() {
 
   const handleEdit = async (report) => {
     try {
-      const response = await axios.put(`/api/admin/reports/${report._id}`, {
-        adminNotes: report.adminNotes,
-        status: report.status,
-      });
-
-      const updatedReports = reports.map((r) =>
-        r._id === report._id ? response.data : r
+      const response = await axios.put(
+        `/api/admin/reports/${report._id}`,
+        {
+          adminNotes: report.adminNotes,
+          status: report.status
+        },
+        {
+          withCredentials: true
+        }
       );
-      setReports(updatedReports);
-      setFilteredReports(updatedReports);
-      setEditingReport(null);
+
+      if (response.data.success) {
+        const updatedReports = reports.map((r) =>
+          r._id === report._id ? response.data.report : r
+        );
+        setReports(updatedReports);
+        setFilteredReports(updatedReports);
+        setEditingReport(null);
+        alert("Report notes updated successfully");
+      } else {
+        throw new Error(response.data.message || "Failed to update report");
+      }
     } catch (error) {
       console.error("Failed to update report:", error);
-      alert("Failed to update report");
+      alert(error.response?.data?.error || "Failed to update report");
     }
   };
 
