@@ -660,11 +660,14 @@ export default function PaymentOptionsModal({
       <h4 className="font-medium text-blue-800 mb-2">Test Card Information:</h4>
       <div className="space-y-2 text-sm text-blue-700">
         <p><span className="font-medium">Bank:</span> NCB (Vietnam)</p>
-        <p><span className="font-medium">Card Number:</span> 9704198526191432198</p>
+        <p><span className="font-medium">Card Number:</span> 9704 0000 0000 0018</p>
         <p><span className="font-medium">Name:</span> NGUYEN VAN A</p>
-        <p><span className="font-medium">Expiry:</span> 07/15</p>
-        <p><span className="font-medium">OTP:</span> 123456</p>
+        <p><span className="font-medium">Issue Date:</span> 03/07</p>
+        <p><span className="font-medium">OTP:</span> OTP</p>
       </div>
+      <p className="mt-2 text-xs text-blue-600">
+        Note: This is a test card with sufficient balance for testing payments
+      </p>
     </div>
   );
 
