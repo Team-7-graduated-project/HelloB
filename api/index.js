@@ -1677,49 +1677,76 @@ app.get("/places/:id/bookings", authenticateToken, async (req, res) => {
 // Modify your booking creation endpoint
 app.post("/bookings", authenticateToken, async (req, res) => {
   try {
-    const {
-      place,
-      check_in,
-      check_out,
-      max_guests,
-      name,
-      phone,
-      price,
-    } = req.body;
+    const { check_in, check_out, name, phone, place, price, max_guests } = req.body;
 
+    // Get the place details first
     const placeDoc = await Place.findById(place);
     if (!placeDoc) {
-      return res.status(404).json({ error: "Place not found" });
+      return res.status(404).json({ message: "Place not found" });
     }
 
+    // Create the booking
     const booking = await Booking.create({
-      place,
-      user: req.userData.id,
-      owner: placeDoc.owner,
       check_in,
       check_out,
-      max_guests,
       name,
       phone,
+      place,
       price,
+      max_guests,
+      user: req.userData.id,
+      owner: placeDoc.owner,
       status: "pending",
-      paymentStatus: "pending",
-      paymentMethod: "pending", // Set a default payment method
     });
 
-    // Send notification to host
-    await createNotification(
-      'booking_created',
-      'New Booking Request',
-      `New booking request from ${name} for ${placeDoc.title}`,
-      `/host/bookings/${booking._id}`,
-      placeDoc.owner
-    );
+    try {
+      // Get admin ID for notification
+      const adminId = await getAdminUserId();
+
+      // Notify admin about new booking
+      await createNotification(
+        'booking',
+        'New Booking Created',
+        `New booking received for ${placeDoc.title}`,
+        `/admin/bookings/${booking._id}`,
+        adminId,
+        {
+          priority: 'normal',
+          category: 'booking',
+          metadata: {
+            bookingId: booking._id,
+            amount: price,
+            userId: req.userData.id
+          }
+        }
+      );
+
+      // Notify host about new booking
+      await createNotification(
+        'booking',
+        'New Booking Request',
+        `You have a new booking request for ${placeDoc.title}`,
+        `/host/bookings/${booking._id}`,
+        placeDoc.owner,
+        {
+          priority: 'high',
+          category: 'booking',
+          metadata: {
+            bookingId: booking._id,
+            placeId: place,
+            amount: price
+          }
+        }
+      );
+    } catch (notificationError) {
+      // Log notification error but don't fail the booking
+      console.error("Error creating notifications:", notificationError);
+    }
 
     res.json(booking);
-  } catch (error) {
-    console.error("Error creating booking:", error);
-    res.status(500).json({ error: "Failed to create booking" });
+  } catch (err) {
+    console.error("Error creating booking:", err);
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -2207,7 +2234,6 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     if (selectedOption === "payLater") {
       booking.paymentStatus = "pending";
       booking.paymentMethod = "payLater";
-      booking.status = "confirmed"; // Update booking status
     } else if (selectedOption === "payNow") {
       if (paymentMethod === "card") {
         // Process card payment
@@ -2218,13 +2244,11 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
             message: "Card payment failed. Please check your details and try again." 
           });
         }
-        booking.paymentStatus = "paid";
+        booking.paymentStatus = "paid"; // Changed from 'completed' to 'paid'
         booking.paymentMethod = "card";
-        booking.status = "confirmed"; // Update booking status for successful card payment
       } else if (paymentMethod === "momo") {
         booking.paymentStatus = "pending";
         booking.paymentMethod = "momo";
-        booking.status = "pending";
       } else {
         return res.status(400).json({ 
           success: false,
@@ -2253,7 +2277,6 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     res.json({
       success: true,
       booking: {
-        status: booking.status,
         paymentStatus: booking.paymentStatus,
         paymentMethod: booking.paymentMethod,
         amount: booking.paymentAmount
@@ -3607,7 +3630,7 @@ app.post("/bookings", authenticateToken, async (req, res) => {
     }
 
     const {
-      place,
+      place: placeId,
       check_in,
       check_out,
       max_guests,
@@ -3616,39 +3639,35 @@ app.post("/bookings", authenticateToken, async (req, res) => {
       price,
     } = req.body;
 
-    const placeDoc = await Place.findById(place);
-    if (!placeDoc) {
+    // Check if user is trying to book their own place
+    const place = await Place.findById(placeId);
+    if (!place) {
       return res.status(404).json({ error: "Place not found" });
     }
 
+    if (place.owner.toString() === req.userData.id) {
+      return res.status(403).json({
+        error: "You cannot book your own property",
+      });
+    }
+
+    // Rest of your existing booking creation code
     const booking = await Booking.create({
-      place,
+      place: placeId,
       user: req.userData.id,
-      owner: placeDoc.owner,
       check_in,
       check_out,
       max_guests,
       name,
       phone,
       price,
-      status: "pending",
-      paymentStatus: "pending",
-      paymentMethod: "pending", // Set a default payment method
+      status: "confirmed",
     });
-
-    // Send notification to host
-    await createNotification(
-      'booking_created',
-      'New Booking Request',
-      `New booking request from ${name} for ${placeDoc.title}`,
-      `/host/bookings/${booking._id}`,
-      placeDoc.owner
-    );
 
     res.json(booking);
   } catch (error) {
     console.error("Error creating booking:", error);
-    res.status(500).json({ error: "Failed to create booking" });
+    res.status(500).json({ error: "Could not create booking" });
   }
 });
 

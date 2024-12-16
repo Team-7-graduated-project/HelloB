@@ -54,8 +54,7 @@ const bookingSchema = new Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ['card', 'momo', 'payLater', 'pending'],
-      default: 'pending',
+      enum: ['card', 'momo', 'payLater'],
       required: true
     },
     paymentId: {
