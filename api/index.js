@@ -742,7 +742,115 @@ app.get("/vouchers", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch vouchers" });
   }
 });
+app.get("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
+  try {
+    const voucher = await Voucher.findOne({
+      _id: req.params.id,
+      owner: req.userData.id
+    }).populate('applicablePlaces');
+    
+    if (!voucher) {
+      return res.status(404).json({ error: "Voucher not found" });
+    }
+    
+    res.json(voucher);
+  } catch (error) {
+    console.error("Error fetching voucher:", error);
+    res.status(500).json({ error: "Failed to fetch voucher" });
+  }
+});
 
+// Update voucher
+// Update voucher route
+app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { code, discount, description, expirationDate, usageLimit, applicablePlaces } = req.body;
+
+    // Validate required fields
+    if (!code || !discount || !description || !expirationDate || !usageLimit || !applicablePlaces) {
+      return res.status(400).json({ 
+        success: false,
+        error: "All fields are required" 
+      });
+    }
+
+    // Find voucher and verify ownership
+    const voucher = await Voucher.findOne({
+      _id: id,
+      owner: req.userData.id
+    });
+
+    if (!voucher) {
+      return res.status(404).json({ 
+        success: false,
+        error: "Voucher not found or unauthorized" 
+      });
+    }
+
+    // Check if code is being changed and if it's already in use
+    if (code !== voucher.code) {
+      const existingVoucher = await Voucher.findOne({ 
+        code: code,
+        owner: req.userData.id,
+        _id: { $ne: id }
+      });
+      
+      if (existingVoucher) {
+        return res.status(400).json({ 
+          success: false,
+          error: "Voucher code already exists" 
+        });
+      }
+    }
+
+    // Validate places exist and belong to host
+    const validPlaces = await Place.find({
+      _id: { $in: applicablePlaces },
+      owner: req.userData.id
+    });
+
+    if (validPlaces.length !== applicablePlaces.length) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Invalid places selected" 
+      });
+    }
+
+    // Update voucher
+    const updatedVoucher = await Voucher.findByIdAndUpdate(
+      id,
+      {
+        code,
+        discount,
+        description,
+        expirationDate,
+        usageLimit,
+        applicablePlaces,
+      },
+      { new: true, runValidators: true }
+    ).populate('applicablePlaces');
+
+    if (!updatedVoucher) {
+      return res.status(404).json({ 
+        success: false,
+        error: "Failed to update voucher" 
+      });
+    }
+
+    res.json({
+      success: true,
+      voucher: updatedVoucher
+    });
+
+  } catch (error) {
+    console.error("Error updating voucher:", error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || "Failed to update voucher" 
+    });
+  }
+});
 // Get available vouchers for a specific booking
 app.get(
   "/vouchers/available/:bookingId",
@@ -5887,86 +5995,3 @@ server.listen(PORT, () => {
 // Add these routes for voucher management
 
 // Get single voucher
-app.get("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
-  try {
-    const voucher = await Voucher.findOne({
-      _id: req.params.id,
-      owner: req.userData.id
-    }).populate('applicablePlaces');
-    
-    if (!voucher) {
-      return res.status(404).json({ error: "Voucher not found" });
-    }
-    
-    res.json(voucher);
-  } catch (error) {
-    console.error("Error fetching voucher:", error);
-    res.status(500).json({ error: "Failed to fetch voucher" });
-  }
-});
-
-// Update voucher
-app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
-  try {
-    const voucher = await Voucher.findOne({
-      _id: req.params.id,
-      owner: req.userData.id
-    });
-
-    if (!voucher) {
-      return res.status(404).json({ error: "Voucher not found" });
-    }
-
-    // Check if code is being changed and if it's already in use
-    if (req.body.code !== voucher.code) {
-      const existingVoucher = await Voucher.findOne({ 
-        code: req.body.code,
-        owner: req.userData.id,
-        _id: { $ne: req.params.id }
-      });
-      
-      if (existingVoucher) {
-        return res.status(400).json({ error: "Voucher code already exists" });
-      }
-    }
-
-    // Update voucher
-    const updatedVoucher = await Voucher.findByIdAndUpdate(
-      req.params.id,
-      {
-        code: req.body.code,
-        discount: req.body.discount,
-        description: req.body.description,
-        expirationDate: req.body.expirationDate,
-        usageLimit: req.body.usageLimit,
-        applicablePlaces: req.body.applicablePlaces,
-        active: true
-      },
-      { new: true }
-    ).populate('applicablePlaces');
-
-    // Notify admin about voucher update
-    const adminId = await getAdminUserId();
-    await createNotification(
-      'system',
-      'Voucher Updated',
-      `Host ${req.userData.name} has updated voucher: ${updatedVoucher.code}`,
-      `/admin/vouchers/${updatedVoucher._id}`,
-      adminId,
-      {
-        priority: 'normal',
-        category: 'general',
-        metadata: {
-          voucherId: updatedVoucher._id,
-          hostId: req.userData.id,
-          changes: req.body
-        }
-      }
-    );
-
-    res.json(updatedVoucher);
-  } catch (error) {
-    console.error("Error updating voucher:", error);
-    res.status(500).json({ error: "Failed to update voucher" });
-  }
-});

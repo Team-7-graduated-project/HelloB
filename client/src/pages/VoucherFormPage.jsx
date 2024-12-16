@@ -257,6 +257,8 @@ export default function VoucherFormPage() {
 
     try {
       setLoading(true);
+      setError("");
+
       const voucherData = {
         code: code.toUpperCase(),
         discount: Number(discount),
@@ -266,15 +268,32 @@ export default function VoucherFormPage() {
         applicablePlaces: selectedPlaces,
       };
 
+      let response;
       if (id) {
-        await axios.put(`/host/vouchers/${id}`, voucherData);
+        response = await axios.put(`/host/vouchers/${id}`, voucherData);
+        if (!response.data.success) {
+          throw new Error(response.data.error || 'Failed to update voucher');
+        }
       } else {
-        await axios.post('/host/vouchers', voucherData);
+        response = await axios.post('/host/vouchers', voucherData);
+        if (!response.data.success) {
+          throw new Error(response.data.error || 'Failed to create voucher');
+        }
       }
 
+      // Only navigate if successful
       navigate('/host/vouchers');
     } catch (error) {
-      setError(error.response?.data?.error || 'Failed to save voucher');
+      console.error('Voucher save error:', error);
+      setError(error.response?.data?.error || error.message || 'Failed to save voucher');
+      
+      // Scroll error into view
+      setTimeout(() => {
+        const errorElement = document.querySelector('.bg-red-50');
+        if (errorElement) {
+          errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
     } finally {
       setLoading(false);
     }
@@ -400,9 +419,15 @@ export default function VoucherFormPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg flex items-center gap-2">
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg flex items-center gap-2 mb-4">
             <FaTimes className="flex-shrink-0" />
-            <p>{error}</p>
+            <p className="flex-grow">{error}</p>
+            <button 
+              onClick={() => setError("")} 
+              className="flex-shrink-0 hover:bg-red-100 p-1 rounded-full transition-colors"
+            >
+              <FaTimes className="w-4 h-4" />
+            </button>
           </div>
         )}
       </div>
