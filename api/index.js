@@ -1537,62 +1537,52 @@ app.post(
   authenticateToken,
   authorizeRole("host", "admin"),
   async (req, res) => {
-    const { title, address, description, perks, price } = req.body;
-
     try {
-      const placeDoc = await Place.create({
+      const placeData = {
         owner: req.userData.id,
-        title,
-        address,
-        description,
-        perks,
-        price,
-      });
+        ...req.body,
+        isActive: true,
+        isDeleted: false,
+      };
+
+      const placeDoc = await Place.create(placeData);
       res.json(placeDoc);
     } catch (error) {
-      res.status(500).json({ error: "Failed to create place" });
+      console.error("Error creating place:", error);
+      res.status(500).json({ 
+        error: "Failed to create place",
+        message: error.message 
+      });
     }
   }
 );
 
 // Update a place with authentication
 app.put("/host/places/:id", authenticateToken, async (req, res) => {
-  const { id } = req.params; // Ensure you're using `req.params.id`
-  const {
-    title,
-    address,
-    addedPhotos,
-    description,
-    perks,
-    extra_info,
-    check_in,
-    check_out,
-    price,
-    max_guests,
-  } = req.body;
+  const { id } = req.params;
 
   try {
-    const placeDoc = await Place.findById(id); // Ensure this returns the correct document
-    if (req.userData.id !== placeDoc.owner.toString())
-      return res.status(403).json({ error: "Unauthorized" });
+    const placeDoc = await Place.findById(id);
+    
+    if (!placeDoc) {
+      return res.status(404).json({ error: "Place not found" });
+    }
 
-    placeDoc.set({
-      title,
-      address,
-      photos: addedPhotos,
-      description,
-      perks,
-      extra_info,
-      check_in,
-      check_out,
-      price,
-      max_guests,
-    });
+    if (req.userData.id !== placeDoc.owner.toString()) {
+      return res.status(403).json({ error: "Unauthorized to update this place" });
+    }
 
+    // Update all fields from request body
+    Object.assign(placeDoc, req.body);
+    
     await placeDoc.save();
-    res.json("ok");
+    res.json(placeDoc);
   } catch (error) {
-    res.status(500).json({ error: "Failed to update place" });
+    console.error("Error updating place:", error);
+    res.status(500).json({ 
+      error: "Failed to update place",
+      message: error.message 
+    });
   }
 });
 
@@ -2537,8 +2527,10 @@ app.get("/api/places/search", async (req, res) => {
       limit = 12,
     } = req.query;
 
-    // Build the query object
-    let query = { isActive: true };
+    let query = { 
+      isActive: true,
+      isDeleted: false
+    };
 
     if (type && type !== "all") {
       query.property_type = type;
@@ -2552,13 +2544,25 @@ app.get("/api/places/search", async (req, res) => {
       query.max_guests = { $gte: parseInt(guests) };
     }
 
-    // Calculate skip value for pagination
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    // Add date range check if provided
+    if (checkIn && checkOut) {
+      query.$and = [
+        { 
+          "bookings.check_in": { 
+            $not: { 
+              $elemMatch: { 
+                $gte: new Date(checkIn), 
+                $lt: new Date(checkOut) 
+              } 
+            } 
+          } 
+        }
+      ];
+    }
 
-    // Get total count for pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
     const totalCount = await Place.countDocuments(query);
 
-    // Determine sort order
     let sortOption = {};
     switch (sort) {
       case "price_low":
@@ -2582,7 +2586,7 @@ app.get("/api/places/search", async (req, res) => {
       .exec();
 
     res.json({
-      places: places || [], // Ensure it's always an array
+      places: places || [],
       pagination: {
         total: totalCount,
         pages: Math.ceil(totalCount / parseInt(limit)),

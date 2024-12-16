@@ -4,70 +4,39 @@ import Perks from "../Perks";
 import axios from "axios";
 import { Navigate, useParams, useNavigate } from "react-router-dom";
 
-const validateForm = (formData) => {
+const validateForm = (data) => {
   const errors = {};
 
-  // Title validation
-  if (!formData.title.trim()) {
+  if (!data.title?.trim()) {
     errors.title = "Title is required";
-  } else if (formData.title.length < 10) {
-    errors.title = "Title must be at least 10 characters long";
   }
 
-  // Address validation
-  if (!formData.address.trim()) {
+  if (!data.address?.trim()) {
     errors.address = "Address is required";
   }
 
-  // Photos validation
-  if (formData.photos.length === 0) {
+  if (!data.photos?.length) {
     errors.photos = "At least one photo is required";
   }
 
-  // Description validation
-  if (!formData.description.trim()) {
+  if (!data.description?.trim()) {
     errors.description = "Description is required";
-  } else if (formData.description.length < 50) {
-    errors.description = "Description must be at least 50 characters long";
   }
 
-  // Price validation
-  if (formData.price <= 0) {
-    errors.price = "Price must be greater than 0";
-  }
-
-  // Check-in/out validation
-  if (!formData.check_in) {
-    errors.checkIn = "Check-in time is required";
-  }
-  if (!formData.check_out) {
-    errors.checkOut = "Check-out time is required";
-  }
-  if (
-    formData.check_in &&
-    formData.check_out &&
-    formData.check_in >= formData.check_out
-  ) {
-    errors.checkOut = "Check-out time must be after check-in time";
-  }
-
-  // Property details validation
-  if (formData.bedrooms < 1) {
-    errors.bedrooms = "Must have at least 1 bedroom";
-  }
-  if (formData.beds < 1) {
-    errors.beds = "Must have at least 1 bed";
-  }
-  if (formData.bathrooms < 1) {
-    errors.bathrooms = "Must have at least 1 bathroom";
-  }
-  if (formData.max_guests < 1) {
+  if (data.max_guests < 1) {
     errors.maxGuests = "Must accommodate at least 1 guest";
   }
 
-  // Minimum stay validation
-  if (formData.minimum_stay < 1) {
-    errors.minimumStay = "Minimum stay must be at least 1 night";
+  if (data.bedrooms < 1) {
+    errors.bedrooms = "Must have at least 1 bedroom";
+  }
+
+  if (data.beds < 1) {
+    errors.beds = "Must have at least 1 bed";
+  }
+
+  if (data.bathrooms < 1) {
+    errors.bathrooms = "Must have at least 1 bathroom";
   }
 
   return errors;
@@ -188,7 +157,6 @@ export default function PlacesFormPage() {
 
     // If there are errors, don't submit
     if (Object.keys(errors).length > 0) {
-      // Scroll to the first error
       const firstErrorField = document.querySelector('[data-error="true"]');
       if (firstErrorField) {
         firstErrorField.scrollIntoView({ behavior: "smooth", block: "center" });
