@@ -2472,7 +2472,8 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
     // Validation checks
     if (!bookingId || !userId || !amount) {
       return res.status(400).json({
-        message: "Missing required fields: bookingId, userId, or amount",
+        success: false,
+        message: "Missing required fields",
       });
     }
 
@@ -2488,7 +2489,7 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
     try {
       // Initialize MoMo payment
       const momoResponse = await momoPayment.createPayment({
-        amount: Number(amount),
+        amount: Math.round(amount), // Ensure amount is rounded
         bookingId: bookingId,
         userId: userId,
       });
@@ -2503,8 +2504,9 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
       });
 
       res.json({
-        data: momoResponse.payUrl,
         success: true,
+        data: momoResponse.payUrl,
+        message: "MoMo payment URL generated successfully",
       });
     } catch (momoError) {
       // Clean up payment record if MoMo request fails
@@ -2514,8 +2516,8 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("MoMo payment error:", error);
     res.status(400).json({
-      message: error.message || "Failed to process MoMo payment",
       success: false,
+      message: error.message || "Failed to process MoMo payment",
     });
   }
 });

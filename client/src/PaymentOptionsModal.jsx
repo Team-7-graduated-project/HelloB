@@ -571,13 +571,25 @@ export default function PaymentOptionsModal({
             withCredentials: true,
           });
 
-          if (momoResponse.data.data) {
+          if (momoResponse.data.success && momoResponse.data.data) {
+            // Store booking info in localStorage before redirect
+            localStorage.setItem('pendingBooking', JSON.stringify({
+              bookingId,
+              amount: finalPrice,
+              paymentMethod: 'momo'
+            }));
+            
             window.location.href = momoResponse.data.data;
             return;
           }
-          throw new Error("No payment URL received");
+          throw new Error(momoResponse.data.message || "No payment URL received");
         } catch (momoError) {
-          throw new Error(momoError.response?.data?.message || "MoMo payment failed");
+          console.error("MoMo payment error:", momoError);
+          throw new Error(
+            momoError.response?.data?.message || 
+            momoError.message || 
+            "MoMo payment failed. Please try again."
+          );
         }
       }
 
