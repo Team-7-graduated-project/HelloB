@@ -1273,10 +1273,11 @@ app.post(
       });
 
       await createNotification(
-        "place",
-        "New Place Added",
-        `${req.userData.name} added a new place: ${place.title}`,
-        `/admin/places/${place._id}`
+        'property', // Changed from 'place' to 'property'
+        'New Property Added',
+        `${req.userData.name} added a new property: ${place.title}`,
+        `/admin/places/${place._id}`,
+        'admin' // Explicitly specify the recipient
       );
 
       res.status(201).json(place);
@@ -4996,16 +4997,15 @@ const autoCompleteBookings = async () => {
   } catch (error) {
     console.error("Critical: Auto-complete bookings failed:", error);
 
-    // Create system notification for critical error
     await createNotification(
-      "system_error",
-      "Auto-Complete Bookings Failed",
-      "The automatic booking completion process has failed. Manual intervention may be required.",
-      "/admin/bookings",
-      null,
+      'system_error',
+      'Auto-Complete Bookings Failed',
+      'The automatic booking completion process has failed. Manual intervention may be required.',
+      '/admin/bookings',
+      'admin', // Explicitly specify the recipient
       {
-        priority: "high",
-        category: "system",
+        priority: 'high',
+        category: 'system',
         metadata: {
           error: error.message,
           timestamp: new Date(),

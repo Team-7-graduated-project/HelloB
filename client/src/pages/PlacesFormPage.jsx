@@ -177,6 +177,8 @@ export default function PlacesFormPage() {
     } catch (error) {
       console.error("Failed to save place:", error);
       setError(error.response?.data?.message || "Failed to save the place.");
+      // Scroll to top to show error message
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setLoading(false);
     }

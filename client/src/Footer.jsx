@@ -117,7 +117,7 @@ function Footer() {
                     text: "Da Nang City, Viet Nam",
                   },
                   { icon: FaPhone, text: "+84 775 413 001" },
-                  { icon: FaEnvelope, text: "nguyenhuy23112004@gmail.com" },
+                  { icon: FaEnvelope, text: "adminhellob@gmail.com" },
                 ].map((item, i) => (
                   <li
                     key={i}
