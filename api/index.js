@@ -1272,13 +1272,79 @@ app.post(
         amenities_description,
       });
 
-      await createNotification(
-        'property', // Changed from 'place' to 'property'
-        'New Property Added',
-        `${req.userData.name} added a new property: ${place.title}`,
-        `/admin/places/${place._id}`,
-        'admin' // Explicitly specify the recipient
-      );
+      // Add this helper function at the top of your file
+      const getAdminUserId = async () => {
+        try {
+          const admin = await User.findOne({ role: 'admin' });
+          if (!admin) {
+            throw new Error('No admin user found');
+          }
+          return admin._id;
+        } catch (error) {
+          console.error('Error finding admin user:', error);
+          throw error;
+        }
+      };
+
+      // Update the createNotification function
+      const createNotification = async (type, title, message, link, recipientId, options = {}) => {
+        try {
+          // If recipientId is 'admin', get the actual admin user ID
+          const actualRecipientId = recipientId === 'admin' 
+            ? await getAdminUserId()
+            : recipientId;
+
+          if (!actualRecipientId) {
+            throw new Error('Valid recipient ID is required');
+          }
+
+          const notification = await Notification.create({
+            type,
+            title,
+            message,
+            link,
+            recipient: actualRecipientId,
+            priority: options.priority || 'normal',
+            category: options.category || 'general',
+            metadata: options.metadata || {},
+            status: 'unread'
+          });
+
+          return notification;
+        } catch (error) {
+          console.error('Error creating notification:', error);
+          throw error;
+        }
+      };
+
+      // Update the place creation notification
+      app.post("/host/places", authenticateToken, authorizeRole("host"), async (req, res) => {
+        try {
+          // ... existing place creation code ...
+
+          const adminId = await getAdminUserId();
+          
+          await createNotification(
+            'property',
+            'New Property Added',
+            `${req.userData.name} added a new property: ${place.title}`,
+            `/admin/places/${place._id}`,
+            adminId,
+            {
+              priority: 'normal',
+              category: 'property'
+            }
+          );
+
+          res.status(201).json(place);
+        } catch (error) {
+          console.error("Error creating place:", error);
+          res.status(400).json({
+            error: "Failed to create place",
+            message: error.message,
+          });
+        }
+      });
 
       res.status(201).json(place);
     } catch (error) {
@@ -4947,16 +5013,89 @@ const autoCompleteBookings = async () => {
       booking.status = "completed";
       await booking.save();
 
-      // Create notification with enhanced options
+      // Add this helper function at the top of your file
+      const getAdminUserId = async () => {
+        try {
+          const admin = await User.findOne({ role: 'admin' });
+          if (!admin) {
+            throw new Error('No admin user found');
+          }
+          return admin._id;
+        } catch (error) {
+          console.error('Error finding admin user:', error);
+          throw error;
+        }
+      };
+
+      // Update the createNotification function
+      const createNotification = async (type, title, message, link, recipientId, options = {}) => {
+        try {
+          // If recipientId is 'admin', get the actual admin user ID
+          const actualRecipientId = recipientId === 'admin' 
+            ? await getAdminUserId()
+            : recipientId;
+
+          if (!actualRecipientId) {
+            throw new Error('Valid recipient ID is required');
+          }
+
+          const notification = await Notification.create({
+            type,
+            title,
+            message,
+            link,
+            recipient: actualRecipientId,
+            priority: options.priority || 'normal',
+            category: options.category || 'general',
+            metadata: options.metadata || {},
+            status: 'unread'
+          });
+
+          return notification;
+        } catch (error) {
+          console.error('Error creating notification:', error);
+          throw error;
+        }
+      };
+
+      // Update the auto-complete bookings notification
+      const autoCompleteBookings = async () => {
+        try {
+          // ... existing code ...
+        } catch (error) {
+          console.error("Critical: Auto-complete bookings failed:", error);
+
+          const adminId = await getAdminUserId();
+
+          await createNotification(
+            'system_error',
+            'Auto-Complete Bookings Failed',
+            'The automatic booking completion process has failed. Manual intervention may be required.',
+            '/admin/bookings',
+            adminId,
+            {
+              priority: 'high',
+              category: 'system',
+              metadata: {
+                error: error.message,
+                timestamp: new Date(),
+              },
+            }
+          );
+        }
+      };
+
+      // Update the booking auto-completed notification
+      // Inside the for loop in autoCompleteBookings
       await createNotification(
-        "booking_auto_completed",
-        "Booking Auto-Completed",
+        'booking_auto_completed',
+        'Booking Auto-Completed',
         `Booking #${booking._id} for ${booking.place.title} has been automatically completed`,
         `/host/bookings/${booking._id}`,
         booking.place.owner,
         {
-          priority: "normal",
-          category: "booking",
+          priority: 'normal',
+          category: 'booking',
           metadata: {
             bookingId: booking._id,
             placeId: booking.place._id,

@@ -17,7 +17,7 @@ const notificationSchema = new Schema({
   },
   type: {
     type: String,
-    enum: ['system', 'booking', 'review', 'host', 'admin', 'user'],
+    enum: ['system', 'booking', 'review', 'host', 'admin', 'user', 'property', 'system_error', 'booking_auto_completed'],
     default: 'system'
   },
   link: String,
@@ -26,6 +26,17 @@ const notificationSchema = new Schema({
     enum: ['read', 'unread'],
     default: 'unread'
   },
+  priority: {
+    type: String,
+    enum: ['high', 'normal', 'low'],
+    default: 'normal'
+  },
+  category: {
+    type: String,
+    enum: ['system', 'booking', 'property', 'user', 'general'],
+    default: 'general'
+  },
+  metadata: Schema.Types.Mixed,
   createdAt: {
     type: Date,
     default: Date.now
