@@ -547,6 +547,13 @@ export default function PaymentOptionsModal({
       setErrorMessage("");
       setSuccessMessage("");
 
+      // Validate payment method selection
+      if (!paymentMethod) {
+        setErrorMessage("Please select a payment method");
+        setIsProcessing(false);
+        return;
+      }
+
       // Validate card details for card payments
       if (selectedOption === "payNow" && paymentMethod === "card") {
         if (!cardDetails || !isCardDetailsValid(cardDetails)) {
@@ -556,20 +563,24 @@ export default function PaymentOptionsModal({
         }
       }
 
-      // Handle MoMo payment separately
+      // Handle MoMo payment
       if (selectedOption === "payNow" && paymentMethod === "momo") {
         try {
-          const momoResponse = await axios.post("/payment-options/momo", {
-            bookingId,
-            userId,
-            amount: Math.round(finalPrice * 23000),
-            ...(discount > 0 && {
-              voucherCode: couponCode.toUpperCase(),
-              discountAmount: discount,
-            }),
-          }, {
-            withCredentials: true,
-          });
+          const momoResponse = await axios.post(
+            "/payment-options/momo",
+            {
+              bookingId,
+              userId,
+              amount: Math.round(finalPrice * 23000),
+              ...(discount > 0 && {
+                voucherCode: couponCode?.toUpperCase(),
+                discountAmount: discount,
+              }),
+            },
+            {
+              withCredentials: true,
+            }
+          );
 
           if (momoResponse.data.data) {
             window.location.href = momoResponse.data.data;
@@ -577,11 +588,15 @@ export default function PaymentOptionsModal({
           }
           throw new Error("No payment URL received");
         } catch (momoError) {
-          throw new Error(momoError.response?.data?.message || "MoMo payment failed");
+          console.error("MoMo Error:", momoError);
+          throw new Error(
+            momoError.response?.data?.message || 
+            "MoMo payment initialization failed"
+          );
         }
       }
 
-      // Prepare payload
+      // Prepare payload with better validation
       const payload = {
         bookingId,
         userId,
@@ -589,7 +604,7 @@ export default function PaymentOptionsModal({
         paymentMethod: selectedOption === "payLater" ? "payLater" : paymentMethod,
         selectedOption,
         ...(paymentMethod === "card" && { cardDetails }),
-        ...(discount > 0 && {
+        ...(discount > 0 && couponCode && {
           voucherCode: couponCode.toUpperCase(),
           discountAmount: discount,
         }),
@@ -605,7 +620,7 @@ export default function PaymentOptionsModal({
           onClose({
             status: response.data.booking.paymentStatus,
             method: response.data.booking.paymentMethod,
-            amount: response.data.booking.amount
+            amount: response.data.booking.amount,
           });
         }, 1500);
       } else {
@@ -616,7 +631,7 @@ export default function PaymentOptionsModal({
       setErrorMessage(
         error.response?.data?.message || 
         error.message || 
-        "Failed to process payment request. Please try again."
+        "Payment processing failed. Please try again."
       );
     } finally {
       setIsProcessing(false);

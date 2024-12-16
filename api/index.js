@@ -2217,11 +2217,11 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
     const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount, cardDetails } = req.body;
 
-    // Validate required fields
-    if (!bookingId || !userId || !amount) {
+    // Add more detailed validation
+    if (!bookingId || !userId || !amount || !selectedOption) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields"
+        message: "Missing required fields: bookingId, userId, amount, or selectedOption"
       });
     }
 
@@ -2229,22 +2229,36 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     const booking = await Booking.findOne({ 
       _id: bookingId,
       user: userId 
-    }).populate('place');
+    });
     
     if (!booking) {
       return res.status(404).json({ 
         success: false,
-        message: "Booking not found" 
+        message: "Booking not found or unauthorized" 
       });
     }
 
-    // Handle different payment options
+    // Validate payment method for payNow option
+    if (selectedOption === "payNow" && !paymentMethod) {
+      return res.status(400).json({
+        success: false,
+        message: "Payment method is required for pay now option"
+      });
+    }
+
+    // Handle different payment options with better error handling
     if (selectedOption === "payLater") {
       booking.paymentStatus = "pending";
       booking.paymentMethod = "payLater";
     } else if (selectedOption === "payNow") {
       if (paymentMethod === "card") {
-        // Process card payment
+        if (!cardDetails) {
+          return res.status(400).json({
+            success: false,
+            message: "Card details are required for card payment"
+          });
+        }
+        
         const isPaymentSuccessful = await processCardPayment(cardDetails, amount);
         if (!isPaymentSuccessful) {
           return res.status(400).json({ 
