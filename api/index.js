@@ -87,7 +87,7 @@ app.use(
       "https://hello-b.vercel.app",
       "https://clientt-g7c3.onrender.com",
       "https://hello-b.onrender.com",
-      "https://hello-b.vercel.app"
+      ""
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -742,115 +742,7 @@ app.get("/vouchers", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch vouchers" });
   }
 });
-app.get("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
-  try {
-    const voucher = await Voucher.findOne({
-      _id: req.params.id,
-      owner: req.userData.id
-    }).populate('applicablePlaces');
-    
-    if (!voucher) {
-      return res.status(404).json({ error: "Voucher not found" });
-    }
-    
-    res.json(voucher);
-  } catch (error) {
-    console.error("Error fetching voucher:", error);
-    res.status(500).json({ error: "Failed to fetch voucher" });
-  }
-});
 
-// Update voucher
-// Update voucher route
-app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { code, discount, description, expirationDate, usageLimit, applicablePlaces } = req.body;
-
-    // Validate required fields
-    if (!code || !discount || !description || !expirationDate || !usageLimit || !applicablePlaces) {
-      return res.status(400).json({ 
-        success: false,
-        error: "All fields are required" 
-      });
-    }
-
-    // Find voucher and verify ownership
-    const voucher = await Voucher.findOne({
-      _id: id,
-      owner: req.userData.id
-    });
-
-    if (!voucher) {
-      return res.status(404).json({ 
-        success: false,
-        error: "Voucher not found or unauthorized" 
-      });
-    }
-
-    // Check if code is being changed and if it's already in use
-    if (code !== voucher.code) {
-      const existingVoucher = await Voucher.findOne({ 
-        code: code,
-        owner: req.userData.id,
-        _id: { $ne: id }
-      });
-      
-      if (existingVoucher) {
-        return res.status(400).json({ 
-          success: false,
-          error: "Voucher code already exists" 
-        });
-      }
-    }
-
-    // Validate places exist and belong to host
-    const validPlaces = await Place.find({
-      _id: { $in: applicablePlaces },
-      owner: req.userData.id
-    });
-
-    if (validPlaces.length !== applicablePlaces.length) {
-      return res.status(400).json({ 
-        success: false,
-        error: "Invalid places selected" 
-      });
-    }
-
-    // Update voucher
-    const updatedVoucher = await Voucher.findByIdAndUpdate(
-      id,
-      {
-        code,
-        discount,
-        description,
-        expirationDate,
-        usageLimit,
-        applicablePlaces,
-      },
-      { new: true, runValidators: true }
-    ).populate('applicablePlaces');
-
-    if (!updatedVoucher) {
-      return res.status(404).json({ 
-        success: false,
-        error: "Failed to update voucher" 
-      });
-    }
-
-    res.json({
-      success: true,
-      voucher: updatedVoucher
-    });
-
-  } catch (error) {
-    console.error("Error updating voucher:", error);
-    res.status(500).json({ 
-      success: false,
-      error: error.message || "Failed to update voucher" 
-    });
-  }
-});
 // Get available vouchers for a specific booking
 app.get(
   "/vouchers/available/:bookingId",
@@ -2472,8 +2364,7 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
     // Validation checks
     if (!bookingId || !userId || !amount) {
       return res.status(400).json({
-        success: false,
-        message: "Missing required fields",
+        message: "Missing required fields: bookingId, userId, or amount",
       });
     }
 
@@ -2489,7 +2380,7 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
     try {
       // Initialize MoMo payment
       const momoResponse = await momoPayment.createPayment({
-        amount: Math.round(amount), // Ensure amount is rounded
+        amount: Number(amount),
         bookingId: bookingId,
         userId: userId,
       });
@@ -2504,9 +2395,8 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
       });
 
       res.json({
-        success: true,
         data: momoResponse.payUrl,
-        message: "MoMo payment URL generated successfully",
+        success: true,
       });
     } catch (momoError) {
       // Clean up payment record if MoMo request fails
@@ -2516,8 +2406,8 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
   } catch (error) {
     console.error("MoMo payment error:", error);
     res.status(400).json({
-      success: false,
       message: error.message || "Failed to process MoMo payment",
+      success: false,
     });
   }
 });

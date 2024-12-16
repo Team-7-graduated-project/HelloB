@@ -11,17 +11,26 @@ class MomoPayment {
 
   async createPayment({ amount, bookingId, userId }) {
     try {
-      const roundedAmount = Math.round(amount);
-      const requestId = `${this.partnerCode}_${Date.now()}`;
+      const requestId = this.partnerCode + new Date().getTime();
       const orderId = requestId;
       const orderInfo = `Payment for booking #${bookingId}`;
-      const redirectUrl = encodeURIComponent(`${process.env.CLIENT_URL}/account/bookings/${bookingId}`);
-      const ipnUrl = encodeURIComponent(`${process.env.API_URL}/payment/momo/notify/${bookingId}`);
-      const extraData = "";
+      const redirectUrl = `${process.env.CLIENT_URL}/account/bookings/${bookingId}`;
+      const ipnUrl = `${process.env.API_URL}/payment/momo/notify/${bookingId}`;
+      const requestType = "payWithATM";
+      const extraData = Buffer.from(
+        JSON.stringify({
+          bookingId,
+          userId,
+          key: "payment",
+          orderId: requestId,
+          returnUrl: `/account/bookings/${bookingId}`,
+          paymentId: null,
+        })
+      ).toString("base64");
 
       const rawSignature = [
         `accessKey=${this.accessKey}`,
-        `amount=${roundedAmount}`,
+        `amount=${amount}`,
         `extraData=${extraData}`,
         `ipnUrl=${ipnUrl}`,
         `orderId=${orderId}`,
@@ -29,10 +38,8 @@ class MomoPayment {
         `partnerCode=${this.partnerCode}`,
         `redirectUrl=${redirectUrl}`,
         `requestId=${requestId}`,
-        `requestType=payWithATM`
-      ].join("&") + ".";
-
-      console.log("Raw Signature:", rawSignature);
+        `requestType=${requestType}`,
+      ].join("&");
 
       const signature = crypto
         .createHmac("sha256", this.secretKey)
@@ -41,24 +48,24 @@ class MomoPayment {
 
       const requestBody = {
         partnerCode: this.partnerCode,
-        accessKey: this.accessKey,
+        partnerName: "Test Store",
+        storeId: "MomoTestStore",
         requestId: requestId,
-        amount: roundedAmount,
+        amount: amount,
         orderId: orderId,
         orderInfo: orderInfo,
-        redirectUrl: `${process.env.CLIENT_URL}/account/bookings/${bookingId}`,
-        ipnUrl: `${process.env.API_URL}/payment/momo/notify/${bookingId}`,
+        redirectUrl: redirectUrl,
+        ipnUrl: ipnUrl,
         extraData: extraData,
-        requestType: "payWithATM",
-        bankCode: "SML",
+        requestType: requestType,
         signature: signature,
-        lang: "vi"
+        lang: "vi",
       };
 
-      console.log("MoMo Request:", {
+      console.log("MoMo ATM Request:", {
         ...requestBody,
-        rawSignature,
-        signature
+        signature: signature,
+        rawSignature: rawSignature,
       });
 
       return new Promise((resolve, reject) => {
@@ -69,12 +76,13 @@ class MomoPayment {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Content-Length": Buffer.byteLength(JSON.stringify(requestBody))
-          }
+            "Content-Length": Buffer.byteLength(JSON.stringify(requestBody)),
+          },
         };
 
         const req = https.request(options, (res) => {
           let data = "";
+
           res.on("data", (chunk) => {
             data += chunk;
           });
@@ -82,13 +90,12 @@ class MomoPayment {
           res.on("end", () => {
             try {
               const response = JSON.parse(data);
-              console.log("MoMo Response:", response);
+              console.log("MoMo ATM Response:", response);
               
               if (response.resultCode === 0) {
                 resolve(response);
               } else {
-                console.error("MoMo Error Response:", response);
-                reject(new Error(response.message || "MoMo payment failed"));
+                reject(new Error(response.message || "MoMo ATM payment failed"));
               }
             } catch (error) {
               console.error("Error parsing MoMo response:", error);

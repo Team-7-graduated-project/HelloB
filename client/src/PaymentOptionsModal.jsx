@@ -347,11 +347,10 @@ export default function PaymentOptionsModal({
             },
             {
               id: "momo",
-              label: "ATM/Credit Card via MoMo",
+              label: "Momo Card Payment",
               icon: FaCreditCard,
               color: "purple",
-              description: "Pay with ATM/Credit card via MoMo",
-              testInfo: <MomoTestInfo />
+              description: "Pay with ATM/Credit card via Momo",
             },
             {
               id: "payLater",
@@ -360,7 +359,7 @@ export default function PaymentOptionsModal({
               color: "green",
               description: "Pay when you arrive",
             },
-          ].map(({ id, label, icon: Icon, color, description, testInfo }) => (
+          ].map(({ id, label, icon: Icon, color, description }) => (
             <button
               key={id}
               onClick={() => {
@@ -382,7 +381,6 @@ export default function PaymentOptionsModal({
                 <span className="font-medium block">{label}</span>
                 <span className="text-sm text-gray-600">{description}</span>
               </div>
-              {paymentMethod === id && testInfo}
             </button>
           ))}
         </div>
@@ -524,93 +522,43 @@ export default function PaymentOptionsModal({
 
   const isCardDetailsValid = (cardDetails) => {
     const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
-    
-    if (!cardNumber || !cardHolder || !expiryDate || !cvv) return false;
-    
-    // Basic validation
-    const cleanCardNumber = cardNumber.replace(/\s/g, "");
-    if (cleanCardNumber.length !== 16) return false;
-    
-    if (cardHolder.trim().length < 3) return false;
-    
-    const [month, year] = expiryDate.split("/");
-    if (!month || !year) return false;
-    
-    if (cvv.length < 3) return false;
-    
-    return true;
+    return (
+      cardNumber.replace(/\s/g, "").length >= 16 &&
+      cardHolder.length >= 3 &&
+      expiryDate.length === 5 &&
+      cvv.length >= 3
+    );
   };
 
-  const handlePayment = async (cardDetails) => {
-    if (isProcessing) return;
-
+  const handlePayment = async () => {
     try {
       setIsProcessing(true);
       setErrorMessage("");
-      setSuccessMessage("");
 
-      // Validate card details for card payments
-      if (selectedOption === "payNow" && paymentMethod === "card") {
-        if (!cardDetails || !isCardDetailsValid(cardDetails)) {
-          setErrorMessage("Please enter valid card details");
-          setIsProcessing(false);
-          return;
-        }
-      }
-
-      // Handle MoMo payment separately
-      if (selectedOption === "payNow" && paymentMethod === "momo") {
-        try {
-          const momoAmount = Math.round(finalPrice * 23000); // Convert to VND
-          console.log('Sending amount to MoMo:', momoAmount); // Debug log
-
-          const momoResponse = await axios.post("/payment-options/momo", {
-            bookingId,
-            userId,
-            amount: momoAmount,
-            ...(discount > 0 && {
-              voucherCode: couponCode.toUpperCase(),
-              discountAmount: discount,
-            }),
-          }, {
-            withCredentials: true,
-          });
-
-          if (momoResponse.data.success && momoResponse.data.data) {
-            // Store booking info in localStorage before redirect
-            localStorage.setItem('pendingBooking', JSON.stringify({
-              bookingId,
-              amount: finalPrice,
-              paymentMethod: 'momo'
-            }));
-            
-            window.location.href = momoResponse.data.data;
-            return;
-          }
-          throw new Error(momoResponse.data.message || "No payment URL received");
-        } catch (momoError) {
-          console.error("MoMo payment error:", momoError);
-          throw new Error(
-            momoError.response?.data?.message || 
-            momoError.message || 
-            "MoMo payment failed. Please try again."
-          );
-        }
-      }
-
-      // Prepare payload
       const payload = {
         bookingId,
         userId,
-        amount: Math.round(finalPrice * 23000),
-        paymentMethod: selectedOption === "payLater" ? "payLater" : paymentMethod,
+        amount: Math.round(finalPrice * 23000), // Convert to VND
+        paymentMethod:
+          selectedOption === "payLater" ? "payLater" : paymentMethod,
         selectedOption,
-        ...(paymentMethod === "card" && { cardDetails }),
         ...(discount > 0 && {
           voucherCode: couponCode.toUpperCase(),
           discountAmount: discount,
         }),
       };
+
+      if (selectedOption === "payNow" && paymentMethod === "momo") {
+        const response = await axios.post("/payment-options/momo", payload, {
+          withCredentials: true,
+        });
+
+        if (response.data.data) {
+          window.location.href = response.data.data;
+          return;
+        }
+        throw new Error("No payment URL received");
+      }
 
       const response = await axios.post("/payment-options", payload, {
         withCredentials: true,
@@ -618,61 +566,21 @@ export default function PaymentOptionsModal({
 
       if (response.data.success) {
         setSuccessMessage("Payment processed successfully!");
-        setTimeout(() => {
-          onClose({
-            status: response.data.booking.paymentStatus,
-            method: response.data.booking.paymentMethod,
-            amount: response.data.booking.amount
-          });
-        }, 1500);
-      } else {
-        throw new Error(response.data.message || "Payment failed");
+        onClose({
+          status: response.data.booking.paymentStatus,
+          method: response.data.booking.paymentMethod,
+        });
       }
     } catch (error) {
       console.error("Payment Error:", error);
-      if (error.response?.status === 401 && error.response?.data?.code === "TOKEN_EXPIRED") {
-        // Handle token expiration - you might want to redirect to login or refresh token
-        setErrorMessage("Your session has expired. Please log in again.");
-        // Optionally trigger a logout or token refresh
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-        return;
-      }
       setErrorMessage(
-        error.response?.data?.message || 
-        error.message || 
-        "Failed to process payment request. Please try again."
+        error.response?.data?.message ||
+          "Failed to process payment request. Please try again."
       );
     } finally {
       setIsProcessing(false);
     }
   };
-
-  const handleModalClose = () => {
-    if (isProcessing) {
-      return; // Prevent closing while processing
-    }
-    setErrorMessage("");
-    setSuccessMessage("");
-    onClose(null); // Pass null to indicate cancellation
-  };
-
-  const MomoTestInfo = () => (
-    <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-      <h4 className="font-medium text-blue-800 mb-2">Test Card Information:</h4>
-      <div className="space-y-2 text-sm text-blue-700">
-        <p><span className="font-medium">Bank:</span> SML Bank</p>
-        <p><span className="font-medium">Card Number:</span> 9704 0000 0000 0018</p>
-        <p><span className="font-medium">Name:</span> NGUYEN VAN A</p>
-        <p><span className="font-medium">Issue Date:</span> 03/07</p>
-        <p><span className="font-medium">OTP:</span> OTP</p>
-      </div>
-      <p className="mt-2 text-xs text-blue-600">
-        Note: Use exactly these test credentials for successful payment
-      </p>
-    </div>
-  );
 
   if (!isOpen) return null;
 
@@ -697,7 +605,7 @@ export default function PaymentOptionsModal({
 
         {/* Cancel Button */}
         <button
-          onClick={handleModalClose}
+          onClick={onClose}
           className="mt-4 w-full py-2 text-red-600 hover:text-red-700 font-medium"
         >
           Cancel
