@@ -87,6 +87,7 @@ app.use(
       "https://hello-b.vercel.app",
       "https://clientt-g7c3.onrender.com",
       "https://hello-b.onrender.com",
+      ""
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
