@@ -523,19 +523,36 @@ export default function PaymentOptionsModal({
   const isCardDetailsValid = (cardDetails) => {
     const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
     
-    if (!cardNumber || !cardHolder || !expiryDate || !cvv) return false;
+    // Remove spaces from card number
+    const cleanCardNumber = cardNumber.replace(/\s/g, '');
     
     // Basic validation
-    const cleanCardNumber = cardNumber.replace(/\s/g, "");
-    if (cleanCardNumber.length !== 16) return false;
-    
-    if (cardHolder.trim().length < 3) return false;
-    
-    const [month, year] = expiryDate.split("/");
-    if (!month || !year) return false;
-    
-    if (cvv.length < 3) return false;
-    
+    if (cleanCardNumber.length !== 16) {
+      return false;
+    }
+
+    if (cardHolder.trim().length < 3) {
+      return false;
+    }
+
+    // Validate expiry date format (MM/YY)
+    const [month, year] = expiryDate.split('/');
+    if (!month || !year || month.length !== 2 || year.length !== 2) {
+      return false;
+    }
+
+    // Check if card is not expired
+    const currentDate = new Date();
+    const cardDate = new Date(2000 + parseInt(year), parseInt(month) - 1);
+    if (cardDate < currentDate) {
+      return false;
+    }
+
+    // Validate CVV (3-4 digits)
+    if (!/^\d{3,4}$/.test(cvv)) {
+      return false;
+    }
+
     return true;
   };
 

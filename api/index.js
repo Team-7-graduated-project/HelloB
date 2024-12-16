@@ -2217,15 +2217,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
     const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount, cardDetails } = req.body;
 
-    // Add more detailed validation
-    if (!bookingId || !userId || !amount || !selectedOption) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields: bookingId, userId, amount, or selectedOption"
-      });
-    }
-
-    // Validate the booking exists and belongs to the user
+    // Find booking and validate ownership
     const booking = await Booking.findOne({ 
       _id: bookingId,
       user: userId 
@@ -2238,27 +2230,13 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
       });
     }
 
-    // Validate payment method for payNow option
-    if (selectedOption === "payNow" && !paymentMethod) {
-      return res.status(400).json({
-        success: false,
-        message: "Payment method is required for pay now option"
-      });
-    }
-
-    // Handle different payment options with better error handling
+    // Handle payment based on selected option
     if (selectedOption === "payLater") {
       booking.paymentStatus = "pending";
       booking.paymentMethod = "payLater";
     } else if (selectedOption === "payNow") {
       if (paymentMethod === "card") {
-        if (!cardDetails) {
-          return res.status(400).json({
-            success: false,
-            message: "Card details are required for card payment"
-          });
-        }
-        
+        // Process card payment
         const isPaymentSuccessful = await processCardPayment(cardDetails, amount);
         if (!isPaymentSuccessful) {
           return res.status(400).json({ 
@@ -2306,7 +2284,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     console.error("Payment processing error:", error);
     res.status(500).json({ 
       success: false,
-      message: "Payment processing failed. Please try again." 
+      message: "Payment processing failed. Please try again later."
     });
   }
 });
