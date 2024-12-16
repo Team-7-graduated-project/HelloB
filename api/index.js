@@ -20,7 +20,7 @@ const nodemailer = require("nodemailer");
 // Add after other imports
 const WebSocket = require("ws");
 const url = require("url");
-
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret';
 // Add this import at the top with other imports
 const momoPayment = require("./services/momoPayment");
 
@@ -124,26 +124,85 @@ mongoose
     process.exit(1);
   });
 
-const authenticateToken = (req, res, next) => {
-  // Check for token in cookies or Authorization header
-  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "Access denied. No token provided." });
-  }
-
-  try {
-    const verified = jwt.verify(token, jwtSecret);
-    if (!verified || !verified.id) {
-      return res.status(401).json({ error: "Invalid token structure" });
+  const authenticateToken = async (req, res, next) => {
+    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+  
+    if (!token) {
+      return res.status(401).json({ error: "Access denied. No token provided." });
     }
-    req.userData = verified; // Attach the verified user data to the request
-    next();
-  } catch (error) {
-    console.error("Token verification failed:", error);
-    res.status(401).json({ error: "Invalid token", details: error.message });
-  }
-};
+  
+    try {
+      const verified = jwt.verify(token, jwtSecret);
+      if (!verified || !verified.id) {
+        throw new Error("Invalid token structure");
+      }
+      req.userData = verified;
+      next();
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        // Try to refresh the token
+        const refreshToken = req.cookies.refreshToken;
+        if (!refreshToken) {
+          return res.status(401).json({ 
+            error: "Token expired. Please log in again.",
+            code: "TOKEN_EXPIRED"
+          });
+        }
+  
+        try {
+          const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+          const user = await User.findById(decoded.id);
+  
+          if (!user) {
+            return res.status(401).json({ error: "User not found" });
+          }
+  
+          if (!user.isActive) {
+            return res.status(401).json({
+              error: "Account is deactivated",
+              isActive: false,
+              reason: user.deactivationReason
+            });
+          }
+  
+          // Create new access token
+          const newToken = jwt.sign(
+            {
+              id: user._id,
+              email: user.email,
+              name: user.name,
+              role: user.role,
+            },
+            jwtSecret,
+            { expiresIn: '24h' }
+          );
+  
+          // Set new token in cookie
+          res.cookie('token', newToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'none',
+            maxAge: 24 * 60 * 60 * 1000
+          });
+  
+          // Attach user data and continue
+          req.userData = jwt.verify(newToken, jwtSecret);
+          next();
+        } catch (refreshError) {
+          console.error('Token refresh error:', refreshError);
+          return res.status(401).json({ 
+            error: "Invalid refresh token. Please log in again.",
+            code: "REFRESH_FAILED"
+          });
+        }
+      } else {
+        return res.status(401).json({ 
+          error: "Invalid token",
+          details: error.message
+        });
+      }
+    }
+  };
 
 // Role-based authorization middleware
 function authorizeRole(...allowedRoles) {
@@ -315,66 +374,127 @@ app.post("/register", async (req, res) => {
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+    const userDoc = await User.findOne({ email });
 
-    // Debug logging
-    console.log("Login attempt for email:", email);
-
-    const user = await User.findOne({ email });
-
-    // If no user found
-    if (!user) {
-      console.log("No user found with email:", email);
-      return res.status(404).json({ error: "Email not found" });
+    if (!userDoc) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    // Check if user is active
-    if (!user.isActive) {
-      console.log("User account is deactivated:", email);
+    if (!userDoc.isActive) {
       return res.status(401).json({
         error: "Account is deactivated",
         isActive: false,
-        reason: user.reason || "Account has been deactivated",
+        reason: userDoc.deactivationReason || "Account has been deactivated",
       });
     }
 
-    // Verify password
-    const passOK = bcrypt.compareSync(password, user.password);
-    if (!passOK) {
-      console.log("Invalid password for user: ", email);
-      return res
-        .status(401)
-        .json({ error: "Invalid password for user: " + email });
+    const passOk = bcrypt.compareSync(password, userDoc.password);
+    if (!passOk) {
+      return res.status(401).json({ error: "Wrong password" });
     }
 
-    // Create JWT token
+    // Create access token (short-lived)
     const token = jwt.sign(
       {
-        id: user._id, // Make sure to include id
+        id: userDoc._id,
+        email: userDoc.email,
+        name: userDoc.name,
+        role: userDoc.role,
+      },
+      jwtSecret,
+      { expiresIn: '24h' }
+    );
+
+    // Create refresh token (long-lived)
+    const refreshToken = jwt.sign(
+      { id: userDoc._id },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res
+      .cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "none",
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      })
+      .cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "none",
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      })
+      .json({
+        user: {
+          ...userDoc.toObject(),
+          password: undefined
+        },
+        token
+      });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+// Add refresh token endpoint
+app.post('/refresh-token', async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  
+  if (!refreshToken) {
+    return res.status(401).json({ 
+      error: 'No refresh token provided',
+      code: 'TOKEN_EXPIRED'
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({
+        error: "Account is deactivated",
+        isActive: false,
+        reason: user.deactivationReason
+      });
+    }
+
+    // Create new access token
+    const newToken = jwt.sign(
+      {
+        id: user._id,
         email: user.email,
         name: user.name,
         role: user.role,
       },
       jwtSecret,
-      { expiresIn: "1h" }
+      { expiresIn: '24h' }
     );
 
-    // Send response with cookie
     res
-      .cookie("token", token, {
-        httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
-        secure: process.env.NODE_ENV === "production", // Use secure cookies in production
-        sameSite: "none", // Allow cross-origin requests
+      .cookie('token', newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'none',
+        maxAge: 24 * 60 * 60 * 1000
       })
       .json({
-        user: {
-          ...user.toObject(),
-          password: undefined, // Don't send password back
-        },
-        token,
+        success: true,
+        token: newToken
       });
-  } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ error: "Login failed. Please try again later." });
+
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    return res.status(401).json({ 
+      error: 'Invalid refresh token',
+      code: 'REFRESH_FAILED'
+    });
   }
 });
 app.post("/forgot-password", async (req, res) => {

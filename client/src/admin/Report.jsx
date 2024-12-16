@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import axiosInstance from '../axiosConfig';
 import { 
   FaSearch, FaSpinner, FaFlag, FaEdit, FaCheck, 
   FaExclamationTriangle, FaFilter, FaCalendarAlt 
@@ -28,7 +28,7 @@ function ManageReportsPage() {
   const fetchReports = async () => {
     try {
       setLoading(true);
-      const response = await axios.get("/api/admin/reports");
+      const response = await axiosInstance.get("/api/admin/reports");
       setReports(response.data);
       setFilteredReports(response.data);
     } catch (error) {
@@ -131,7 +131,7 @@ function ManageReportsPage() {
   const handleStatusChange = async (reportId, newStatus) => {
     try {
       setProcessingId(reportId);
-      const response = await axios.put(
+      const response = await axiosInstance.put(
         `/api/admin/reports/${reportId}/status`,
         {
           status: newStatus
@@ -166,7 +166,7 @@ function ManageReportsPage() {
         return;
       }
 
-      const response = await axios.put(
+      const response = await axiosInstance.put(
         `/api/admin/reports/${report._id}`,
         {
           adminNotes: report.adminNotes,
