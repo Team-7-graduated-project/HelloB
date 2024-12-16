@@ -32,7 +32,10 @@ const notificationSchema = new Schema({
     ],
     default: 'system'
   },
-  link: String,
+  link: {
+    type: String,
+    default: ''
+  },
   status: {
     type: String,
     enum: ['read', 'unread'],
@@ -48,12 +51,19 @@ const notificationSchema = new Schema({
     enum: ['system', 'booking', 'property', 'user', 'general'],
     default: 'general'
   },
-  metadata: Schema.Types.Mixed,
+  metadata: {
+    type: Schema.Types.Mixed,
+    default: {}
+  },
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
+
+// Add indexes for better query performance
+notificationSchema.index({ recipient: 1, status: 1 });
+notificationSchema.index({ createdAt: -1 });
 
 const Notification = mongoose.model("Notification", notificationSchema);
 module.exports = Notification;
