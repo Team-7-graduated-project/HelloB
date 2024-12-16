@@ -12,12 +12,11 @@ class MomoPayment {
   async createPayment({ amount, bookingId, userId }) {
     try {
       const roundedAmount = Math.round(amount);
-      
       const requestId = `${this.partnerCode}_${Date.now()}`;
       const orderId = requestId;
       const orderInfo = `Payment for booking #${bookingId}`;
-      const redirectUrl = `${process.env.CLIENT_URL}/account/bookings/${bookingId}`;
-      const ipnUrl = `${process.env.API_URL}/payment/momo/notify/${bookingId}`;
+      const redirectUrl = encodeURIComponent(`${process.env.CLIENT_URL}/account/bookings/${bookingId}`);
+      const ipnUrl = encodeURIComponent(`${process.env.API_URL}/payment/momo/notify/${bookingId}`);
       const extraData = "";
 
       const rawSignature = [
@@ -31,13 +30,13 @@ class MomoPayment {
         `redirectUrl=${redirectUrl}`,
         `requestId=${requestId}`,
         `requestType=payWithATM`
-      ].join("&");
+      ].join("&") + ".";
 
-      const signatureData = rawSignature + ".";
+      console.log("Raw Signature:", rawSignature);
 
       const signature = crypto
         .createHmac("sha256", this.secretKey)
-        .update(signatureData)
+        .update(rawSignature)
         .digest("hex");
 
       const requestBody = {
@@ -47,8 +46,8 @@ class MomoPayment {
         amount: roundedAmount,
         orderId: orderId,
         orderInfo: orderInfo,
-        redirectUrl: redirectUrl,
-        ipnUrl: ipnUrl,
+        redirectUrl: `${process.env.CLIENT_URL}/account/bookings/${bookingId}`,
+        ipnUrl: `${process.env.API_URL}/payment/momo/notify/${bookingId}`,
         extraData: extraData,
         requestType: "payWithATM",
         bankCode: "SML",
@@ -58,7 +57,7 @@ class MomoPayment {
 
       console.log("MoMo Request:", {
         ...requestBody,
-        signatureData,
+        rawSignature,
         signature
       });
 
