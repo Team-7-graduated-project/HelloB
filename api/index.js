@@ -2234,6 +2234,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     if (selectedOption === "payLater") {
       booking.paymentStatus = "pending";
       booking.paymentMethod = "payLater";
+      booking.status = "confirmed"; // Update booking status
     } else if (selectedOption === "payNow") {
       if (paymentMethod === "card") {
         // Process card payment
@@ -2244,11 +2245,13 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
             message: "Card payment failed. Please check your details and try again." 
           });
         }
-        booking.paymentStatus = "paid"; // Changed from 'completed' to 'paid'
+        booking.paymentStatus = "paid";
         booking.paymentMethod = "card";
+        booking.status = "confirmed"; // Update booking status for successful card payment
       } else if (paymentMethod === "momo") {
         booking.paymentStatus = "pending";
         booking.paymentMethod = "momo";
+        booking.status = "pending";
       } else {
         return res.status(400).json({ 
           success: false,
@@ -2277,6 +2280,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     res.json({
       success: true,
       booking: {
+        status: booking.status,
         paymentStatus: booking.paymentStatus,
         paymentMethod: booking.paymentMethod,
         amount: booking.paymentAmount

@@ -599,15 +599,20 @@ export default function PaymentOptionsModal({
       });
 
       if (response.data.success) {
+        const { status, paymentStatus } = response.data.booking;
+        
         setSuccessMessage(
-          response.data.booking.paymentStatus === "paid" 
-            ? "Payment processed successfully!" 
-            : "Booking confirmed successfully!"
+          paymentStatus === "paid" 
+            ? "Payment processed successfully! Your booking is confirmed."
+            : status === "confirmed"
+            ? "Booking confirmed successfully!"
+            : "Booking request received!"
         );
         
         setTimeout(() => {
           onClose({
-            status: response.data.booking.paymentStatus,
+            status: status,
+            paymentStatus: paymentStatus,
             method: response.data.booking.paymentMethod,
             amount: response.data.booking.amount,
           });

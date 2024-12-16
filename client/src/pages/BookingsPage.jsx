@@ -19,7 +19,7 @@ export default function BookingsPage() {
   const isHistoryPage = location.pathname.includes("/history");
 
   const checkBookingStatus = useCallback((booking) => {
-    if (!booking?.check_out || !booking?.status || !booking?.paymentStatus) {
+    if (!booking?.check_out || !booking?.status) {
       return booking?.status || "pending";
     }
 
@@ -28,14 +28,16 @@ export default function BookingsPage() {
     now.setHours(0, 0, 0, 0);
     checkOutDate.setHours(0, 0, 0, 0);
 
-    if (
-      now.getTime() > checkOutDate.getTime() &&
-      booking.status === "confirmed" &&
-      booking.paymentStatus === "paid" &&
-      !booking.isCheckoutProcessed // Add flag to prevent multiple processing
-    ) {
+    if (now.getTime() > checkOutDate.getTime() && 
+        booking.status === "confirmed" && 
+        booking.paymentStatus === "paid") {
       return "completed";
     }
+
+    if (booking.status === "confirmed" && booking.paymentStatus === "paid") {
+      return "confirmed";
+    }
+
     return booking.status;
   }, []);
 
@@ -127,12 +129,14 @@ export default function BookingsPage() {
   }, [bookings, isHistoryPage]);
 
   // Updated status badge function to include checkout confirmation
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, booking) => {
     const statusConfig = {
       confirmed: {
-        color: "bg-green-100 text-green-800 border-green-200",
-        icon: "✓",
-        text: "Confirmed",
+        color: booking?.paymentStatus === "paid" 
+          ? "bg-green-100 text-green-800 border-green-200"
+          : "bg-yellow-100 text-yellow-800 border-yellow-200",
+        icon: booking?.paymentStatus === "paid" ? "✓" : "⌛",
+        text: booking?.paymentStatus === "paid" ? "Confirmed" : "Pending Payment",
       },
       pending: {
         color: "bg-yellow-100 text-yellow-800 border-yellow-200",
@@ -158,14 +162,10 @@ export default function BookingsPage() {
     };
 
     return (
-      <span
-        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${config.color} shadow-sm`}
-      >
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${config.color} shadow-sm`}>
         <span className="mr-1">{config.icon}</span>
         {config.text}
-        {status === "completed" && (
-          <FaCheckCircle className="ml-1 text-blue-600" />
-        )}
+        {status === "completed" && <FaCheckCircle className="ml-1 text-blue-600" />}
       </span>
     );
   };
