@@ -18,19 +18,16 @@ const notificationSchema = new Schema({
   type: {
     type: String,
     enum: [
-      'system', 
-      'booking', 
-      'review', 
-      'host', 
-      'admin', 
-      'user', 
-      'property',
+      'system',
+      'booking',
       'payment',
-      'blog',
-      'system_error', 
-      'booking_auto_completed'
+      'report',
+      'review',
+      'user',
+      'property',
+      'message'
     ],
-    default: 'system'
+    required: true
   },
   link: {
     type: String,
@@ -52,8 +49,8 @@ const notificationSchema = new Schema({
     default: 'general'
   },
   metadata: {
-    type: Schema.Types.Mixed,
-    default: {}
+    type: Map,
+    of: mongoose.Schema.Types.Mixed
   },
   createdAt: {
     type: Date,

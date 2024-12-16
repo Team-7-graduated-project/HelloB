@@ -82,15 +82,26 @@ export default function ReportForm({ placeId, onClose }) {
     setError(null);
 
     try {
-      await axios.post("/api/reports", {
+      const response = await axios.post("/api/reports", {
         ...formData,
         placeId,
+      }, {
+        withCredentials: true
       });
 
-      alert("Report submitted successfully");
-      onClose();
+      if (response.data.success) {
+        alert("Report submitted successfully");
+        onClose();
+      } else {
+        throw new Error(response.data.message || "Failed to submit report");
+      }
     } catch (error) {
-      setError(error.response?.data?.error || "Failed to submit report");
+      console.error("Report submission error:", error);
+      setError(
+        error.response?.data?.error || 
+        error.message || 
+        "Failed to submit report. Please try again."
+      );
     } finally {
       setLoading(false);
     }

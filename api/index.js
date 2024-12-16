@@ -4072,37 +4072,63 @@ app.put(
 );
 
 // Create new report (Authenticated users)
+// Add report endpoint
 app.post("/api/reports", authenticateToken, async (req, res) => {
   try {
     const { title, description, type, placeId } = req.body;
+    const reportedBy = req.userData.id;
 
-    const newReport = new Report({
+    // Validate place exists
+    const place = await Place.findById(placeId);
+    if (!place) {
+      return res.status(404).json({ error: "Place not found" });
+    }
+
+    // Create the report
+    const report = await Report.create({
       title,
       description,
       type,
       place: placeId,
-      reportedBy: req.userData.id,
-      status: "pending",
-      createdAt: new Date(),
+      reportedBy,
+      status: 'pending'
     });
 
-    await newReport.save();
+    // Get admin user for notification
+    const admin = await User.findOne({ role: 'admin' });
+    if (!admin) {
+      throw new Error('No admin user found');
+    }
 
-    // Create notification for new report
-    await createNotification(
-      "new_report",
-      "New Report Submitted",
-      `A new ${type} report has been submitted`,
-      `/admin/reports`
-    );
+    // Create notification for admin
+    await Notification.create({
+      type: 'report', // Using valid enum value
+      title: 'New Report Submitted',
+      message: `A new report has been submitted for ${place.title}`,
+      recipient: admin._id, // Set the admin as recipient
+      link: `/admin/reports/${report._id}`,
+      metadata: {
+        reportId: report._id,
+        placeId: placeId,
+        reportType: type,
+        reportedBy: reportedBy
+      }
+    });
 
-    res.status(201).json(newReport);
+    res.status(201).json({
+      success: true,
+      message: "Report submitted successfully",
+      report
+    });
+
   } catch (error) {
     console.error("Error creating report:", error);
-    res.status(500).json({ error: "Failed to create report" });
+    res.status(500).json({ 
+      error: "Failed to submit report",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
-
 // Delete report (Admin only)
 app.delete(
   "/api/admin/reports/:id",
