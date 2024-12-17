@@ -88,7 +88,8 @@ app.use(
       "https://clientt-g7c3.onrender.com",
       "https://hello-b.onrender.com",
       "https://hellob-be.onrender.com",
-      "https://accounts.google.com"
+      "https://accounts.google.com",
+      "https://hello-b-two.vercel.app"
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], // Fixed: DELETE as string
