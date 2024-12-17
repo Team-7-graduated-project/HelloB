@@ -2,10 +2,10 @@ const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
 const notificationSchema = new Schema({
-  recipient: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
+  type: {
+    type: String,
+    required: true,
+    enum: ['user', 'booking', 'property', 'report', 'security', 'system']
   },
   title: {
     type: String,
@@ -15,42 +15,28 @@ const notificationSchema = new Schema({
     type: String,
     required: true
   },
-  type: {
-    type: String,
-    enum: [
-      'system',
-      'booking',
-      'payment',
-      'report',
-      'review',
-      'user',
-      'property',
-      'message'
-    ],
+  recipient: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true
   },
-  link: {
-    type: String,
-    default: ''
-  },
-  status: {
-    type: String,
-    enum: ['read', 'unread'],
-    default: 'unread'
+  link: String,
+  read: {
+    type: Boolean,
+    default: false
   },
   priority: {
     type: String,
-    enum: ['high', 'normal', 'low'],
+    enum: ['low', 'normal', 'high'],
     default: 'normal'
   },
   category: {
     type: String,
-    enum: ['system', 'booking', 'property', 'user', 'general'],
-    default: 'general'
+    required: true
   },
   metadata: {
-    type: Map,
-    of: mongoose.Schema.Types.Mixed
+    type: Object,
+    default: {}
   },
   createdAt: {
     type: Date,
@@ -59,7 +45,7 @@ const notificationSchema = new Schema({
 });
 
 // Add indexes for better query performance
-notificationSchema.index({ recipient: 1, status: 1 });
+notificationSchema.index({ recipient: 1, read: 1 });
 notificationSchema.index({ createdAt: -1 });
 
 const Notification = mongoose.model("Notification", notificationSchema);

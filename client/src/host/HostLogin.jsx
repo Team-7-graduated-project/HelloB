@@ -49,17 +49,30 @@ export default function HostLogin() {
         { withCredentials: true }
       );
 
-      if (response.data.isActive === false) {
+      if (!response.data.user) {
+        throw new Error("Invalid response format");
+      }
+
+      if (response.data.user.role !== 'host') {
         setErrors((prev) => ({
           ...prev,
-          general: `Account deactivated. Reason: ${
-            response.data.reason || "Account has been deactivated"
-          }`,
+          general: "This account is not registered as a host"
         }));
         return;
       }
 
-      setUser(response.data);
+      if (response.data.user.isActive === false) {
+        setErrors((prev) => ({
+          ...prev,
+          general: `Account deactivated. Reason: ${
+            response.data.user.deactivationReason || "Account has been deactivated"
+          }`
+        }));
+        return;
+      }
+
+      setUser(response.data.user);
+      localStorage.setItem('token', response.data.token);
       setRedirect(true);
     } catch (e) {
       console.error("Login error:", e);

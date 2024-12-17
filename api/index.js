@@ -233,6 +233,82 @@ const getAdminUserId = async () => {
   }
 };
 
+// Helper function for notifications
+const sendNotification = async (type, title, message, link, recipientId, options = {}) => {
+  try {
+    if (!recipientId) {
+      console.error('No recipient ID provided for notification');
+      return null;
+    }
+
+    // Validate notification type
+    const validTypes = ['user', 'booking', 'property', 'report', 'security', 'system'];
+    if (!validTypes.includes(type)) {
+      console.error(`Invalid notification type: ${type}`);
+      return null;
+    }
+
+    // Validate title and message
+    if (!title?.trim() || !message?.trim()) {
+      console.error('Title and message are required');
+      return null;
+    }
+
+    // Validate recipient exists
+    const recipientExists = await User.findById(recipientId);
+    if (!recipientExists) {
+      console.error('Recipient user not found');
+      return null;
+    }
+
+    const notification = await Notification.create({
+      type,
+      title,
+      message,
+      link,
+      recipient: recipientId,
+      priority: options.priority || 'normal',
+      category: options.category || 'system',
+      metadata: options.metadata || {}
+    });
+
+    return notification;
+  } catch (error) {
+    console.error('Error sending notification:', error);
+    return null;
+  }
+};
+const cleanupOldNotifications = async () => {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    // Delete read notifications older than 30 days
+    await Notification.deleteMany({
+      createdAt: { $lt: thirtyDaysAgo },
+      read: true
+    });
+
+    // Delete read system notifications older than 7 days
+    await Notification.deleteMany({
+      createdAt: { $lt: sevenDaysAgo },
+      type: 'system',
+      read: true
+    });
+
+  } catch (error) {
+    console.error('Failed to cleanup notifications:', error);
+  }
+};
+
+// Run cleanup daily
+setInterval(cleanupOldNotifications, 24 * 60 * 60 * 1000);
+
+// Get user notifications
+
 
 // Test route
 app.get("/test", (req, res) => {
@@ -294,24 +370,33 @@ app.post("/register", async (req, res) => {
       emailVerificationExpires: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
     });
 
-    // Notify admin about new user registration
-    const adminId = await getAdminUserId();
-    await createNotification(
-      'user',
-      'New User Registration',
-      `New user registered: ${userDoc.name} (${userDoc.email})`,
-      `/admin/users/${userDoc._id}`,
-      adminId,
-      {
-        priority: 'normal',
-        category: 'user',
-        metadata: {
-          userId: userDoc._id,
-          userRole: userDoc.role,
-          registrationDate: new Date()
-        }
+    // Find admin and create notification
+    try {
+      const adminId = await getAdminUserId();
+      if (!adminId) {
+        console.error('No admin user found for notification');
+        return;
       }
-    );
+      await sendNotification(
+        'user',
+        'New User Registration',
+        `New user registered: ${userDoc.name} (${userDoc.email})`,
+        `/admin/users/${userDoc._id}`,
+        adminId,
+        {
+          priority: 'normal',
+          category: 'registration',
+          metadata: {
+            userId: userDoc._id,
+            userRole: userDoc.role,
+            registrationDate: new Date()
+          }
+        }
+      );
+    } catch (notificationError) {
+      console.error('Registration notification failed:', notificationError);
+      // Continue with registration process
+    }
 
     // Send verification email
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${userDoc.emailVerificationToken}`;
@@ -1418,7 +1503,7 @@ app.post(
 
       // Notify admin about new place
       const adminId = await getAdminUserId();
-      await createNotification(
+      await sendNotification(
         'property',
         'New Property Listed',
         `${req.userData.name} has listed a new property: ${place.title}`,
@@ -1436,7 +1521,7 @@ app.post(
       );
 
       // Notify host about successful listing
-      await createNotification(
+      await sendNotification(
         'property',
         'Property Listing Submitted',
         `Your property "${place.title}" has been successfully listed and is pending review.`,
@@ -1823,7 +1908,7 @@ app.post("/bookings", authenticateToken, async (req, res) => {
       const adminId = await getAdminUserId();
 
       // Notify admin about new booking
-      await createNotification(
+      await sendNotification(
         'booking',
         'New Booking Created',
         `New booking received for ${placeDoc.title}`,
@@ -1841,7 +1926,7 @@ app.post("/bookings", authenticateToken, async (req, res) => {
       );
 
       // Notify host about new booking
-      await createNotification(
+      await sendNotification(
         'booking',
         'New Booking Request',
         `You have a new booking request for ${placeDoc.title}`,
@@ -2192,7 +2277,7 @@ app.get("/api/reviews/top", async (req, res) => {
       })
       .populate({
         path: "place",
-        select: "title photos address",
+       select: "title photos address",
         match: { isActive: true },
       })
       .sort({
@@ -2272,16 +2357,30 @@ app.post("/host/register", async (req, res) => {
       role: "host",
     });
 
-    // Find an admin user to send notification to
-    const adminUser = await User.findOne({ role: "admin" });
-    if (adminUser) {
-      await createNotification(
-        adminUser._id, // recipient should be admin's ID
-        "New Host Registration",
-        `New host registered: ${userDoc.name}`,
-        `/admin/hosts/${userDoc._id}`,
-        "system" // use 'system' type instead of 'admin'
-      );
+    // Find admin and create notification
+    try {
+      const adminId = await getAdminUserId();
+      if (adminId) {
+        await sendNotification(
+          'user',
+          'New Host Registration',
+          `New host registered: ${userDoc.name} (${userDoc.email})`,
+          `/admin/hosts/${userDoc._id}`,
+          adminId,
+          {
+            priority: 'normal',
+            category: 'host',
+            metadata: {
+              userId: userDoc._id,
+              userRole: userDoc.role,
+              registrationDate: new Date()
+            }
+          }
+        );
+      }
+    } catch (notificationError) {
+      // Log but don't fail registration if notification fails
+      console.error('Error creating notification:', notificationError);
     }
 
     res.json({ success: true, message: "Host registration successful" });
@@ -2858,7 +2957,7 @@ app.get("/api/places/search", async (req, res) => {
               } 
             } 
           } 
-        }
+        } 
       ];
     }
 
@@ -4060,21 +4159,31 @@ app.post("/host/login", async (req, res) => {
       });
     }
 
+    if (userDoc.role !== 'host') {
+      return res.status(403).json({ error: "This account is not registered as a host" });
+    }
+
     const passOK = bcrypt.compareSync(password, user.password);
     if (!passOK) {
       return res.status(422).json({ error: "Invalid password" });
     }
 
-    // Create JWT token
+    // Create tokens and send response
     const token = jwt.sign(
       {
-        email: user.email,
         id: user._id,
+        email: user.email,
         name: user.name,
         role: user.role,
       },
       jwtSecret,
-      { expiresIn: "1h" }
+      { expiresIn: '24h' }
+    );
+
+    const refreshToken = jwt.sign(
+      { id: user._id },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
     );
 
     res
@@ -4082,11 +4191,24 @@ app.post("/host/login", async (req, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "none",
+        maxAge: 24 * 60 * 60 * 1000
       })
-      .json(user);
+      .cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "none",
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      })
+      .json({
+        user: {
+          ...user.toObject(),
+          password: undefined
+        },
+        token
+      });
   } catch (err) {
-    console.error("Host login error:", err);
-    res.status(500).json({ error: "Login failed. Try again later." });
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Login failed" });
   }
 });
 
@@ -4242,21 +4364,23 @@ app.put(
 
       // Create notification for the user who reported
       if (report.reportedBy) {
-        await Notification.create({
-          type: 'report', // Using valid enum value
-          title: 'Report Updated',
-          message: `An admin has added notes to your report`,
-          recipient: report.reportedBy._id,
-          link: `/reports/${report._id}`,
-          priority: 'normal',
-          category: 'general',
-          metadata: {
-            reportId: report._id,
-            updatedBy: req.userData.id,
-            hasNotes: true,
-            status: status
+        await sendNotification(
+          'report', // Using valid enum value
+          'Report Updated',
+          `An admin has added notes to your report`,
+          `/reports/${report._id}`,
+          report.reportedBy._id,
+          {
+            priority: 'normal',
+            category: 'general',
+            metadata: {
+              reportId: report._id,
+              updatedBy: req.userData.id,
+              hasNotes: true,
+              status: status
+            }
           }
-        });
+        );
       }
 
       // Fetch updated report with populated fields
@@ -4310,19 +4434,19 @@ app.post("/api/reports", authenticateToken, async (req, res) => {
     }
 
     // Create notification for admin
-    await Notification.create({
-      type: 'report', // Using valid enum value
-      title: 'New Report Submitted',
-      message: `A new report has been submitted for ${place.title}`,
-      recipient: admin._id, // Set the admin as recipient
-      link: `/admin/reports/${report._id}`,
-      metadata: {
+    await sendNotification(
+      'report', // Using valid enum value
+      'New Report Submitted',
+      `A new report has been submitted for ${place.title}`,
+      `/admin/reports/${report._id}`,
+      admin._id, // Set the admin as recipient
+      {
         reportId: report._id,
         placeId: placeId,
         reportType: type,
         reportedBy: reportedBy
       }
-    });
+    );
 
     res.status(201).json({
       success: true,
@@ -4717,7 +4841,6 @@ wss.on("connection", (ws, req) => {
     }
   });
 });
-// Move this to the bottom of your file
 
 app.post("/send-host-email", authenticateToken, async (req, res) => {
   try {
@@ -5057,40 +5180,44 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
     try {
       // Create notification for host
       if (booking.place?.owner?._id) {
-        await Notification.create({
-          type: "booking",
-          title: "Booking Completed",
-          message: `Booking #${booking._id} has been checked out`,
-          recipient: booking.place.owner._id,
-          link: `/host/bookings/${booking._id}`,
+        await sendNotification(
+          "booking",
+          "Booking Completed",
+          `Booking #${booking._id} has been checked out`,
+          `/host/bookings/${booking._id}`,
+          booking.place.owner._id,
+          {
+            priority: "normal",
+            category: "booking",
+            metadata: {
+              bookingId: booking._id,
+              placeId: booking.place._id,
+              userId: booking.user._id,
+              earlyCheckout: !!earlyCheckout,
+              earlyCheckoutFee: earlyCheckoutFee || 0
+            }
+          }
+        );
+      }
+
+      // Create notification for guest
+      await sendNotification(
+        "booking",
+        "Checkout Confirmed",
+        `Your checkout for ${booking.place.title} has been confirmed`,
+        `/account/bookings/${booking._id}`,
+        booking.user._id,
+        {
           priority: "normal",
           category: "booking",
           metadata: {
             bookingId: booking._id,
             placeId: booking.place._id,
-            userId: booking.user._id,
             earlyCheckout: !!earlyCheckout,
             earlyCheckoutFee: earlyCheckoutFee || 0
           }
-        });
-      }
-
-      // Create notification for guest
-      await Notification.create({
-        type: "booking",
-        title: "Checkout Confirmed",
-        message: `Your checkout for ${booking.place.title} has been confirmed`,
-        recipient: booking.user._id,
-        link: `/account/bookings/${booking._id}`,
-        priority: "normal",
-        category: "booking",
-        metadata: {
-          bookingId: booking._id,
-          placeId: booking.place._id,
-          earlyCheckout: !!earlyCheckout,
-          earlyCheckoutFee: earlyCheckoutFee || 0
         }
-      });
+      );
 
     } catch (notificationError) {
       console.error("Failed to create notifications:", notificationError);
@@ -5115,6 +5242,78 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
       error: "Failed to process checkout",
       details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
+  }
+});
+
+app.get("/notifications", authenticateToken, async (req, res) => {
+  try {
+    const notifications = await Notification.find({
+      recipient: req.userData.id,
+      read: false
+    })
+    .sort({ createdAt: -1 })
+    .limit(50);
+
+    res.json(notifications);
+  } catch (error) {
+    console.error('Error fetching notifications:', error);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+// Mark notification as read
+app.put("/notifications/:id/read", authenticateToken, async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        recipient: req.userData.id
+      },
+      { read: true },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    res.json(notification);
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
+    res.status(500).json({ error: 'Failed to update notification' });
+  }
+});
+
+// Get unread notification count
+app.get("/notifications/count", authenticateToken, async (req, res) => {
+  try {
+    const count = await Notification.countDocuments({
+      recipient: req.userData.id,
+      read: false
+    });
+    
+    res.json({ count });
+  } catch (error) {
+    console.error('Error getting notification count:', error);
+    res.status(500).json({ error: 'Failed to get notification count' });
+  }
+});
+
+// Mark all notifications as read
+app.put("/notifications/read-all", authenticateToken, async (req, res) => {
+  try {
+    await Notification.updateMany(
+      {
+        recipient: req.userData.id,
+        read: false
+      },
+      { read: true }
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error marking all notifications as read:", error);
+    res.status(500).json({ error: "Failed to update notifications" });
   }
 });
 // Admin notification endpoints
@@ -5260,21 +5459,23 @@ app.put(
 
       // Create notification for the user who reported
       if (report.reportedBy) {
-        await Notification.create({
-          type: 'report', // Using valid enum value from Notification model
-          title: 'Report Updated',
-          message: `Your report has been updated with admin notes`,
-          recipient: report.reportedBy._id, // Set the reporter as recipient
-          link: `/reports/${report._id}`,
-          priority: 'normal',
-          category: 'general',
-          metadata: {
-            reportId: report._id,
-            updatedBy: req.userData.id,
-            hasNotes: !!adminNotes,
-            status: status
+        await sendNotification(
+          'report', // Using valid enum value from Notification model
+          'Report Updated',
+          `Your report has been updated with admin notes`,
+          `/reports/${report._id}`,
+          report.reportedBy._id, // Set the reporter as recipient
+          {
+            priority: 'normal',
+            category: 'general',
+            metadata: {
+              reportId: report._id,
+              updatedBy: req.userData.id,
+              hasNotes: !!adminNotes,
+              status: status
+            }
           }
-        });
+        );
       }
 
       res.json({
@@ -5319,21 +5520,23 @@ app.put(
 
       // Create notification for the user who reported
       if (report.reportedBy) {
-        await Notification.create({
-          type: 'report', // Using valid enum value
-          title: 'Report Status Updated',
-          message: `Your report status has been updated to: ${status}`,
-          recipient: report.reportedBy._id,
-          link: `/reports/${report._id}`,
-          priority: status === 'resolved' ? 'high' : 'normal',
-          category: 'general',
-          metadata: {
-            reportId: report._id,
-            oldStatus: report.status,
-            newStatus: status,
-            updatedBy: req.userData.id
+        await sendNotification(
+          'report', // Using valid enum value
+          'Report Status Updated',
+          `Your report status has been updated to: ${status}`,
+          `/reports/${report._id}`,
+          report.reportedBy._id,
+          {
+            priority: status === 'resolved' ? 'high' : 'normal',
+            category: 'general',
+            metadata: {
+              reportId: report._id,
+              oldStatus: report.status,
+              newStatus: status,
+              updatedBy: req.userData.id
+            }
           }
-        });
+        );
       }
 
       res.json({
@@ -5381,54 +5584,60 @@ const autoCompleteBookings = async () => {
       // Create notifications for all parties
       try {
         // Notify host
-        await Notification.create({
-          type: "booking",
-          title: "Booking Auto-Completed",
-          message: `Booking #${booking._id} has been automatically completed`,
-          recipient: booking.place.owner,
-          link: `/host/bookings/${booking._id}`,
-          priority: "normal",
-          category: "booking",
-          metadata: {
-            bookingId: booking._id,
-            placeId: booking.place._id,
-            userId: booking.user._id,
-            autoCompleted: true
+        await sendNotification(
+          "booking",
+          "Booking Auto-Completed",
+          `Booking #${booking._id} has been automatically completed`,
+          `/host/bookings/${booking._id}`,
+          booking.place.owner,
+          {
+            priority: "normal",
+            category: "booking",
+            metadata: {
+              bookingId: booking._id,
+              placeId: booking.place._id,
+              userId: booking.user._id,
+              autoCompleted: true
+            }
           }
-        });
+        );
 
         // Notify guest
-        await Notification.create({
-          type: "booking",
-          title: "Booking Completed",
-          message: `Your stay at ${booking.place.title} has been completed`,
-          recipient: booking.user._id,
-          link: `/account/bookings/${booking._id}`,
-          priority: "normal",
-          category: "booking",
-          metadata: {
-            bookingId: booking._id,
-            placeId: booking.place._id,
-            autoCompleted: true
+        await sendNotification(
+          "booking",
+          "Booking Completed",
+          `Your stay at ${booking.place.title} has been completed`,
+          `/account/bookings/${booking._id}`,
+          booking.user._id,
+          {
+            priority: "normal",
+            category: "booking",
+            metadata: {
+              bookingId: booking._id,
+              placeId: booking.place._id,
+              autoCompleted: true
+            }
           }
-        });
+        );
 
         // Notify admin
-        await Notification.create({
-          type: "booking",
-          title: "Booking Auto-Completed",
-          message: `System auto-completed booking #${booking._id}`,
-          recipient: admin._id,
-          link: `/admin/bookings/${booking._id}`,
-          priority: "low",
-          category: "system",
-          metadata: {
-            bookingId: booking._id,
-            placeId: booking.place._id,
-            userId: booking.user._id,
-            autoCompleted: true
+        await sendNotification(
+          "booking",
+          "Booking Auto-Completed",
+          `System auto-completed booking #${booking._id}`,
+          `/admin/bookings/${booking._id}`,
+          admin._id,
+          {
+            priority: "low",
+            category: "system",
+            metadata: {
+              bookingId: booking._id,
+              placeId: booking.place._id,
+              userId: booking.user._id,
+              autoCompleted: true
+            }
           }
-        });
+        );
 
       } catch (notificationError) {
         console.error("Failed to create notifications:", notificationError);
@@ -5441,10 +5650,16 @@ const autoCompleteBookings = async () => {
   } catch (error) {
     console.error("Auto-completion error:", error);
   }
-};
+}; // Add this closing brace
 
-// Set up auto-checkout to run every hour
-setInterval(autoCompleteBookings, 60 * 60 * 1000);
+// Remove both intervals and replace with one
+setInterval(async () => {
+  try {
+    await autoCompleteBookings();
+  } catch (error) {
+    console.error("Failed to run auto-complete bookings:", error);
+  }
+}, 60 * 60 * 1000); // Run every hour
 
 // Run once at startup
 autoCompleteBookings().catch(console.error);
@@ -5811,7 +6026,7 @@ function isValidLuhn(number) {
   let isEven = false;
 
   // Loop through values starting from the rightmost side
-  for (let i = number.length - 1; i >= 0; i--) {
+  for (let i = number.length - 1; i >=0; i--) {
     let digit = parseInt(number.charAt(i));
 
     if (isEven) {
@@ -6171,7 +6386,7 @@ app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (r
 
     // Notify admin about voucher update
     const adminId = await getAdminUserId();
-    await createNotification(
+    await sendNotification(
       'system',
       'Voucher Updated',
       `Host ${req.userData.name} has updated voucher: ${updatedVoucher.code}`,
@@ -6194,3 +6409,5 @@ app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (r
     res.status(500).json({ error: "Failed to update voucher" });
   }
 });
+
+// Add this somewhere in your initialization code

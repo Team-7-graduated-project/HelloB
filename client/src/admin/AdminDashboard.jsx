@@ -84,10 +84,16 @@ function AdminDashboard() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
   useEffect(() => {
     fetchStats();
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000);
+    fetchNotificationCount();
+    const interval = setInterval(() => {
+      fetchNotifications();
+      fetchNotificationCount();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -149,6 +155,15 @@ function AdminDashboard() {
     }
   };
 
+  const fetchNotificationCount = async () => {
+    try {
+      const response = await axiosInstance.get("/notifications/count");
+      setUnreadCount(response.data.count);
+    } catch (error) {
+      console.error("Error fetching notification count:", error);
+    }
+  };
+
   const markAsRead = async (id) => {
     try {
       await axios.put(
@@ -161,6 +176,16 @@ function AdminDashboard() {
       fetchNotifications(); // Refresh notifications
     } catch (error) {
       console.error("Error marking notification as read:", error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await axiosInstance.put("/notifications/read-all");
+      fetchNotifications();
+      fetchNotificationCount();
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
     }
   };
 
@@ -833,59 +858,73 @@ function AdminDashboard() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-4 md:p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto m-4">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl flex items-center font-bold">
+              <h2 className="text-2xl flex items-center gap-2 font-bold">
                 <FaBell />
                 Notifications
+                {unreadCount > 0 && (
+                  <span className="text-sm bg-red-500 text-white px-2 py-1 rounded-full">
+                    {unreadCount}
+                  </span>
+                )}
               </h2>
-              <button
-                onClick={() => setShowNotifications(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <FaTimesCircle className="text-3xl ml-96" />
-              </button>
-            </div>
-            {isNotificationsLoading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Loading notifications...</p>
-              </div>
-            ) : notifications.length > 0 ? (
-              <ul className="space-y-4">
-                {notifications.map((notification) => (
-                  <li
-                    key={notification._id}
-                    className={`p-4 rounded-lg ${
-                      notification.status === "unread"
-                        ? "bg-blue-50"
-                        : "bg-gray-50"
-                    }`}
+              <div className="flex gap-4">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-blue-600 hover:text-blue-800"
                   >
-                    <div className="flex justify-between">
-                      <div>
-                        <h3 className="font-medium">{notification.title}</h3>
-                        <p className="text-gray-600">{notification.message}</p>
-                        <span className="text-xs text-gray-500">
-                          {format(
-                            new Date(notification.createdAt),
-                            "MMM d, yyyy HH:mm"
-                          )}
+                    Mark all as read
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNotifications(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <FaTimesCircle className="text-2xl" />
+                </button>
+              </div>
+            </div>
+
+            {notifications.map((notification) => (
+              <li
+                key={notification._id}
+                className={`p-4 rounded-lg ${
+                  !notification.read 
+                    ? "bg-blue-50 border-l-4 border-blue-500"
+                    : "bg-gray-50"
+                }`}
+              >
+                <div className="flex justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-medium">{notification.title}</h3>
+                      {notification.priority === 'high' && (
+                        <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
+                          High Priority
                         </span>
-                      </div>
-                      {notification.status === "unread" && (
-                        <button
-                          onClick={() => markAsRead(notification._id)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          Mark as read
-                        </button>
                       )}
                     </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-center text-gray-500">No notifications</p>
-            )}
+                    <p className="text-gray-600">{notification.message}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-xs text-gray-500">
+                        {format(new Date(notification.createdAt), "MMM d, yyyy HH:mm")}
+                      </span>
+                      <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
+                        {notification.category}
+                      </span>
+                    </div>
+                  </div>
+                  {!notification.read && (
+                    <button
+                      onClick={() => markAsRead(notification._id)}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      Mark as read
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
           </div>
         </div>
       )}
