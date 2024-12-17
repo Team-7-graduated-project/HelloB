@@ -4927,7 +4927,6 @@ app.post("/check-email", async (req, res) => {
 });
 
 // Add this new endpoint for checkout confirmation
-// Add this new endpoint for checkout confirmation
 app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -4961,27 +4960,31 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
     }
 
     // Check if booking is in valid state for checkout
-    if (booking.status !== "confirmed" || booking.paymentStatus !== "paid") {
+    if (booking.status !== "confirmed") {
       return res.status(400).json({ 
         success: false,
-        error: "Booking must be confirmed and paid before checkout" 
+        error: "Booking must be confirmed before checkout" 
       });
     }
 
-    // Handle early checkout
-    if (earlyCheckout) {
+    // Handle early checkout fee if applicable
+    if (earlyCheckout && earlyCheckoutFee) {
       booking.earlyCheckoutFee = earlyCheckoutFee;
       booking.totalAmount = booking.price + earlyCheckoutFee;
+    } else {
+      booking.totalAmount = booking.price;
     }
 
     // Update booking status
     booking.status = "completed";
     booking.checkoutDate = new Date();
+
+    // Save the changes
     await booking.save();
 
-    // Create notification for host
-    if (booking.place && booking.place.owner) {
-      try {
+    try {
+      // Create notification for host
+      if (booking.place?.owner?._id) {
         await Notification.create({
           type: "booking",
           title: "Booking Completed",
@@ -4998,12 +5001,31 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
             earlyCheckoutFee: earlyCheckoutFee || 0
           }
         });
-      } catch (notificationError) {
-        console.error("Failed to create notification:", notificationError);
-        // Continue execution even if notification fails
       }
+
+      // Create notification for guest
+      await Notification.create({
+        type: "booking",
+        title: "Checkout Confirmed",
+        message: `Your checkout for ${booking.place.title} has been confirmed`,
+        recipient: booking.user._id,
+        link: `/account/bookings/${booking._id}`,
+        priority: "normal",
+        category: "booking",
+        metadata: {
+          bookingId: booking._id,
+          placeId: booking.place._id,
+          earlyCheckout: !!earlyCheckout,
+          earlyCheckoutFee: earlyCheckoutFee || 0
+        }
+      });
+
+    } catch (notificationError) {
+      console.error("Failed to create notifications:", notificationError);
+      // Continue execution even if notifications fail
     }
 
+    // Send success response
     res.json({
       success: true,
       message: "Checkout successful",
@@ -5019,57 +5041,10 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to process checkout",
-      message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     });
   }
 });
-// Enhanced notification helper function with priority levels and categories
-const createNotification = async (
-  type,
-  title,
-  message,
-  link = "",
-  userId = null,
-  options = {}
-) => {
-  try {
-    const {
-      priority = "normal", // Priority: high, normal, low
-      category = "general", // Category: general, user, host, booking, report, system
-      expiresAt = null, // Optional expiration date
-      actions = [], // Optional actions that can be taken
-      metadata = {}, // Additional data
-    } = options;
-
-    const notification = new Notification({
-      type,
-      title,
-      message,
-      link,
-      user: userId,
-      status: "unread",
-      priority,
-      category,
-      expiresAt,
-      actions,
-      metadata,
-      createdAt: new Date(),
-    });
-
-    await notification.save();
-
-    // If it's a high priority notification, we might want to send additional alerts
-    if (priority === "high") {
-      // TODO: Implement email/SMS alerts for high priority notifications
-      console.log("High priority notification created:", title);
-    }
-
-    return notification;
-  } catch (error) {
-    console.error("Error creating notification:", error);
-    throw error;
-  }
-};
 
 // Admin notification endpoints
 app.get(
