@@ -3833,14 +3833,26 @@ app.post("/auth/google", async (req, res) => {
     let user = await User.findOne({ email: payload.email });
     
     if (!user) {
+      // Create new user if doesn't exist
       user = await User.create({
         name: payload.name,
         email: payload.email,
         picture: payload.picture,
         googleId: payload.sub,
         authProvider: 'google',
-        emailVerified: true
+        emailVerified: true,
+        isActive: true
       });
+    } else {
+      // Check if user is active
+      if (!user.isActive) {
+        return res.status(401).json({
+          success: false,
+          error: "Account is deactivated",
+          isActive: false,
+          reason: user.reason || "Account has been deactivated"
+        });
+      }
     }
 
     const token = jwt.sign(

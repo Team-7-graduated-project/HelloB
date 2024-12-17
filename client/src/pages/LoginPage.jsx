@@ -268,11 +268,12 @@ export default function LoginPage() {
                       }
                     );
 
-                    if (response.data.user) {
-                      setUser(response.data.user);
-                      localStorage.setItem('token', response.data.token);
+                    if (response.data.success) {
                       // Clear any existing error messages
                       setErrorMessage("");
+                      
+                      setUser(response.data.user);
+                      localStorage.setItem('token', response.data.token);
                       
                       // Redirect based on role
                       if (response.data.user.role === 'admin') {
@@ -280,14 +281,19 @@ export default function LoginPage() {
                       } else {
                         navigate('/');
                       }
+                    } else {
+                      throw new Error(response.data.error || "Login failed");
                     }
                   } catch (error) {
                     console.error("Google login error:", error);
-                    setErrorMessage(error.response?.data?.error || "Google login failed");
+                    setErrorMessage(
+                      error.response?.data?.error || 
+                      error.message || 
+                      "Google login failed"
+                    );
                   }
                 }}
                 onError={() => {
-                  console.error("Google login failed");
                   setErrorMessage("Google login failed");
                 }}
                 useOneTap={false}

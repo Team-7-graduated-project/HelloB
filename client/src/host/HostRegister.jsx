@@ -349,20 +349,27 @@ export default function HostRegisterPage() {
                         }
                       );
                       
-                      // Clear any error messages
-                      setErrorMessage("");
-                      setSuccessMessage("Registration successful");
-                      
-                      setTimeout(() => {
-                        navigate('/host/login');
-                      }, 2000);
+                      if (response.data.success) {
+                        // Clear any error messages
+                        setErrorMessage("");
+                        setSuccessMessage("Registration successful");
+                        
+                        setTimeout(() => {
+                          navigate('/host/login');
+                        }, 2000);
+                      } else {
+                        throw new Error(response.data.error || "Registration failed");
+                      }
                     } catch (error) {
                       console.error("Google registration error:", error);
-                      setErrorMessage(error.response?.data?.error || "Google registration failed");
+                      setErrorMessage(
+                        error.response?.data?.error || 
+                        error.message || 
+                        "Google registration failed"
+                      );
                     }
                   }}
                   onError={() => {
-                    console.error("Google registration failed");
                     setErrorMessage("Google registration failed");
                   }}
                   useOneTap={false}

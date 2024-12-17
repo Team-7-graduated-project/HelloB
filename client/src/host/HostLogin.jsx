@@ -178,20 +178,26 @@ export default function HostLogin() {
                       }
                     );
 
-                    if (response.data.user) {
-                      setUser(response.data.user);
-                      localStorage.setItem('token', response.data.token);
+                    if (response.data.success) {
                       // Clear any existing error messages
                       setErrorMessage("");
+                      
+                      setUser(response.data.user);
+                      localStorage.setItem('token', response.data.token);
                       navigate('/host/hostdashboard');
+                    } else {
+                      throw new Error(response.data.error || "Login failed");
                     }
                   } catch (error) {
                     console.error("Google login error:", error);
-                    setErrorMessage(error.response?.data?.error || "Google login failed");
+                    setErrorMessage(
+                      error.response?.data?.error || 
+                      error.message || 
+                      "Google login failed"
+                    );
                   }
                 }}
                 onError={() => {
-                  console.error("Google login failed");
                   setErrorMessage("Google login failed");
                 }}
                 useOneTap={false}
