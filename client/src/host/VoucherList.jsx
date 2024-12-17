@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
-import { FaPlus, FaSpinner, FaTrash, FaEdit } from "react-icons/fa";
+import {
+  FaPlus,
+  FaTicketAlt,
+  FaSpinner,
+  FaTrash,
+  FaEdit,
+} from "react-icons/fa";
 
 export default function VoucherListPage() {
   const [vouchers, setVouchers] = useState([]);
@@ -17,11 +23,11 @@ export default function VoucherListPage() {
       const response = await axios.get("/host/vouchers", {
         withCredentials: true,
       });
-      
+
       if (response.data && Array.isArray(response.data)) {
         // Sort vouchers by expiration date (oldest first)
-        const sortedVouchers = response.data.sort((a, b) => 
-          new Date(b.expirationDate) - new Date(a.expirationDate)
+        const sortedVouchers = response.data.sort(
+          (a, b) => new Date(b.expirationDate) - new Date(a.expirationDate)
         );
         setVouchers(sortedVouchers);
       } else {
@@ -48,8 +54,8 @@ export default function VoucherListPage() {
 
         if (vouchersRes.data && Array.isArray(vouchersRes.data)) {
           // Sort vouchers by expiration date (oldest first)
-          const sortedVouchers = vouchersRes.data.sort((a, b) => 
-            new Date(b.expirationDate) - new Date(a.expirationDate)
+          const sortedVouchers = vouchersRes.data.sort(
+            (a, b) => new Date(b.expirationDate) - new Date(a.expirationDate)
           );
           setVouchers(sortedVouchers);
         } else {
@@ -146,31 +152,40 @@ export default function VoucherListPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {vouchers.map((voucher) => (
-                <tr key={voucher._id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={voucher._id}
+                  className="hover:bg-gray-50 transition-colors"
+                >
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="font-medium text-gray-900">{voucher.code}</span>
-                      <span className={`text-sm ${
-                        isExpired(voucher.expirationDate) 
-                          ? 'text-red-600'
-                          : voucher.active 
-                            ? 'text-green-600' 
-                            : 'text-red-600'
-                      }`}>
-                        {isExpired(voucher.expirationDate) 
-                          ? 'Expired'
-                          : voucher.active 
-                            ? 'Active' 
-                            : 'Inactive'}
+                      <span className="font-medium text-gray-900">
+                        {voucher.code}
+                      </span>
+                      <span
+                        className={`text-sm ${
+                          isExpired(voucher.expirationDate)
+                            ? "text-red-600"
+                            : voucher.active
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }`}
+                      >
+                        {isExpired(voucher.expirationDate)
+                          ? "Expired"
+                          : voucher.active
+                          ? "Active"
+                          : "Inactive"}
                       </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      isExpired(voucher.expirationDate)
-                        ? 'bg-gray-100 text-gray-800'
-                        : 'bg-green-100 text-green-800'
-                    }`}>
+                    <span
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                        isExpired(voucher.expirationDate)
+                          ? "bg-gray-100 text-gray-800"
+                          : "bg-green-100 text-green-800"
+                      }`}
+                    >
                       {voucher.discount}% OFF
                     </span>
                   </td>
@@ -180,14 +195,18 @@ export default function VoucherListPage() {
                     </p>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`text-sm ${
-                      isExpired(voucher.expirationDate)
-                        ? 'text-red-600 font-medium'
-                        : 'text-gray-600'
-                    }`}>
+                    <span
+                      className={`text-sm ${
+                        isExpired(voucher.expirationDate)
+                          ? "text-red-600 font-medium"
+                          : "text-gray-600"
+                      }`}
+                    >
                       {new Date(voucher.expirationDate).toLocaleDateString()}
                       {isExpired(voucher.expirationDate) && (
-                        <span className="block text-xs text-red-500">Expired</span>
+                        <span className="block text-xs text-red-500">
+                          Expired
+                        </span>
                       )}
                     </span>
                   </td>
@@ -206,16 +225,18 @@ export default function VoucherListPage() {
                       ))}
                       {(!voucher.applicablePlaces ||
                         voucher.applicablePlaces.length === 0) && (
-                        <span className="text-gray-400 italic text-xs">All places</span>
+                        <span className="text-gray-400 italic text-xs">
+                          All places
+                        </span>
                       )}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
                       <Link
-                      onClick={() => {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
+                        onClick={() => {
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
                         to={`edit/${voucher._id}`}
                         className="inline-flex items-center px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                       >
@@ -244,13 +265,17 @@ export default function VoucherListPage() {
         {vouchers.length === 0 && !loading && (
           <div className="text-center py-12">
             <FaTicketAlt className="mx-auto text-gray-300 text-5xl mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No Vouchers Found</h3>
-            <p className="text-gray-500 mb-6">Start by creating your first voucher</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No Vouchers Found
+            </h3>
+            <p className="text-gray-500 mb-6">
+              Start by creating your first voucher
+            </p>
             <Link
               to="/host/vouchers/new"
               onClick={() => {
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
             >
               <FaPlus className="mr-2" />
@@ -269,4 +294,3 @@ export default function VoucherListPage() {
     </div>
   );
 }
-

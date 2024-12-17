@@ -64,7 +64,8 @@ export default function LoginPage() {
         setErrors((prev) => ({
           ...prev,
           general: `Account deactivated. Reason: ${
-            response.data.user?.deactivationReason || "Account has been deactivated"
+            response.data.user?.deactivationReason ||
+            "Account has been deactivated"
           }`,
         }));
         return;
@@ -86,7 +87,8 @@ export default function LoginPage() {
       if (e.response?.status === 401) {
         setErrors((prev) => ({
           ...prev,
-          general: e.response.data.error || "Invalid credentials. Please try again.",
+          general:
+            e.response.data.error || "Invalid credentials. Please try again.",
         }));
       } else if (e.response?.status === 404) {
         setErrors((prev) => ({
@@ -246,7 +248,9 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-4 text-center flex justify-center">
-            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+            <GoogleOAuthProvider
+              clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}
+            >
               <GoogleLogin
                 onSuccess={async (credentialResponse) => {
                   try {
@@ -256,23 +260,23 @@ export default function LoginPage() {
                       {
                         withCredentials: true,
                         headers: {
-                          'Content-Type': 'application/json'
-                        }
+                          "Content-Type": "application/json",
+                        },
                       }
                     );
 
                     if (response.data.success) {
                       // Clear any existing error messages
                       setErrorMessage("");
-                      
+
                       setUser(response.data.user);
-                      localStorage.setItem('token', response.data.token);
-                      
+                      localStorage.setItem("token", response.data.token);
+
                       // Redirect based on role
-                      if (response.data.user.role === 'admin') {
-                        navigate('/admin');
+                      if (response.data.user.role === "admin") {
+                        navigate("/admin");
                       } else {
-                        navigate('/');
+                        navigate("/");
                       }
                     } else {
                       throw new Error(response.data.error || "Login failed");
@@ -280,9 +284,9 @@ export default function LoginPage() {
                   } catch (error) {
                     console.error("Google login error:", error);
                     setErrorMessage(
-                      error.response?.data?.error || 
-                      error.message || 
-                      "Google login failed"
+                      error.response?.data?.error ||
+                        error.message ||
+                        "Google login failed"
                     );
                   }
                 }}
@@ -290,7 +294,7 @@ export default function LoginPage() {
                   setErrorMessage("Google login failed");
                 }}
                 useOneTap={false}
-                cookiePolicy={'single_host_origin'}
+                cookiePolicy={"single_host_origin"}
                 popupType="window"
               />
             </GoogleOAuthProvider>
