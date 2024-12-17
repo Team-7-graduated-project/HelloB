@@ -4967,6 +4967,11 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
       });
     }
 
+    // Set the owner field from the place's owner
+    if (!booking.owner && booking.place?.owner?._id) {
+      booking.owner = booking.place.owner._id;
+    }
+
     // Handle early checkout fee if applicable
     if (earlyCheckout && earlyCheckoutFee) {
       booking.earlyCheckoutFee = earlyCheckoutFee;
@@ -5045,7 +5050,6 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
     });
   }
 });
-
 // Admin notification endpoints
 app.get(
   "/api/admin/notifications",
