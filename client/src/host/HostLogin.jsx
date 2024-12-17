@@ -102,7 +102,7 @@ export default function HostLogin() {
   };
 
   if (redirect) {
-    return <Navigate to="/host/hostdashboard" />;
+    return <Navigate to="/host" />;
   }
 
   return (
