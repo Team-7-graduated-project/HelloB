@@ -751,9 +751,9 @@ function AdminDashboard() {
                   <div className="flex items-center gap-2">
                     <FaBell />
                     Notifications
-                    {notifications.filter(n => n.status === "unread").length > 0 && (
+                    {unreadCount > 0 && (
                       <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">
-                        {notifications.filter(n => n.status === "unread").length}
+                        {unreadCount}
                       </span>
                     )}
                   </div>
@@ -885,46 +885,57 @@ function AdminDashboard() {
               </div>
             </div>
 
-            {notifications.map((notification) => (
-              <li
-                key={notification._id}
-                className={`p-4 rounded-lg ${
-                  !notification.read 
-                    ? "bg-blue-50 border-l-4 border-blue-500"
-                    : "bg-gray-50"
-                }`}
-              >
-                <div className="flex justify-between">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium">{notification.title}</h3>
-                      {notification.priority === 'high' && (
-                        <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
-                          High Priority
-                        </span>
+            {isNotificationsLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Loading notifications...</p>
+              </div>
+            ) : notifications.length > 0 ? (
+              <ul className="space-y-4">
+                {notifications.map((notification) => (
+                  <li
+                    key={notification._id}
+                    className={`p-4 rounded-lg ${
+                      !notification.read 
+                        ? "bg-blue-50 border-l-4 border-blue-500"
+                        : "bg-gray-50"
+                    }`}
+                  >
+                    <div className="flex justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-medium">{notification.title}</h3>
+                          {notification.priority === 'high' && (
+                            <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
+                              High Priority
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-600">{notification.message}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-gray-500">
+                            {format(new Date(notification.createdAt), "MMM d, yyyy HH:mm")}
+                          </span>
+                          <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
+                            {notification.category}
+                          </span>
+                        </div>
+                      </div>
+                      {!notification.read && (
+                        <button
+                          onClick={() => markAsRead(notification._id)}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          Mark as read
+                        </button>
                       )}
                     </div>
-                    <p className="text-gray-600">{notification.message}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-gray-500">
-                        {format(new Date(notification.createdAt), "MMM d, yyyy HH:mm")}
-                      </span>
-                      <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
-                        {notification.category}
-                      </span>
-                    </div>
-                  </div>
-                  {!notification.read && (
-                    <button
-                      onClick={() => markAsRead(notification._id)}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      Mark as read
-                    </button>
-                  )}
-                </div>
-              </li>
-            ))}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-center text-gray-500 py-8">No notifications</p>
+            )}
           </div>
         </div>
       )}

@@ -64,6 +64,10 @@ export default function BookingWidget({ place }) {
   }
 
   const isFormValid = () => {
+    if (isDateUnavailable(check_in) || isDateUnavailable(check_out)) {
+      return false;
+    }
+
     return (
       check_in &&
       check_out &&
@@ -126,23 +130,28 @@ export default function BookingWidget({ place }) {
 
   const handleCheckInChange = (ev) => {
     const date = ev.target.value;
-    if (!isDateUnavailable(date)) {
+    if (isDateUnavailable(date)) {
+      setErrorMessage("This date is not available");
+      setHasValidDates(false);
+    } else {
       setCheckIn(date);
       setErrorMessage("");
-      setHasValidDates(date && check_out);
-    } else {
-      setErrorMessage("This date is not available");
+      setHasValidDates(date && check_out && !isDateUnavailable(check_out));
     }
   };
 
   const handleCheckOutChange = (ev) => {
     const date = ev.target.value;
-    if (!isDateUnavailable(date)) {
+    if (isDateUnavailable(date)) {
+      setErrorMessage("This date is not available");
+      setHasValidDates(false);
+    } else if (check_in && new Date(date) <= new Date(check_in)) {
+      setErrorMessage("Check-out date must be after check-in date");
+      setHasValidDates(false);
+    } else {
       setCheckOut(date);
       setErrorMessage("");
-      setHasValidDates(check_in && date);
-    } else {
-      setErrorMessage("This date is not available");
+      setHasValidDates(check_in && date && !isDateUnavailable(check_in));
     }
   };
 
@@ -234,12 +243,13 @@ export default function BookingWidget({ place }) {
                 onChange={handleCheckInChange}
                 min={format(new Date(), "yyyy-MM-dd")}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent
-                  ${
-                    isDateUnavailable(check_in)
-                      ? "border-red-500"
-                      : "border-gray-300"
-                  }`}
+                  ${isDateUnavailable(check_in) 
+                    ? "border-red-500 bg-red-50" 
+                    : "border-gray-300"}`}
               />
+              {isDateUnavailable(check_in) && (
+                <p className="text-red-500 text-sm mt-1">This date is not available</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -251,12 +261,13 @@ export default function BookingWidget({ place }) {
                 onChange={handleCheckOutChange}
                 min={check_in || format(new Date(), "yyyy-MM-dd")}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent
-                  ${
-                    isDateUnavailable(check_out)
-                      ? "border-red-500"
-                      : "border-gray-300"
-                  }`}
+                  ${isDateUnavailable(check_out) 
+                    ? "border-red-500 bg-red-50" 
+                    : "border-gray-300"}`}
               />
+              {isDateUnavailable(check_out) && (
+                <p className="text-red-500 text-sm mt-1">This date is not available</p>
+              )}
             </div>
           </div>
 
@@ -358,9 +369,9 @@ export default function BookingWidget({ place }) {
               window.scrollTo({ top: 0, behavior: "smooth" });
               bookThisPlace();
             }}
-            disabled={!isFormValid() || loading}
+            disabled={!isFormValid() || loading || isDateUnavailable(check_in) || isDateUnavailable(check_out)}
             className={`w-full py-3 px-4 rounded-lg text-white font-medium transition-colors ${
-              isFormValid() && !loading
+              isFormValid() && !loading && !isDateUnavailable(check_in) && !isDateUnavailable(check_out)
                 ? "bg-primary hover:bg-primary-dark"
                 : "bg-gray-300 cursor-not-allowed"
             }`}
@@ -384,10 +395,10 @@ export default function BookingWidget({ place }) {
                 </svg>
                 Processing...
               </div>
+            ) : isDateUnavailable(check_in) || isDateUnavailable(check_out) ? (
+              "Selected dates are not available"
             ) : (
-              `Book Now ${
-                numberOfNights > 0 ? `• $${numberOfNights * place.price}` : ""
-              }`
+              `Book Now ${numberOfNights > 0 ? `• $${numberOfNights * place.price}` : ""}`
             )}
           </button>
         </div>
