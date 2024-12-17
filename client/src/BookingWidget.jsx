@@ -37,7 +37,14 @@ export default function BookingWidget({ place }) {
   }
 
   async function bookThisPlace() {
-    if (!isFormValid()) return;
+    if (!isFormValid()) {
+      if (isDateUnavailable(check_in) || isDateUnavailable(check_out)) {
+        setErrorMessage("Selected dates are not available");
+      } else {
+        setErrorMessage("Please fill in all required fields correctly");
+      }
+      return;
+    }
 
     try {
       setLoading(true);
@@ -65,6 +72,10 @@ export default function BookingWidget({ place }) {
 
   const isFormValid = () => {
     if (isDateUnavailable(check_in) || isDateUnavailable(check_out)) {
+      return false;
+    }
+
+    if (check_in && check_out && new Date(check_out) <= new Date(check_in)) {
       return false;
     }
 
