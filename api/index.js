@@ -3687,36 +3687,23 @@ app.get("/bookings/unavailable-dates/:placeId", async (req, res) => {
   try {
     const { placeId } = req.params;
 
-    // Find all confirmed and completed bookings for this place that haven't ended yet
-    const bookings = await Booking.find({
-      place: placeId,
-      status: { $in: ["confirmed", "completed"] },
-      check_out: { $gte: new Date() }
-    }, {
-      check_in: 1,
-      check_out: 1,
-      _id: 0
-    });
+    // Find all bookings for this place that haven't ended yet
+    const bookings = await Booking.find(
+      {
+        place: placeId,
+        check_out: { $gte: new Date() },
+      },
+      {
+        check_in: 1,
+        check_out: 1,
+        _id: 0,
+      }
+    );
 
-    if (!bookings) {
-      return res.status(200).json([]);
-    }
-
-    // Format dates before sending
-    const formattedBookings = bookings.map(booking => ({
-      check_in: booking.check_in,
-      check_out: booking.check_out
-    }));
-
-    res.json(formattedBookings);
-
+    res.json(bookings);
   } catch (error) {
     console.error("Error fetching unavailable dates:", error);
-    res.status(500).json({ 
-      success: false,
-      error: "Failed to fetch unavailable dates",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    res.status(500).json({ error: "Failed to fetch unavailable dates" });
   }
 });
 

@@ -85,21 +85,16 @@ export default function BookingWidget({ place }) {
 
   const fetchUnavailableDates = useCallback(async () => {
     try {
-      const response = await axios.get(`/bookings/unavailable-dates/${place._id}`);
-      
-      if (Array.isArray(response.data)) {
-        const bookedDates = response.data.map((booking) => ({
-          check_in: new Date(booking.check_in),
-          check_out: new Date(booking.check_out),
-        }));
-        setUnavailableDates(bookedDates);
-      } else {
-        console.error("Invalid response format:", response.data);
-        setUnavailableDates([]);
-      }
+      const response = await axios.get(
+        `/bookings/unavailable-dates/${place._id}`
+      );
+      const bookedDates = response.data.map((booking) => ({
+        check_in: new Date(booking.check_in),
+        check_out: new Date(booking.check_out),
+      }));
+      setUnavailableDates(bookedDates);
     } catch (error) {
       console.error("Error fetching unavailable dates:", error);
-      // Don't show error to user, just set empty array
       setUnavailableDates([]);
     }
   }, [place._id]);
@@ -110,16 +105,10 @@ export default function BookingWidget({ place }) {
 
   const isDateUnavailable = (date) => {
     if (!date) return false;
-
-    const checkDate = new Date(date);
-    checkDate.setHours(0, 0, 0, 0); // Normalize time part
-
+const checkDate = new Date(date);
     return unavailableDates.some((booking) => {
       const startDate = new Date(booking.check_in);
       const endDate = new Date(booking.check_out);
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(0, 0, 0, 0);
-
       return checkDate >= startDate && checkDate <= endDate;
     });
   };
@@ -211,7 +200,7 @@ export default function BookingWidget({ place }) {
           ) : (
             <div>
               <p className="text-red-600 font-bold">
-                {user.role === "admin" ? "Administrators" : "Hosts"} cannot make
+{user.role === "admin" ? "Administrators" : "Hosts"} cannot make
                 bookings
               </p>
               <p className="text-gray-700 italic">
@@ -287,7 +276,7 @@ export default function BookingWidget({ place }) {
               onChange={(ev) => setMaxGuests(parseInt(ev.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
             >
-              {[...Array(place.max_guests)].map((_, i) => (
+{[...Array(place.max_guests)].map((_, i) => (
                 <option key={i + 1} value={i + 1}>
                   {i + 1} {i === 0 ? "guest" : "guests"}
                 </option>
@@ -365,7 +354,7 @@ export default function BookingWidget({ place }) {
                 : "bg-gray-300 cursor-not-allowed"
             }`}
           >
-            {loading ? (
+{loading ? (
               <div className="flex items-center justify-center">
                 <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
                   <circle
@@ -386,7 +375,7 @@ export default function BookingWidget({ place }) {
               </div>
             ) : (
               `Book Now ${
-                numberOfNights > 0 ? `• $${numberOfNights * place.price}` : ""
+                numberOfNights > 0 ? • $${numberOfNights * place.price} : ""
               }`
             )}
           </button>
