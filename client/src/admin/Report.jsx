@@ -33,20 +33,24 @@ function ManageReportsPage() {
       setLoading(true);
       setError(null);
 
-      const response = await axiosInstance.get("/api/admin/reports");
+      const { data } = await axiosInstance.get("/api/admin/reports");
       
-      if (response.data.success) {
-        setReports(response.data.reports);
-        setFilteredReports(response.data.reports);
+      if (data?.success && Array.isArray(data.reports)) {
+        setReports(data.reports);
+        setFilteredReports(data.reports);
       } else {
-        throw new Error(response.data.error || "Failed to load reports");
+        throw new Error("Invalid response format");
       }
     } catch (error) {
       console.error("Failed to load reports:", error);
       if (error.response?.status === 401) {
         navigate('/login');
       } else {
-        setError(error.response?.data?.error || error.message || "Failed to load reports");
+        setError(
+          error.response?.data?.error || 
+          error.message || 
+          "Failed to load reports"
+        );
       }
     } finally {
       setLoading(false);
@@ -296,6 +300,13 @@ function ManageReportsPage() {
         <div className="flex justify-center items-center py-8">
           <FaSpinner className="animate-spin text-primary text-3xl" />
         </div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-6">
+          <div className="flex items-center gap-2">
+            <FaExclamationTriangle />
+            <p>{error}</p>
+          </div>
+        </div>
       ) : (
         <>
           {/* Reports Grid */}
@@ -378,7 +389,7 @@ function ManageReportsPage() {
             <div className="flex justify-center mt-6">
               <button
                 onClick={() => setVisibleReports((prev) => prev + 10)}
-            className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
+                className="bg-black max-w-40 text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2"
               >
                 Load More
               </button>
