@@ -3818,16 +3818,21 @@ const verifyGoogleToken = async (token) => {
   }
 };
 
-// Google login route
 app.post("/auth/google", async (req, res) => {
   try {
     const { credential } = req.body;
-    const payload = await verifyGoogleToken(credential);
+    
+    if (!credential) {
+      return res.status(400).json({ 
+        success: false,
+        error: "No credential provided" 
+      });
+    }
 
+    const payload = await verifyGoogleToken(credential);
     let user = await User.findOne({ email: payload.email });
     
     if (!user) {
-      // Create new user if doesn't exist
       user = await User.create({
         name: payload.name,
         email: payload.email,
@@ -3838,7 +3843,6 @@ app.post("/auth/google", async (req, res) => {
       });
     }
 
-    // Create tokens
     const token = jwt.sign(
       {
         id: user._id,
@@ -3850,37 +3854,24 @@ app.post("/auth/google", async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    const refreshToken = jwt.sign(
-      { id: user._id },
-      JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
-    );
-
-    // Set cookies and send response
-    res
-      .cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'none',
-        maxAge: 24 * 60 * 60 * 1000
-      })
-      .cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'none',
-        maxAge: 7 * 24 * 60 * 60 * 1000
-      })
-      .json({
-        user: {
-          ...user.toObject(),
-          password: undefined
-        },
-        token
-      });
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'none',
+      maxAge: 24 * 60 * 60 * 1000
+    }).json({
+      success: true,
+      user: {
+        ...user.toObject(),
+        password: undefined
+      },
+      token
+    });
 
   } catch (error) {
     console.error('Google auth error:', error);
     res.status(500).json({
+      success: false,
       error: 'Authentication failed',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -6110,3 +6101,4 @@ app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (r
     res.status(500).json({ error: "Failed to update voucher" });
   }
 });
+

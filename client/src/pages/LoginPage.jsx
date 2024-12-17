@@ -267,9 +267,14 @@ export default function LoginPage() {
                         }
                       }
                     );
+
                     if (response.data.user) {
                       setUser(response.data.user);
                       localStorage.setItem('token', response.data.token);
+                      // Clear any existing error messages
+                      setErrorMessage("");
+                      
+                      // Redirect based on role
                       if (response.data.user.role === 'admin') {
                         navigate('/admin');
                       } else {
@@ -282,6 +287,7 @@ export default function LoginPage() {
                   }
                 }}
                 onError={() => {
+                  console.error("Google login failed");
                   setErrorMessage("Google login failed");
                 }}
                 useOneTap={false}

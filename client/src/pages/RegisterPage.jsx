@@ -332,7 +332,11 @@ export default function RegisterPage() {
                           }
                         }
                       );
+                      
+                      // Clear any error messages
+                      setErrorMessage("");
                       setSuccessMessage("Registration successful");
+                      
                       setTimeout(() => {
                         navigate('/login');
                       }, 2000);
@@ -342,6 +346,7 @@ export default function RegisterPage() {
                     }
                   }}
                   onError={() => {
+                    console.error("Google registration failed");
                     setErrorMessage("Google registration failed");
                   }}
                   useOneTap={false}

@@ -177,9 +177,12 @@ export default function HostLogin() {
                         }
                       }
                     );
+
                     if (response.data.user) {
                       setUser(response.data.user);
                       localStorage.setItem('token', response.data.token);
+                      // Clear any existing error messages
+                      setErrorMessage("");
                       navigate('/host/hostdashboard');
                     }
                   } catch (error) {
@@ -188,6 +191,7 @@ export default function HostLogin() {
                   }
                 }}
                 onError={() => {
+                  console.error("Google login failed");
                   setErrorMessage("Google login failed");
                 }}
                 useOneTap={false}
