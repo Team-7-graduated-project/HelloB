@@ -4938,26 +4938,15 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Booking not found" });
     }
 
-    // Check if user owns this booking
+    // Verify user owns this booking
     if (booking.user._id.toString() !== req.userData.id) {
       return res.status(403).json({ error: "Not authorized" });
     }
 
-    // Check if booking is eligible for checkout
-    const now = new Date();
-    const checkOutDate = new Date(booking.check_out);
-    const oneDayAfterCheckout = new Date(checkOutDate);
-    oneDayAfterCheckout.setDate(oneDayAfterCheckout.getDate() + 1);
-
-    if (now < checkOutDate) {
-      return res.status(400).json({
-        error: "Cannot checkout before the scheduled check-out date",
-      });
-    }
-
-    if (now > oneDayAfterCheckout) {
-      return res.status(400).json({
-        error: "Checkout period has expired",
+    // Check if booking is in valid state for checkout
+    if (booking.status !== "confirmed") {
+      return res.status(400).json({ 
+        error: "Booking must be confirmed before checkout" 
       });
     }
 
@@ -4965,58 +4954,36 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
     booking.status = "completed";
     await booking.save();
 
-    // Create notification for the host
-    await createNotification(
-      "booking_completed",
-      "Booking Completed",
-      `Booking #${booking._id} for ${booking.place.title} has been completed by ${booking.user.name}`,
-      `/host/bookings/${booking._id}`,
-      booking.place.owner // host's user ID
-    );
-
-    // Send confirmation email
-    try {
-      await transporter.sendMail({
-        from: {
-          name: "HelloB",
-          address: process.env.EMAIL_USER,
-        },
-        to: booking.user.email,
-        subject: "Checkout Confirmation - HelloB",
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Checkout Confirmed</h2>
-            <p>Your checkout for ${booking.place.title} has been confirmed.</p>
-            <p><strong>Booking Details:</strong></p>
-            <ul>
-              <li>Check-out Date: ${new Date(
-                booking.check_out
-              ).toLocaleDateString()}</li>
-              <li>Booking ID: ${booking._id}</li>
-            </ul>
-            <p>Thank you for choosing HelloB!</p>
-          </div>
-        `,
-      });
-    } catch (emailError) {
-      console.error("Failed to send checkout confirmation email:", emailError);
-      // Continue with the response even if email fails
-    }
+    // Create notification for host
+    await Notification.create({
+      type: "booking",
+      title: "Booking Completed",
+      message: `Booking #${booking._id} has been checked out`,
+      recipient: booking.place.owner,
+      link: `/host/bookings/${booking._id}`,
+      priority: "normal",
+      category: "booking",
+      metadata: {
+        bookingId: booking._id,
+        placeId: booking.place._id,
+        userId: booking.user._id
+      }
+    });
 
     res.json({
-      message: "Checkout confirmed successfully",
-      booking: {
-        id: booking._id,
-        status: booking.status,
-        checkOutDate: booking.check_out,
-      },
+      success: true,
+      message: "Checkout successful",
+      booking
     });
+
   } catch (error) {
-    console.error("Error confirming checkout:", error);
-    res.status(500).json({ error: "Failed to confirm checkout" });
+    console.error("Checkout error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to process checkout"
+    });
   }
 });
-
 // Enhanced notification helper function with priority levels and categories
 const createNotification = async (
   type,
@@ -5306,163 +5273,96 @@ const autoCompleteBookings = async () => {
     const oneDayAgo = new Date();
     oneDayAgo.setDate(oneDayAgo.getDate() - 1);
 
+    // Find bookings that need auto-completion
     const bookingsToComplete = await Booking.find({
       status: "confirmed",
-      check_out: { $lte: oneDayAgo },
+      check_out: { $lte: oneDayAgo }
     })
-      .populate("place")
-      .populate("user", "name email");
+    .populate("place")
+    .populate("user", "name email");
 
     for (const booking of bookingsToComplete) {
+      // Update booking status
       booking.status = "completed";
       await booking.save();
 
-      // Add this helper function at the top of your file
-      const getAdminUserId = async () => {
-        try {
-          const admin = await User.findOne({ role: 'admin' });
-          if (!admin) {
-            throw new Error('No admin user found');
-          }
-          return admin._id;
-        } catch (error) {
-          console.error('Error finding admin user:', error);
-          throw error;
-        }
-      };
+      // Get admin user for notifications
+      const admin = await User.findOne({ role: "admin" });
+      if (!admin) {
+        console.error("No admin user found for notifications");
+        continue;
+      }
 
-      // Update the createNotification function
-      const createNotification = async (type, title, message, link, recipientId, options = {}) => {
-        try {
-          // If recipientId is 'admin', get the actual admin user ID
-          const actualRecipientId = recipientId === 'admin' 
-            ? await getAdminUserId()
-            : recipientId;
-
-          if (!actualRecipientId) {
-            throw new Error('Valid recipient ID is required');
-          }
-
-          const notification = await Notification.create({
-            type,
-            title,
-            message,
-            link,
-            recipient: actualRecipientId,
-            priority: options.priority || 'normal',
-            category: options.category || 'general',
-            metadata: options.metadata || {},
-            status: 'unread'
-          });
-
-          return notification;
-        } catch (error) {
-          console.error('Error creating notification:', error);
-          throw error;
-        }
-      };
-
-      // Update the auto-complete bookings notification
-      const autoCompleteBookings = async () => {
-        try {
-          // ... existing code ...
-        } catch (error) {
-          console.error("Critical: Auto-complete bookings failed:", error);
-
-          const adminId = await getAdminUserId();
-
-          await createNotification(
-            'system_error',
-            'Auto-Complete Bookings Failed',
-            'The automatic booking completion process has failed. Manual intervention may be required.',
-            '/admin/bookings',
-            adminId,
-            {
-              priority: 'high',
-              category: 'system',
-              metadata: {
-                error: error.message,
-                timestamp: new Date(),
-              },
-            }
-          );
-        }
-      };
-
-      // Update the booking auto-completed notification
-      // Inside the for loop in autoCompleteBookings
-      await createNotification(
-        'booking_auto_completed',
-        'Booking Auto-Completed',
-        `Booking #${booking._id} for ${booking.place.title} has been automatically completed`,
-        `/host/bookings/${booking._id}`,
-        booking.place.owner,
-        {
-          priority: 'normal',
-          category: 'booking',
+      // Create notifications for all parties
+      try {
+        // Notify host
+        await Notification.create({
+          type: "booking",
+          title: "Booking Auto-Completed",
+          message: `Booking #${booking._id} has been automatically completed`,
+          recipient: booking.place.owner,
+          link: `/host/bookings/${booking._id}`,
+          priority: "normal",
+          category: "booking",
           metadata: {
             bookingId: booking._id,
             placeId: booking.place._id,
-            revenue: booking.price,
-          },
-        }
-      );
-
-      try {
-        await transporter.sendMail({
-          from: {
-            name: "HelloB",
-            address: process.env.EMAIL_USER,
-          },
-          to: booking.user.email,
-          subject: "Booking Auto-Completed - HelloB",
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Booking Auto-Completed</h2>
-              <p>Your booking for ${
-                booking.place.title
-              } has been automatically completed.</p>
-              <p><strong>Booking Details:</strong></p>
-              <ul>
-                <li>Check-out Date: ${new Date(
-                  booking.check_out
-                ).toLocaleDateString()}</li>
-                <li>Booking ID: ${booking._id}</li>
-              </ul>
-              <p>Thank you for choosing HelloB!</p>
-            </div>
-          `,
+            userId: booking.user._id,
+            autoCompleted: true
+          }
         });
-      } catch (emailError) {
-        // Email sending failed, but booking is still completed
+
+        // Notify guest
+        await Notification.create({
+          type: "booking",
+          title: "Booking Completed",
+          message: `Your stay at ${booking.place.title} has been completed`,
+          recipient: booking.user._id,
+          link: `/account/bookings/${booking._id}`,
+          priority: "normal",
+          category: "booking",
+          metadata: {
+            bookingId: booking._id,
+            placeId: booking.place._id,
+            autoCompleted: true
+          }
+        });
+
+        // Notify admin
+        await Notification.create({
+          type: "booking",
+          title: "Booking Auto-Completed",
+          message: `System auto-completed booking #${booking._id}`,
+          recipient: admin._id,
+          link: `/admin/bookings/${booking._id}`,
+          priority: "low",
+          category: "system",
+          metadata: {
+            bookingId: booking._id,
+            placeId: booking.place._id,
+            userId: booking.user._id,
+            autoCompleted: true
+          }
+        });
+
+      } catch (notificationError) {
+        console.error("Failed to create notifications:", notificationError);
+        // Continue processing other bookings even if notifications fail
       }
     }
-  } catch (error) {
-    console.error("Critical: Auto-complete bookings failed:", error);
 
-    await createNotification(
-      'system_error',
-      'Auto-Complete Bookings Failed',
-      'The automatic booking completion process has failed. Manual intervention may be required.',
-      '/admin/bookings',
-      'admin', // Explicitly specify the recipient
-      {
-        priority: 'high',
-        category: 'system',
-        metadata: {
-          error: error.message,
-          timestamp: new Date(),
-        },
-      }
-    );
+    console.log(`Auto-completed ${bookingsToComplete.length} bookings`);
+
+  } catch (error) {
+    console.error("Auto-completion error:", error);
   }
 };
 
-// Run the auto-complete task every 24 hours
-setInterval(autoCompleteBookings, 24 * 60 * 60 * 1000);
+// Set up auto-checkout to run every hour
+setInterval(autoCompleteBookings, 60 * 60 * 1000);
 
-// Run it once when the server starts
-autoCompleteBookings();
+// Run once at startup
+autoCompleteBookings().catch(console.error);
 
 // GET Chat Messages
 app.get("/api/chats/:chatId", authenticateToken, async (req, res) => {
