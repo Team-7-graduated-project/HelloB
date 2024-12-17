@@ -25,8 +25,7 @@ export default function AnnouncementForm() {
 
   const announcementTypes = [
     { value: 'revenue', label: 'Revenue', icon: <FaMoneyBillWave className="text-green-500" /> },
-    { value: 'bookings', label: 'Bookings', icon: <FaCalendarAlt className="text-blue-500" /> },
-    { value: 'visitors', label: 'Visitors', icon: <FaUsers className="text-purple-500" /> }
+    { value: 'bookings', label: 'Bookings', icon: <FaCalendarAlt className="text-blue-500" /> }
   ];
 
   const periodTypes = [
@@ -86,7 +85,7 @@ export default function AnnouncementForm() {
               <label className="block text-sm font-medium text-gray-700">
                 Announcement Type
               </label>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 {announcementTypes.map((type) => (
                   <button
                     key={type.value}
@@ -145,6 +144,9 @@ export default function AnnouncementForm() {
             <button
               type="submit"
               disabled={isLoading}
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
               className="w-full bg-primary text-white py-4 rounded-xl hover:bg-primary-dark 
                        transition-all duration-200 flex items-center justify-center gap-3
                        disabled:opacity-70 disabled:cursor-not-allowed"
@@ -153,6 +155,7 @@ export default function AnnouncementForm() {
                 <>
                   <FaSpinner className="animate-spin" />
                   Creating Announcement...
+                  
                 </>
               ) : (
                 <>

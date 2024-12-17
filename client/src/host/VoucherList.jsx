@@ -13,17 +13,26 @@ export default function VoucherListPage() {
   // Update fetchVouchers function
   const fetchVouchers = async () => {
     try {
+      setLoading(true);
       const response = await axios.get("/host/vouchers", {
         withCredentials: true,
       });
-      // Sort vouchers by expiration date (oldest first)
-      const sortedVouchers = response.data.sort((a, b) => 
-        new Date(b.expirationDate) - new Date(a.expirationDate)
-      );
-      setVouchers(sortedVouchers);
+      
+      if (response.data && Array.isArray(response.data)) {
+        // Sort vouchers by expiration date (oldest first)
+        const sortedVouchers = response.data.sort((a, b) => 
+          new Date(b.expirationDate) - new Date(a.expirationDate)
+        );
+        setVouchers(sortedVouchers);
+      } else {
+        throw new Error("Invalid response format");
+      }
     } catch (error) {
       console.error("Error fetching vouchers:", error);
       setError("Failed to fetch vouchers");
+      setVouchers([]); // Clear vouchers on error
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -31,21 +40,32 @@ export default function VoucherListPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setLoading(true);
         const [vouchersRes, placesRes] = await Promise.all([
           axios.get("/host/vouchers"),
           axios.get("/host/places"),
         ]);
 
-        // Sort vouchers by expiration date (oldest first)
-        const sortedVouchers = vouchersRes.data.sort((a, b) => 
-          new Date(b.expirationDate) - new Date(a.expirationDate)
-        );
+        if (vouchersRes.data && Array.isArray(vouchersRes.data)) {
+          // Sort vouchers by expiration date (oldest first)
+          const sortedVouchers = vouchersRes.data.sort((a, b) => 
+            new Date(b.expirationDate) - new Date(a.expirationDate)
+          );
+          setVouchers(sortedVouchers);
+        } else {
+          throw new Error("Invalid vouchers response format");
+        }
 
-        setVouchers(sortedVouchers);
-        setPlaces(placesRes.data);
+        if (placesRes.data && Array.isArray(placesRes.data)) {
+          setPlaces(placesRes.data);
+        } else {
+          throw new Error("Invalid places response format");
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
         setError("Error loading data.");
+        setVouchers([]); // Clear vouchers on error
+        setPlaces([]); // Clear places on error
       } finally {
         setLoading(false);
       }
@@ -193,6 +213,9 @@ export default function VoucherListPage() {
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2">
                       <Link
+                      onClick={() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
                         to={`edit/${voucher._id}`}
                         className="inline-flex items-center px-3 py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                       >
@@ -200,7 +223,10 @@ export default function VoucherListPage() {
                         Edit
                       </Link>
                       <button
-                        onClick={() => handleDelete(voucher._id)}
+                        onClick={() => {
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                          handleDelete(voucher._id);
+                        }}
                         className="inline-flex items-center px-3 py-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                       >
                         <FaTrash className="mr-1" />
@@ -222,6 +248,9 @@ export default function VoucherListPage() {
             <p className="text-gray-500 mb-6">Start by creating your first voucher</p>
             <Link
               to="/host/vouchers/new"
+              onClick={() => {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
               className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
             >
               <FaPlus className="mr-2" />

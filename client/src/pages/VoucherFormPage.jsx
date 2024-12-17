@@ -268,21 +268,21 @@ export default function VoucherFormPage() {
         applicablePlaces: selectedPlaces,
       };
 
-      let response;
       if (id) {
-        response = await axios.put(`/host/vouchers/${id}`, voucherData);
-        if (!response.data.success) {
-          throw new Error(response.data.error || 'Failed to update voucher');
+        const response = await axios.put(`/host/vouchers/${id}`, voucherData);
+        if (response.data && response.data._id) {  // Check for actual voucher data
+          navigate('/host/vouchers');
+        } else {
+          throw new Error('Failed to update voucher');
         }
       } else {
-        response = await axios.post('/host/vouchers', voucherData);
-        if (!response.data.success) {
-          throw new Error(response.data.error || 'Failed to create voucher');
+        const response = await axios.post('/host/vouchers', voucherData);
+        if (response.data && response.data._id) {  // Check for actual voucher data
+          navigate('/host/vouchers');
+        } else {
+          throw new Error('Failed to create voucher');
         }
       }
-
-      // Only navigate if successful
-      navigate('/host/vouchers');
     } catch (error) {
       console.error('Voucher save error:', error);
       setError(error.response?.data?.error || error.message || 'Failed to save voucher');
@@ -594,7 +594,10 @@ export default function VoucherFormPage() {
         <div className="p-6 bg-gray-50 rounded-b-2xl flex items-center justify-end gap-4">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+              navigate(-1);
+            }}
             className="px-6 py-2.5 rounded-lg border border-red-500 text-red-500 hover:bg-red-500 hover:text-white transition-colors"
           >
             Cancel
@@ -602,6 +605,9 @@ export default function VoucherFormPage() {
           <button
             type="submit"
             disabled={loading || Object.keys(formErrors).length > 0}
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
             className={`
               px-6 py-2.5 rounded-lg font-medium
               transition-all duration-200
