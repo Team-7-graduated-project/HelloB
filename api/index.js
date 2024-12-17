@@ -87,17 +87,13 @@ app.use(
       "https://hello-b.vercel.app",
       "https://clientt-g7c3.onrender.com",
       "https://hello-b.onrender.com",
-      "https://hellob-be.onrender.com"  // Add your API domain
+      "https://hellob-be.onrender.com",
+      "https://accounts.google.com"
     ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allowedHeaders: [
-      "Content-Type", 
-      "Authorization", 
-      "X-Requested-With",
-      "Accept"
-    ],
-    exposedHeaders: ["Set-Cookie"],
+    methods: ["GET", "POST", "PUT", DELETE, "OPTIONS", "PATCH"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Set-Cookie"]
   })
 );
 
@@ -109,13 +105,9 @@ cloudinary.config({
 
 // Add security headers middleware
 app.use((req, res, next) => {
-  // Remove COOP header or set it to same-origin-allow-popups
-  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
-
-  // Add other security headers
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  res.setHeader("Cross-Origin-Embedder-Policy", "credentialless");
-
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
   next();
 });
 
@@ -3732,32 +3724,7 @@ app.get("/bookings/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// Add this new endpoint to index.js
-app.get("/bookings/unavailable-dates/:placeId", async (req, res) => {
-  try {
-    const { placeId } = req.params;
-
-    // Find all bookings for this place that haven't ended yet
-    const bookings = await Booking.find(
-      {
-        place: placeId,
-        check_out: { $gte: new Date() },
-      },
-      {
-        check_in: 1,
-        check_out: 1,
-        _id: 0,
-      }
-    );
-
-    res.json(bookings);
-  } catch (error) {
-    console.error("Error fetching unavailable dates:", error);
-    res.status(500).json({ error: "Failed to fetch unavailable dates" });
-  }
-});
-
-// Add this route to get all bookings for a user
+// Add this new endpoint to get all bookings for a user
 app.get("/bookings", authenticateToken, async (req, res) => {
   try {
     const userId = req.userData.id;
@@ -3837,69 +3804,85 @@ const validatePhoneNumber = (phone) => {
   return /^\d{10}$/.test(cleanPhone);
 };
 
-// Add this new route
+// Google OAuth verification function
+const verifyGoogleToken = async (token) => {
+  try {
+    const ticket = await client.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    return ticket.getPayload();
+  } catch (error) {
+    console.error('Google token verification error:', error);
+    throw error;
+  }
+};
+
+// Google login route
 app.post("/auth/google", async (req, res) => {
   try {
     const { credential } = req.body;
+    const payload = await verifyGoogleToken(credential);
 
-    if (!credential) {
-      console.error("No credential provided");
-      return res.status(400).json({ error: "No credential provided" });
-    }
-
-    // Verify Google token
-    const ticket = await client.verifyIdToken({
-      idToken: credential,
-      audience: process.env.GOOGLE_CLIENT_ID,
-    });
-
-    const payload = ticket.getPayload();
-
-    // Check if user exists
     let user = await User.findOne({ email: payload.email });
-
+    
     if (!user) {
+      // Create new user if doesn't exist
       user = await User.create({
         name: payload.name,
         email: payload.email,
         picture: payload.picture,
         googleId: payload.sub,
-        authProvider: "google",
-        isActive: true,
+        authProvider: 'google',
+        emailVerified: true
       });
-    } else {
-      if (user.authProvider !== "google") {
-        return res.status(400).json({
-          error: "Email already registered with different method",
-        });
-      }
     }
 
-    // Create JWT token
+    // Create tokens
     const token = jwt.sign(
       {
-        email: user.email,
         id: user._id,
+        email: user.email,
         name: user.name,
-        role: user.role,
+        role: user.role
       },
       jwtSecret,
-      { expiresIn: "1h" }
+      { expiresIn: '24h' }
     );
 
+    const refreshToken = jwt.sign(
+      { id: user._id },
+      JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Set cookies and send response
     res
-      .cookie("token", token, {
+      .cookie('token', token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "none", // Changed from 'strict' to 'none' for OAuth redirect
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'none',
+        maxAge: 24 * 60 * 60 * 1000
       })
-      .json(user);
+      .cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'none',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      })
+      .json({
+        user: {
+          ...user.toObject(),
+          password: undefined
+        },
+        token
+      });
+
   } catch (error) {
-    console.error("Google auth error:", error);
+    console.error('Google auth error:', error);
     res.status(500).json({
-      error: "Authentication failed",
-      details:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
+      error: 'Authentication failed',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

@@ -2,7 +2,7 @@ import { useContext, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import axios from "axios";
 import { UserContext } from "../UserContext";
-import { GoogleLogin } from "@react-oauth/google";
+import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import { TextInput } from "../TextInput";
 
 export default function HostLogin() {
@@ -162,30 +162,39 @@ export default function HostLogin() {
             </div>
           </div>
 
-          <div className="mt-4">
-            <GoogleLogin
-              onSuccess={async (credentialResponse) => {
-                try {
-                  const response = await axios.post(
-                    "/host/auth/google",
-                    credentialResponse,
-                    {
-                      withCredentials: true,
+          <div className="mt-4 text-center flex justify-center">
+            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+              <GoogleLogin
+                onSuccess={async (credentialResponse) => {
+                  try {
+                    const response = await axios.post(
+                      "/host/auth/google",
+                      credentialResponse,
+                      {
+                        withCredentials: true,
+                        headers: {
+                          'Content-Type': 'application/json'
+                        }
+                      }
+                    );
+                    if (response.data.user) {
+                      setUser(response.data.user);
+                      localStorage.setItem('token', response.data.token);
+                      navigate('/host/hostdashboard');
                     }
-                  );
-                  setUser(response.data);
-                  setRedirect(true);
-                } catch (error) {
-                  console.error("Google login error:", error);
-                  setErrorMessage(
-                    error.response?.data?.error || "Google login failed"
-                  );
-                }
-              }}
-              onError={() => {
-                setErrorMessage("Google login failed");
-              }}
-            />
+                  } catch (error) {
+                    console.error("Google login error:", error);
+                    setErrorMessage(error.response?.data?.error || "Google login failed");
+                  }
+                }}
+                onError={() => {
+                  setErrorMessage("Google login failed");
+                }}
+                useOneTap={false}
+                cookiePolicy={'single_host_origin'}
+                popupType="window"
+              />
+            </GoogleOAuthProvider>
           </div>
         </div>
 

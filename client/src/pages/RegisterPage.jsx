@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { TextInput } from "../TextInput";
 import "../App.css";
-import { GoogleLogin } from "@react-oauth/google";
+import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import TermsModal from "../components/TermsModal";
 import PrivacyModal from "../components/PrivacyModal";
 
@@ -318,12 +318,37 @@ export default function RegisterPage() {
             </div>
 
             <div className="mt-4 text-center flex justify-center">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => {
-                  setErrorMessage("Google registration failed");
-                }}
-              />
+              <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                <GoogleLogin
+                  onSuccess={async (credentialResponse) => {
+                    try {
+                      const response = await axios.post(
+                        "/auth/google/register",
+                        credentialResponse,
+                        {
+                          withCredentials: true,
+                          headers: {
+                            'Content-Type': 'application/json'
+                          }
+                        }
+                      );
+                      setSuccessMessage("Registration successful");
+                      setTimeout(() => {
+                        navigate('/login');
+                      }, 2000);
+                    } catch (error) {
+                      console.error("Google registration error:", error);
+                      setErrorMessage(error.response?.data?.error || "Google registration failed");
+                    }
+                  }}
+                  onError={() => {
+                    setErrorMessage("Google registration failed");
+                  }}
+                  useOneTap={false}
+                  cookiePolicy={'single_host_origin'}
+                  popupType="window"
+                />
+              </GoogleOAuthProvider>
             </div>
           </div>
         </div>

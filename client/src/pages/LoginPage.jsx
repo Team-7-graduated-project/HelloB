@@ -125,31 +125,6 @@ export default function LoginPage() {
     }
   }
 
-  const handleGoogleSuccess = async (credentialResponse) => {
-    try {
-      const response = await axios.post("/auth/google", credentialResponse, {
-        withCredentials: true,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      // Check if the user is deactivated
-      if (response.data.user && response.data.user.isActive === false) {
-        setErrorMessage("Account deactivated");
-        return;
-      }
-
-      // If active, set user and token
-      setUser(response.data.user);
-      localStorage.setItem("token", response.data.token);
-      setRedirect(true);
-    } catch (error) {
-      console.error("Google login error:", error);
-      setErrorMessage(error.response?.data?.error || "Google login failed");
-    }
-  };
-
   const isFormComplete = () => {
     return email && password;
   };
@@ -278,20 +253,40 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-4 text-center flex justify-center">
-            <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+            <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
               <GoogleLogin
-                onSuccess={handleGoogleSuccess}
+                onSuccess={async (credentialResponse) => {
+                  try {
+                    const response = await axios.post(
+                      "/auth/google",
+                      credentialResponse,
+                      {
+                        withCredentials: true,
+                        headers: {
+                          'Content-Type': 'application/json'
+                        }
+                      }
+                    );
+                    if (response.data.user) {
+                      setUser(response.data.user);
+                      localStorage.setItem('token', response.data.token);
+                      if (response.data.user.role === 'admin') {
+                        navigate('/admin');
+                      } else {
+                        navigate('/');
+                      }
+                    }
+                  } catch (error) {
+                    console.error("Google login error:", error);
+                    setErrorMessage(error.response?.data?.error || "Google login failed");
+                  }
+                }}
                 onError={() => {
-                  console.error("Google login failed");
                   setErrorMessage("Google login failed");
                 }}
                 useOneTap={false}
-                theme="outline"
-                size="large"
-                text="continue_with"
-                shape="rectangular"
+                cookiePolicy={'single_host_origin'}
                 popupType="window"
-                cookiePolicy={"single_host_origin"}
               />
             </GoogleOAuthProvider>
           </div>

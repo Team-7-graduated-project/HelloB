@@ -19,35 +19,19 @@ export default defineConfig(({ mode }) => {
           target: "http://localhost:3000",
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ""),
-          configure: (proxy) => {
-            proxy.on("error", (err) => {
-              console.log("proxy error", err);
-            });
-            proxy.on("proxyReq", (proxyReq, req) => {
-              console.log(
-                "Sending Request to the Target:",
-                req.method,
-                req.url
-              );
-            });
-            proxy.on("proxyRes", (proxyRes, req) => {
-              console.log(
-                "Received Response from the Target:",
-                proxyRes.statusCode,
-                req.url
-              );
-            });
-          },
         },
       },
       headers: {
         "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
         "Cross-Origin-Resource-Policy": "cross-origin",
-        "Cross-Origin-Embedder-Policy": "credentialless",
+        "Cross-Origin-Embedder-Policy": "unsafe-none",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     },
     define: {
-      __GOOGLE_CLIENT_ID__: JSON.stringify(env.VITE_GOOGLE_CLIENT_ID || ""),
+      __GOOGLE_CLIENT_ID__: JSON.stringify(env.VITE_GOOGLE_CLIENT_ID),
     },
   };
 });

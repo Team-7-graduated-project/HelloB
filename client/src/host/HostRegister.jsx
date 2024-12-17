@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { TextInput } from "../TextInput";
-import { GoogleLogin } from "@react-oauth/google";
+import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 import TermsModal from "../components/TermsModal";
 import PrivacyModal from "../components/PrivacyModal";
 
@@ -330,13 +330,41 @@ export default function HostRegisterPage() {
               </div>
             </div>
 
-            <div className="mt-4">
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => {
-                  setErrorMessage("Google registration failed");
-                }}
-              />
+            <div className="mt-4 text-center flex justify-center">
+              <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+                <GoogleLogin
+                  onSuccess={async (credentialResponse) => {
+                    try {
+                      const response = await axios.post(
+                        "/host/auth/google/register",
+                        {
+                          ...credentialResponse,
+                          role: "host"
+                        },
+                        {
+                          withCredentials: true,
+                          headers: {
+                            'Content-Type': 'application/json'
+                          }
+                        }
+                      );
+                      setSuccessMessage("Registration successful");
+                      setTimeout(() => {
+                        navigate('/host/login');
+                      }, 2000);
+                    } catch (error) {
+                      console.error("Google registration error:", error);
+                      setErrorMessage(error.response?.data?.error || "Google registration failed");
+                    }
+                  }}
+                  onError={() => {
+                    setErrorMessage("Google registration failed");
+                  }}
+                  useOneTap={false}
+                  cookiePolicy={'single_host_origin'}
+                  popupType="window"
+                />
+              </GoogleOAuthProvider>
             </div>
           </div>
 
