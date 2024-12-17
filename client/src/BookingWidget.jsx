@@ -375,7 +375,7 @@ const checkDate = new Date(date);
               </div>
             ) : (
               `Book Now ${
-                numberOfNights > 0 ? • $${numberOfNights * place.price} : ""
+                numberOfNights > 0 ? `• $${numberOfNights * place.price}` : ""
               }`
             )}
           </button>
