@@ -1,5 +1,5 @@
 import { useContext, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { UserContext } from "../UserContext";
 import { TextInput } from "../TextInput";
@@ -9,6 +9,7 @@ import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [redirect, setRedirect] = useState(false);
