@@ -85,16 +85,21 @@ export default function BookingWidget({ place }) {
 
   const fetchUnavailableDates = useCallback(async () => {
     try {
-      const response = await axios.get(
-        `/bookings/unavailable-dates/${place._id}`
-      );
-      const bookedDates = response.data.map((booking) => ({
-        check_in: new Date(booking.check_in),
-        check_out: new Date(booking.check_out),
-      }));
-      setUnavailableDates(bookedDates);
+      const response = await axios.get(`/bookings/unavailable-dates/${place._id}`);
+      
+      if (Array.isArray(response.data)) {
+        const bookedDates = response.data.map((booking) => ({
+          check_in: new Date(booking.check_in),
+          check_out: new Date(booking.check_out),
+        }));
+        setUnavailableDates(bookedDates);
+      } else {
+        console.error("Invalid response format:", response.data);
+        setUnavailableDates([]);
+      }
     } catch (error) {
       console.error("Error fetching unavailable dates:", error);
+      // Don't show error to user, just set empty array
       setUnavailableDates([]);
     }
   }, [place._id]);
@@ -107,9 +112,14 @@ export default function BookingWidget({ place }) {
     if (!date) return false;
 
     const checkDate = new Date(date);
+    checkDate.setHours(0, 0, 0, 0); // Normalize time part
+
     return unavailableDates.some((booking) => {
       const startDate = new Date(booking.check_in);
       const endDate = new Date(booking.check_out);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+
       return checkDate >= startDate && checkDate <= endDate;
     });
   };
