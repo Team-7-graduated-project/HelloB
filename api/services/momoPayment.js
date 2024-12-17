@@ -3,10 +3,10 @@ const https = require("https");
 
 class MomoPayment {
   constructor() {
-    this.partnerCode = process.env.MOMO_PARTNER_CODE;
-    this.accessKey = process.env.MOMO_ACCESS_KEY;
-    this.secretKey = process.env.MOMO_SECRET_KEY;
-    this.endpoint = process.env.MOMO_ENDPOINT;
+    this.partnerCode = "MOMOBKUN20180529";
+    this.accessKey = "klm05TvNBzhg7h7j";
+    this.secretKey = "at67qH6mk8w5Y1nAyMoYKMWACiEi2bsa";
+    this.endpoint = "test-payment.momo.vn";
   }
 
   async createPayment({ amount, bookingId, userId }) {
@@ -23,7 +23,7 @@ class MomoPayment {
           userId,
           key: "payment",
           orderId: requestId,
-          returnUrl: `/account/bookings/${bookingId}`,
+          returnUrl: `${process.env.CLIENT_URL}/account/bookings/${bookingId}`,
           paymentId: null,
         })
       ).toString("base64");
@@ -46,22 +46,31 @@ class MomoPayment {
         .update(rawSignature)
         .digest("hex");
 
-      const requestBody = JSON.stringify({
-        partnerCode: this.partnerCode,
-        accessKey: this.accessKey,
-        requestId: requestId,
-        amount: amount,
-        orderId: orderId,
-        orderInfo: orderInfo,
-        redirectUrl: redirectUrl,
-        ipnUrl: ipnUrl,
-        extraData: extraData,
-        requestType: requestType,
-        signature: signature,
-        lang: "en",
-      });
-
       return new Promise((resolve, reject) => {
+        const requestBody = JSON.stringify({
+          partnerCode: this.partnerCode,
+          partnerName: "Test",
+          storeId: "MomoTestStore",
+          requestId: requestId,
+          amount: amount,
+          orderId: orderId,
+          orderInfo: orderInfo,
+          redirectUrl: redirectUrl,
+          ipnUrl: ipnUrl,
+          extraData: extraData,
+          requestType: requestType,
+          signature: signature,
+          lang: "vi",
+        });
+
+        console.log("MoMo Request:", {
+          body: JSON.parse(requestBody),
+          signature: signature,
+          rawSignature: rawSignature,
+          redirectUrl: redirectUrl,
+          bookingId: bookingId,
+        });
+
         const options = {
           hostname: this.endpoint,
           port: 443,
@@ -83,14 +92,21 @@ class MomoPayment {
           res.on("end", () => {
             try {
               const response = JSON.parse(data);
+              console.log("MoMo Response:", {
+                ...response,
+                bookingId: bookingId,
+                redirectUrl: redirectUrl,
+              });
               resolve(response);
             } catch (error) {
+              console.error("Error parsing MoMo response:", error);
               reject(error);
             }
           });
         });
 
         req.on("error", (error) => {
+          console.error("MoMo Request Error:", error);
           reject(error);
         });
 
@@ -98,7 +114,7 @@ class MomoPayment {
         req.end();
       });
     } catch (error) {
-      console.error("MoMo payment creation error:", error);
+      console.error("MoMo Service Error:", error);
       throw error;
     }
   }
