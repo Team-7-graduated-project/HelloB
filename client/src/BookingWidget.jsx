@@ -75,8 +75,12 @@ export default function BookingWidget({ place }) {
       return false;
     }
 
-    if (check_in && check_out && new Date(check_out) <= new Date(check_in)) {
-      return false;
+    if (check_in && check_out) {
+      const checkInDate = new Date(check_in);
+      const checkOutDate = new Date(check_out);
+      if (checkOutDate <= checkInDate) {
+        return false;
+      }
     }
 
     return (
@@ -86,7 +90,8 @@ export default function BookingWidget({ place }) {
       name &&
       phone &&
       max_guests > 0 &&
-      max_guests <= place.max_guests
+      max_guests <= place.max_guests &&
+      hasValidDates
     );
   };
 
@@ -144,10 +149,16 @@ export default function BookingWidget({ place }) {
     if (isDateUnavailable(date)) {
       setErrorMessage("This date is not available");
       setHasValidDates(false);
+      setCheckIn("");
     } else {
       setCheckIn(date);
       setErrorMessage("");
-      setHasValidDates(date && check_out && !isDateUnavailable(check_out));
+      if (check_out && new Date(check_out) <= new Date(date)) {
+        setErrorMessage("Check-out date must be after check-in date");
+        setHasValidDates(false);
+      } else {
+        setHasValidDates(date && check_out && !isDateUnavailable(check_out));
+      }
     }
   };
 
@@ -156,9 +167,11 @@ export default function BookingWidget({ place }) {
     if (isDateUnavailable(date)) {
       setErrorMessage("This date is not available");
       setHasValidDates(false);
+      setCheckOut("");
     } else if (check_in && new Date(date) <= new Date(check_in)) {
       setErrorMessage("Check-out date must be after check-in date");
       setHasValidDates(false);
+      setCheckOut("");
     } else {
       setCheckOut(date);
       setErrorMessage("");
@@ -380,9 +393,15 @@ export default function BookingWidget({ place }) {
               window.scrollTo({ top: 0, behavior: "smooth" });
               bookThisPlace();
             }}
-            disabled={!isFormValid() || loading || isDateUnavailable(check_in) || isDateUnavailable(check_out)}
+            disabled={
+              !isFormValid() || 
+              loading || 
+              isDateUnavailable(check_in) || 
+              isDateUnavailable(check_out) ||
+              !hasValidDates
+            }
             className={`w-full py-3 px-4 rounded-lg text-white font-medium transition-colors ${
-              isFormValid() && !loading && !isDateUnavailable(check_in) && !isDateUnavailable(check_out)
+              isFormValid() && !loading && !isDateUnavailable(check_in) && !isDateUnavailable(check_out) && hasValidDates
                 ? "bg-primary hover:bg-primary-dark"
                 : "bg-gray-300 cursor-not-allowed"
             }`}
@@ -406,7 +425,7 @@ export default function BookingWidget({ place }) {
                 </svg>
                 Processing...
               </div>
-            ) : isDateUnavailable(check_in) || isDateUnavailable(check_out) ? (
+            ) : !hasValidDates || isDateUnavailable(check_in) || isDateUnavailable(check_out) ? (
               "Selected dates are not available"
             ) : (
               `Book Now ${numberOfNights > 0 ? `• $${numberOfNights * place.price}` : ""}`
