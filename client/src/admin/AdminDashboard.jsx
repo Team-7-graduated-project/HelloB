@@ -25,6 +25,7 @@ import PropTypes from "prop-types";
 import ManageReportsPage from "./Report";
 import ManageBlogPage from "./Blog";
 import Announcement from "./Announcement";
+import axiosInstance from "../axiosConfig";
 
 
 const StatCard = ({ title, value, icon, trend }) => {
@@ -132,12 +133,17 @@ function AdminDashboard() {
   const fetchNotifications = async () => {
     try {
       setIsNotificationsLoading(true);
-      const response = await axios.get("/notifications", {
+      const response = await axiosInstance.get("/notifications", {
         withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
       });
       setNotifications(response.data);
     } catch (error) {
       console.error("Error fetching notifications:", error);
+      // Don't show error to user unless necessary
     } finally {
       setIsNotificationsLoading(false);
     }

@@ -87,13 +87,20 @@ app.use(
       "https://hello-b.vercel.app",
       "https://clientt-g7c3.onrender.com",
       "https://hello-b.onrender.com",
+      "https://hellob-be.onrender.com"  // Add your API domain
     ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: [
+      "Content-Type", 
+      "Authorization", 
+      "X-Requested-With",
+      "Accept"
+    ],
     exposedHeaders: ["Set-Cookie"],
   })
 );
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -2908,18 +2915,27 @@ app.get("/api/places/:id", async (req, res) => {
 // MoMo Payment Route
 
 // Get notifications
-app.get("/notifications", authenticateToken, async (req, res) => {
-  try {
-    const notifications = await Notification.find()
+app.get(
+  "/notifications",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const notifications = await Notification.find({
+        recipient: req.userData.id
+      })
       .sort({ createdAt: -1 })
-      .limit(10);
+      .limit(50);
 
-    res.json(notifications);
-  } catch (error) {
-    console.error("Error fetching notifications:", error);
-    res.status(500).json({ error: "Failed to fetch notifications" });
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to fetch notifications" 
+      });
+    }
   }
-});
+);
 
 // Mark notification as read
 app.put("/notifications/:id/read", authenticateToken, async (req, res) => {
@@ -4096,29 +4112,30 @@ app.put(
   }
 );
 
-// Get all reports (Admin only)
+
 app.get(
   "/api/admin/reports",
   authenticateToken,
   authorizeRole("admin"),
   async (req, res) => {
     try {
-      // Fetch reports with populated references
-      const reports = await Report.find({})
+      // Fetch reports with populated references and sort by latest first
+      const reports = await Report.find({ isDeleted: false })
         .populate("reportedBy", "name email")
         .populate("place", "title address photos")
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean(); // Convert to plain JavaScript objects
 
-      if (!reports) {
-        return res.status(404).json({
-          success: false,
-          error: "No reports found"
-        });
-      }
+      // Transform the data to ensure consistent structure
+      const formattedReports = reports.map(report => ({
+        ...report,
+        reportedBy: report.reportedBy || { name: 'Unknown User' },
+        place: report.place || { title: 'Deleted Place' }
+      }));
 
       res.json({
         success: true,
-        reports: reports
+        reports: formattedReports
       });
 
     } catch (error) {
@@ -4131,7 +4148,6 @@ app.get(
     }
   }
 );
-
 app.put(
   "/api/admin/reports/:id",
   authenticateToken,
