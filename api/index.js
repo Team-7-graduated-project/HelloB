@@ -2335,100 +2335,167 @@ app.get("/places/:id/host-places", async (req, res) => {
 // Update the payment-options endpoint
 app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
-    const {
-      bookingId,
-      userId,
-      amount,
-      paymentMethod,
-      selectedOption,
-      voucherCode,
-      discountAmount,
-    } = req.body;
+    const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount } = req.body;
 
-    // Validate booking exists
-    const booking = await Booking.findById(bookingId);
+    // Enhanced validation
+    if (!bookingId || !userId || !amount || !selectedOption) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: bookingId, userId, amount, or selectedOption"
+      });
+    }
+
+    // Validate the booking exists and belongs to the user
+    const booking = await Booking.findOne({ 
+      _id: bookingId,
+      user: userId 
+    });
+    
     if (!booking) {
-      return res.status(404).json({ error: "Booking not found" });
+      return res.status(404).json({ 
+        success: false,
+        message: "Booking not found or unauthorized" 
+      });
     }
 
-    // Create payment record
-    const paymentOption = new PaymentOption({
-      booking: bookingId,
-      user: userId,
-      method: paymentMethod,
-      amount: Number(amount),
-      status: paymentMethod === "payLater" ? "pending" : "completed",
-      ...(voucherCode && {
-        voucherCode,
-        discountAmount: Number(discountAmount),
-      }),
-    });
+    // Handle different payment options
+    if (selectedOption === "payLater") {
+      booking.paymentStatus = "pending";
+      booking.paymentMethod = "payLater";
+      booking.status = "pending";
+    } else if (selectedOption === "payNow") {
+      if (!paymentMethod) {
+        return res.status(400).json({
+          success: false,
+          message: "Payment method is required for pay now option"
+        });
+      }
 
-    await paymentOption.save();
-
-    // Update booking status based on payment method
-    const bookingUpdate = {
-      paymentStatus: paymentMethod === "payLater" ? "pending" : "paid",
-      paymentMethod: paymentMethod,
-      paymentId: paymentOption._id,
-      status: paymentMethod === "payLater" ? "pending" : "confirmed",
-    };
-
-    await Booking.findByIdAndUpdate(bookingId, bookingUpdate);
-
-    // If using voucher and not paying later, update voucher usage
-    if (voucherCode && paymentMethod !== "payLater") {
-      await Voucher.findOneAndUpdate(
-        { code: voucherCode },
-        {
-          $inc: { usedCount: 1 },
-          $push: {
-            usedBy: {
-              userId: userId,
+      // Handle different payment methods
+      switch (paymentMethod) {
+        case "momo":
+          try {
+            const momoResponse = await momoPayment.createPayment({
+              amount: amount,
               bookingId: bookingId,
-              usedAt: new Date(),
-            },
-          },
-        }
-      );
+              userId: userId
+            });
+
+            if (momoResponse.payUrl) {
+              booking.paymentStatus = "pending";
+              booking.paymentMethod = "momo";
+              booking.status = "pending";
+              
+              return res.json({
+                success: true,
+                paymentUrl: momoResponse.payUrl,
+                booking: {
+                  paymentStatus: booking.paymentStatus,
+                  paymentMethod: booking.paymentMethod,
+                  amount: amount,
+                  status: booking.status
+                }
+              });
+            }
+          } catch (momoError) {
+            console.error("MoMo payment error:", momoError);
+            return res.status(400).json({
+              success: false,
+              message: "Failed to create MoMo payment",
+              error: momoError.message
+            });
+          }
+          break;
+
+        case "card":
+          // Handle card payment
+          booking.paymentStatus = "paid";
+          booking.paymentMethod = "card";
+          booking.status = "confirmed";
+          break;
+
+        default:
+          return res.status(400).json({
+            success: false,
+            message: "Invalid payment method"
+          });
+      }
     }
 
-    await createNotification(
-      "payment",
-      "Payment Received",
-      `Payment of $${amount} received for booking #${bookingId}`,
-      `/admin/bookings/${bookingId}`
-    );
+    // Apply voucher if provided
+    if (voucherCode && discountAmount) {
+      const voucher = await Voucher.findOne({ code: voucherCode });
+      if (!voucher) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid voucher code"
+        });
+      }
+      booking.voucherCode = voucherCode;
+      booking.discountAmount = discountAmount;
+    }
 
-    res.status(201).json({
+    // Update booking payment details
+    booking.paymentAmount = amount;
+    await booking.save();
+
+    res.json({
       success: true,
-      message:
-        paymentMethod === "payLater"
-          ? "Pay at property option confirmed"
-          : "Payment processed successfully",
-      payment: {
-        id: paymentOption._id,
-        status: paymentOption.status,
-        method: paymentOption.method,
-      },
       booking: {
-        id: booking._id,
-        paymentStatus: bookingUpdate.paymentStatus,
-        paymentMethod: bookingUpdate.paymentMethod,
-      },
+        paymentStatus: booking.paymentStatus,
+        paymentMethod: booking.paymentMethod,
+        amount: booking.paymentAmount,
+        status: booking.status
+      }
     });
+
   } catch (error) {
-    console.error("Payment processing error:", {
-      message: error.message,
-      stack: error.stack,
-    });
+    console.error("Payment processing error:", error);
     res.status(500).json({
-      error: "Failed to process payment request",
-      message:
-        process.env.NODE_ENV === "development" ? error.message : undefined,
+      success: false,
+      message: "An unexpected error occurred while processing the payment",
+      error: error.message
     });
   }
 });
+
+// Update the card payment processing function
+async function processCardPayment(cardDetails, amount) {
+  try {
+    if (!cardDetails) return false;
+    
+    // Add proper validation
+    const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
+    
+    if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
+      return false;
+    }
+
+    // Validate card number format
+    const cleanCardNumber = cardNumber.replace(/\s/g, "");
+    if (cleanCardNumber.length !== 16) {
+      return false;
+    }
+
+    // Validate expiry date
+    const [month, year] = expiryDate.split("/");
+    if (!month || !year) return false;
+    
+    const now = new Date();
+    const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
+    if (expiry < now) {
+      return false;
+    }
+
+    // For testing: only approve specific test card numbers
+    const testCards = ["4111111111111111", "5555555555554444"];
+    return testCards.includes(cleanCardNumber);
+  } catch (error) {
+    console.error("Card processing error:", error);
+    return false;
+  }
+}
+
 app.post("/payment-options/momo", authenticateToken, async (req, res) => {
   try {
     const { bookingId, userId, amount } = req.body;
@@ -2717,7 +2784,6 @@ app.post("/payment-options/card", authenticateToken, async (req, res) => {
     });
   }
 });
-
 // Search endpoint for places
 app.get("/api/places/search", async (req, res) => {
   try {
