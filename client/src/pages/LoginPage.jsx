@@ -60,13 +60,11 @@ export default function LoginPage() {
         }
       );
 
-      console.log("Login response:", response.data);
-
       if (!response.data.user?.isActive) {
         setErrors((prev) => ({
           ...prev,
           general: `Account deactivated. Reason: ${
-            response.data.user?.reason || "Account has been deactivated"
+            response.data.user?.deactivationReason || "Account has been deactivated"
           }`,
         }));
         return;
@@ -77,24 +75,18 @@ export default function LoginPage() {
 
       // Redirect based on user role
       if (response.data.user.role === "host") {
-        setRedirect("/host");
+        navigate("/host");
       } else if (response.data.user.role === "admin") {
-        setRedirect("/admin");
+        navigate("/admin");
       } else {
-        setRedirect("/");
+        navigate("/");
       }
     } catch (e) {
-      console.error("Login error details:", {
-        status: e.response?.status,
-        data: e.response?.data,
-        message: e.message,
-      });
-
+      console.error("Login error:", e);
       if (e.response?.status === 401) {
         setErrors((prev) => ({
           ...prev,
-          general:
-            e.response.data.error || "Invalid credentials. Please try again.",
+          general: e.response.data.error || "Invalid credentials. Please try again.",
         }));
       } else if (e.response?.status === 404) {
         setErrors((prev) => ({

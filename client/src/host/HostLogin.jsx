@@ -87,6 +87,11 @@ export default function HostLogin() {
           email:
             "Host account not found. Please check your email or register as a host.",
         }));
+      } else if (e.response?.status === 403) {
+        setErrors((prev) => ({
+          ...prev,
+          general: "This account is not registered as a host.",
+        }));
       } else {
         setErrors((prev) => ({
           ...prev,

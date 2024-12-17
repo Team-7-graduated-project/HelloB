@@ -4149,39 +4149,43 @@ app.post("/host/auth/google", async (req, res) => {
 app.post("/host/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email, role: "host" });
+    const userDoc = await User.findOne({ email, role: "host" });
 
-    if (!user || !user.isActive) {
-      return res.status(401).json({
-        error: "Account is deactivated or does not exist",
-        isActive: user?.isActive || false,
-        reason: user?.reason || "Account has been deactivated",
-      });
+    if (!userDoc) {
+      return res.status(404).json({ error: "User not found" });
     }
 
     if (userDoc.role !== 'host') {
       return res.status(403).json({ error: "This account is not registered as a host" });
     }
 
-    const passOK = bcrypt.compareSync(password, user.password);
+    if (!userDoc.isActive) {
+      return res.status(401).json({
+        error: "Account is deactivated",
+        isActive: false,
+        reason: userDoc.deactivationReason || "Account has been deactivated"
+      });
+    }
+
+    const passOK = bcrypt.compareSync(password, userDoc.password);
     if (!passOK) {
-      return res.status(422).json({ error: "Invalid password" });
+      return res.status(401).json({ error: "Invalid password" });
     }
 
     // Create tokens and send response
     const token = jwt.sign(
       {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
+        id: userDoc._id,
+        email: userDoc.email,
+        name: userDoc.name,
+        role: userDoc.role,
       },
       jwtSecret,
       { expiresIn: '24h' }
     );
 
     const refreshToken = jwt.sign(
-      { id: user._id },
+      { id: userDoc._id },
       JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
@@ -4201,7 +4205,7 @@ app.post("/host/login", async (req, res) => {
       })
       .json({
         user: {
-          ...user.toObject(),
+          ...userDoc.toObject(),
           password: undefined
         },
         token
