@@ -4927,60 +4927,99 @@ app.post("/check-email", async (req, res) => {
 });
 
 // Add this new endpoint for checkout confirmation
+// Add this new endpoint for checkout confirmation
 app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const { earlyCheckout, earlyCheckoutFee } = req.body;
+
+    // Find booking and populate necessary fields
     const booking = await Booking.findById(id)
-      .populate("place")
+      .populate({
+        path: "place",
+        select: "title owner",
+        populate: {
+          path: "owner",
+          select: "_id"
+        }
+      })
       .populate("user", "name email");
 
     if (!booking) {
-      return res.status(404).json({ error: "Booking not found" });
+      return res.status(404).json({ 
+        success: false,
+        error: "Booking not found" 
+      });
     }
 
     // Verify user owns this booking
     if (booking.user._id.toString() !== req.userData.id) {
-      return res.status(403).json({ error: "Not authorized" });
+      return res.status(403).json({ 
+        success: false,
+        error: "Not authorized" 
+      });
     }
 
     // Check if booking is in valid state for checkout
-    if (booking.status !== "confirmed") {
+    if (booking.status !== "confirmed" || booking.paymentStatus !== "paid") {
       return res.status(400).json({ 
-        error: "Booking must be confirmed before checkout" 
+        success: false,
+        error: "Booking must be confirmed and paid before checkout" 
       });
+    }
+
+    // Handle early checkout
+    if (earlyCheckout) {
+      booking.earlyCheckoutFee = earlyCheckoutFee;
+      booking.totalAmount = booking.price + earlyCheckoutFee;
     }
 
     // Update booking status
     booking.status = "completed";
+    booking.checkoutDate = new Date();
     await booking.save();
 
     // Create notification for host
-    await Notification.create({
-      type: "booking",
-      title: "Booking Completed",
-      message: `Booking #${booking._id} has been checked out`,
-      recipient: booking.place.owner,
-      link: `/host/bookings/${booking._id}`,
-      priority: "normal",
-      category: "booking",
-      metadata: {
-        bookingId: booking._id,
-        placeId: booking.place._id,
-        userId: booking.user._id
+    if (booking.place && booking.place.owner) {
+      try {
+        await Notification.create({
+          type: "booking",
+          title: "Booking Completed",
+          message: `Booking #${booking._id} has been checked out`,
+          recipient: booking.place.owner._id,
+          link: `/host/bookings/${booking._id}`,
+          priority: "normal",
+          category: "booking",
+          metadata: {
+            bookingId: booking._id,
+            placeId: booking.place._id,
+            userId: booking.user._id,
+            earlyCheckout: !!earlyCheckout,
+            earlyCheckoutFee: earlyCheckoutFee || 0
+          }
+        });
+      } catch (notificationError) {
+        console.error("Failed to create notification:", notificationError);
+        // Continue execution even if notification fails
       }
-    });
+    }
 
     res.json({
       success: true,
       message: "Checkout successful",
-      booking
+      booking: {
+        ...booking.toObject(),
+        earlyCheckoutFee: booking.earlyCheckoutFee || 0,
+        totalAmount: booking.totalAmount || booking.price
+      }
     });
 
   } catch (error) {
     console.error("Checkout error:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to process checkout"
+      error: "Failed to process checkout",
+      message: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

@@ -74,6 +74,16 @@ const bookingSchema = new Schema(
     },
     isActive: { type: Boolean, default: true },
     isDeleted: { type: Boolean, default: false },
+    earlyCheckoutFee: {
+      type: Number,
+      default: 0
+    },
+    totalAmount: {
+      type: Number
+    },
+    checkoutDate: {
+      type: Date
+    }
   },
   {
     timestamps: true,
