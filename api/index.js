@@ -2500,54 +2500,85 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
   try {
     const { bookingId, userId, amount } = req.body;
 
-    // Validation checks
     if (!bookingId || !userId || !amount) {
       return res.status(400).json({
-        message: "Missing required fields: bookingId, userId, or amount",
+        success: false,
+        message: "Missing required fields"
       });
     }
 
+    // Create MoMo payment
+    const momoResponse = await momoPayment.createPayment({
+      amount: amount,
+      bookingId: bookingId,
+      userId: userId
+    });
+
+    if (!momoResponse || !momoResponse.payUrl) {
+      throw new Error("Failed to get MoMo payment URL");
+    }
+
     // Create payment record
-    const payment = await PaymentOption.create({
+    await PaymentOption.create({
       booking: bookingId,
       user: userId,
       method: "momo",
       amount: amount,
       status: "pending",
+      orderId: momoResponse.orderId || momoResponse.requestId
     });
 
-    try {
-      // Initialize MoMo payment
-      const momoResponse = await momoPayment.createPayment({
-        amount: Number(amount),
-        bookingId: bookingId,
-        userId: userId,
-      });
+    res.json({
+      success: true,
+      data: momoResponse.payUrl
+    });
 
-      if (!momoResponse || !momoResponse.payUrl) {
-        throw new Error("Failed to get payment URL from MoMo");
-      }
-
-      // Update payment record with orderId
-      await PaymentOption.findByIdAndUpdate(payment._id, {
-        orderId: momoResponse.orderId || momoResponse.requestId,
-      });
-
-      res.json({
-        data: momoResponse.payUrl,
-        success: true,
-      });
-    } catch (momoError) {
-      // Clean up payment record if MoMo request fails
-      await PaymentOption.findByIdAndDelete(payment._id);
-      throw momoError;
-    }
   } catch (error) {
     console.error("MoMo payment error:", error);
     res.status(400).json({
-      message: error.message || "Failed to process MoMo payment",
       success: false,
+      message: error.message || "Failed to process MoMo payment"
     });
+  }
+});
+
+// Update the MoMo notification handler
+app.post("/payment/momo/notify/:bookingId", async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const { resultCode, message, orderId, transId } = req.body;
+
+    if (resultCode === 0) {
+      // Payment successful
+      await Booking.findByIdAndUpdate(bookingId, {
+        paymentStatus: "paid",
+        status: "confirmed",
+        paymentId: transId
+      });
+
+      await PaymentOption.findOneAndUpdate(
+        { orderId: orderId },
+        { status: "completed" }
+      );
+
+      res.redirect(`${process.env.CLIENT_URL}/account/bookings/${bookingId}?payment=success`);
+    } else {
+      // Payment failed
+      await Booking.findByIdAndUpdate(bookingId, {
+        paymentStatus: "failed",
+        status: "pending"
+      });
+
+      await PaymentOption.findOneAndUpdate(
+        { orderId: orderId },
+        { status: "failed" }
+      );
+
+      res.redirect(`${process.env.CLIENT_URL}/account/bookings/${bookingId}?payment=failed`);
+    }
+  } catch (error) {
+    console.error("MoMo notification error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
 

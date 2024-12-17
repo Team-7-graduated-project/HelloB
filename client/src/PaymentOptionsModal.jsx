@@ -555,7 +555,24 @@ export default function PaymentOptionsModal({
     try {
       setIsProcessing(true);
       setErrorMessage("");
-      setSuccessMessage("");
+      
+      if (paymentMethod === "momo") {
+        // For MoMo payments, call the momo-specific endpoint
+        const response = await axios.post("/payment-options/momo", {
+          bookingId,
+          userId,
+          amount: Math.round(finalPrice * 23000),
+        }, {
+          withCredentials: true
+        });
+
+        if (response.data.success && response.data.data) {
+          // Redirect to MoMo payment page
+          window.location.href = response.data.data;
+          return;
+        }
+        throw new Error("Failed to get MoMo payment URL");
+      }
 
       // Validate payment method selection
       if (!selectedOption) {

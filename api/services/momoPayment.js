@@ -23,8 +23,6 @@ class MomoPayment {
           userId,
           key: "payment",
           orderId: requestId,
-          returnUrl: `${process.env.CLIENT_URL}/account/bookings/${bookingId}`,
-          paymentId: null,
         })
       ).toString("base64");
 
@@ -49,8 +47,7 @@ class MomoPayment {
       return new Promise((resolve, reject) => {
         const requestBody = JSON.stringify({
           partnerCode: this.partnerCode,
-          partnerName: "Test",
-          storeId: "MomoTestStore",
+          accessKey: this.accessKey,
           requestId: requestId,
           amount: amount,
           orderId: orderId,
@@ -60,7 +57,7 @@ class MomoPayment {
           extraData: extraData,
           requestType: requestType,
           signature: signature,
-          lang: "vi",
+          lang: "vi"
         });
 
         console.log("MoMo Request:", {
