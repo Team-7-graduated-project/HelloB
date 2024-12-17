@@ -2335,7 +2335,7 @@ app.get("/places/:id/host-places", async (req, res) => {
 // Update the payment-options endpoint
 app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
-    const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount, cardDetails } = req.body;
+    const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount } = req.body;
 
     // Enhanced validation
     if (!bookingId || !userId || !amount || !selectedOption) {
@@ -2358,44 +2358,67 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
       });
     }
 
-    // Validate payment method for payNow option
-    if (selectedOption === "payNow" && !paymentMethod) {
-      return res.status(400).json({
-        success: false,
-        message: "Payment method is required for pay now option"
-      });
-    }
-
     // Handle different payment options
     if (selectedOption === "payLater") {
       booking.paymentStatus = "pending";
       booking.paymentMethod = "payLater";
       booking.status = "pending";
     } else if (selectedOption === "payNow") {
-      if (paymentMethod === "card") {
-        if (!cardDetails) {
+      if (!paymentMethod) {
+        return res.status(400).json({
+          success: false,
+          message: "Payment method is required for pay now option"
+        });
+      }
+
+      // Handle different payment methods
+      switch (paymentMethod) {
+        case "momo":
+          try {
+            const momoResponse = await momoPayment.createPayment({
+              amount: amount,
+              bookingId: bookingId,
+              userId: userId
+            });
+
+            if (momoResponse.payUrl) {
+              booking.paymentStatus = "pending";
+              booking.paymentMethod = "momo";
+              booking.status = "pending";
+              
+              return res.json({
+                success: true,
+                paymentUrl: momoResponse.payUrl,
+                booking: {
+                  paymentStatus: booking.paymentStatus,
+                  paymentMethod: booking.paymentMethod,
+                  amount: amount,
+                  status: booking.status
+                }
+              });
+            }
+          } catch (momoError) {
+            console.error("MoMo payment error:", momoError);
+            return res.status(400).json({
+              success: false,
+              message: "Failed to create MoMo payment",
+              error: momoError.message
+            });
+          }
+          break;
+
+        case "card":
+          // Handle card payment
+          booking.paymentStatus = "paid";
+          booking.paymentMethod = "card";
+          booking.status = "confirmed";
+          break;
+
+        default:
           return res.status(400).json({
             success: false,
-            message: "Card details are required for card payment"
+            message: "Invalid payment method"
           });
-        }
-
-        // Process card payment
-        const isPaymentSuccessful = await processCardPayment(cardDetails, amount);
-        if (!isPaymentSuccessful) {
-          return res.status(400).json({ 
-            success: false,
-            message: "Card payment failed. Please check your details and try again." 
-          });
-        }
-        booking.paymentStatus = "paid";
-        booking.paymentMethod = "card";
-        booking.status = "confirmed";
-      } else {
-        return res.status(400).json({ 
-          success: false,
-          message: "Invalid payment method" 
-        });
       }
     }
 
@@ -2403,9 +2426,9 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
     if (voucherCode && discountAmount) {
       const voucher = await Voucher.findOne({ code: voucherCode });
       if (!voucher) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: "Invalid voucher code" 
+          message: "Invalid voucher code"
         });
       }
       booking.voucherCode = voucherCode;
@@ -2428,9 +2451,10 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error("Payment processing error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: "An unexpected error occurred while processing the payment. Please try again." 
+      message: "An unexpected error occurred while processing the payment",
+      error: error.message
     });
   }
 });
