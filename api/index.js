@@ -91,7 +91,7 @@ app.use(
       "https://accounts.google.com"
     ],
     credentials: true,
-    methods: ["GET", "POST", "PUT", DELETE, "OPTIONS", "PATCH"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], // Fixed: DELETE as string
     allowedHeaders: ["Content-Type", "Authorization"],
     exposedHeaders: ["Set-Cookie"]
   })
