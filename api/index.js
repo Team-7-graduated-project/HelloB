@@ -4852,6 +4852,7 @@ wss.on("connection", (ws, req) => {
       }
     }
   });
+});
 
 app.post("/send-host-email", authenticateToken, async (req, res) => {
   try {
@@ -6325,15 +6326,6 @@ app.get("/api/blog/:id", async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log("Server is running on http://localhost:3000");
-});
-const PORT = process.env.PORT || 4000;
-// Start the server of websocket
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
 // Add these routes for voucher management
 
 // Get single voucher
@@ -6420,4 +6412,13 @@ app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (r
     res.status(500).json({ error: "Failed to update voucher" });
   }
 });
-})
+
+
+app.listen(3000, () => {
+  console.log("Server is running on http://localhost:3000");
+});
+const PORT = process.env.PORT || 4000;
+// Start the server of websocket
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
