@@ -133,116 +133,106 @@ function ManageHostsPage() {
           ) : (
             <>
               {/* Hosts Table */}
-              <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+              <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                           Host Info
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                           Properties
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                           Total Revenue
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                           Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {filteredHosts.slice(0, visibleHosts).map((host) => (
-                        <tr key={host._id} className="hover:bg-gray-50">
+                        <tr key={host._id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="flex-shrink-0">
+                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <FaUserTie className="text-primary" /> 
+                                </div>
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-gray-900">{host.name}</span>
+                                <span className="text-sm text-gray-500">{host.email}</span>
+                                {host.phone && (
+                                  <span className="text-xs text-gray-400">{host.phone}</span>
+                                )}
+                                {host.password && (
+                                  <span className="text-xs text-gray-400">{maskPassword(host.password)}</span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {host.properties?.length || 0} properties
+                            </div>
+                          </td>
                           <td className="px-6 py-4">
                             <div className="flex flex-col">
-                              <span className="font-medium text-gray-900">
-                                {host.name}
+                              <span className="text-sm font-semibold text-gray-900">
+                                ${Number(host.totalPayments).toLocaleString(undefined, {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                })}
                               </span>
-                              <span className="text-sm text-gray-500">
-                                {host.email}
-                              </span>
-                              {host.phone && (
-                                <span className="text-sm text-gray-500">
-                                  {host.phone}
-                                </span>
-                              )}
-                              {host.password && (
-                                <span className="text-sm text-gray-500">
-                                  {maskPassword(host.password)}
-                                </span>
+                              {host.totalBookings > 0 && (
+                                <div className="text-xs text-gray-500">
+                                  {host.totalBookings} bookings · Avg: ${host.averageBookingValue}
+                                </div>
                               )}
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-900">
-                                {host.properties?.length || 0}
-                              </span>
-                              <span className="text-sm text-gray-500">
-                                {host.properties?.length === 1
-                                  ? "property"
-                                  : "properties"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm font-medium text-gray-900">
-                              ${Number(host.totalPayments).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              })}
-                            </span>
-                            {host.totalBookings > 0 && (
-                              <div className="text-xs text-gray-500">
-                                {host.totalBookings} bookings
-                                <br/>
-                                Avg: ${host.averageBookingValue}
-                              </div>
-                            )}
                           </td>
                           <td className="px-6 py-4">
                             <StatusToggle
                               user={host}
                               onStatusChange={(id, newStatus, reason) => {
                                 const updatedHosts = hosts.map((h) =>
-                                  h._id === id
-                                    ? { ...h, isActive: newStatus, reason }
-                                    : h
+                                  h._id === id ? { ...h, isActive: newStatus, reason } : h
                                 );
                                 setHosts(updatedHosts);
                                 setFilteredHosts(updatedHosts);
                               }}
                             />
                           </td>
-                          <td className="px-6 py-4 space-x-2">
-                            <button
-                              onClick={() => setEditingHost(host)}
-                              className="bg-blue-500 max-w-16 text-white px-2 py-2 rounded-md hover:bg-blue-600 mr-2"
-                            >
-                              <div className="flex items-center gap-2">
-                                <FaEdit />
+                          <td className="px-6 py-4">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => setEditingHost(host)}
+                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                              >
+                                <FaEdit className="mr-1.5" />
                                 Edit
-                              </div>
-                            </button>
-                            <button
-                              onClick={() => confirmDelete(host._id)}
-                              className="bg-red-500 text-white max-w-16 px-2 py-2 rounded-md hover:bg-red-600"
-                              disabled={deletingId === host._id}
-                            >
-                              {deletingId === host._id ? (
-                                <>
-                                  <FaSpinner className="animate-spin" />
-                                  <span>Deleting...</span>
-                                </>
-                              ) : (
-                                "Delete"
-                              )}
-                            </button>
+                              </button>
+                              <button
+                                onClick={() => confirmDelete(host._id)}
+                                disabled={deletingId === host._id}
+                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                              >
+                                {deletingId === host._id ? (
+                                  <>
+                                    <FaSpinner className="animate-spin mr-1.5" />
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  "Delete"
+                                )}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}

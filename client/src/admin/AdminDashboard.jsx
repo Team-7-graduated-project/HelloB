@@ -5,7 +5,6 @@ import { format } from "date-fns";
 import { Link, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import {
   FaUser,
-  FaHotel,
   FaMapMarkerAlt,
   FaChartLine,
   FaTimesCircle,
@@ -13,6 +12,7 @@ import {
   FaFlag,
   FaChartBar,
   FaBullhorn,
+  FaUserTie,
 } from "react-icons/fa";
 import { IoIosArrowForward, IoIosArrowDown } from "react-icons/io";
 import "./AdminDashboard.css";
@@ -337,7 +337,7 @@ function AdminDashboard() {
               className="p-3 mb-2 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-gray-700 w-full text-left flex justify-between items-center"
             >
               <span className="font-medium flex items-center">
-                <FaHotel className="mr-2" /> Manage Hosts
+                <FaUserTie className="mr-2" /> Manage Hosts
               </span>
               {openMenu.hosts ? (
                 <IoIosArrowDown className="text-gray-600" />
