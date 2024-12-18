@@ -393,7 +393,7 @@ export default function VoucherFormPage() {
           <button
             type="button"
             onClick={() => navigate('/host/vouchers')}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 max-w-10 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

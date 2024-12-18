@@ -192,8 +192,18 @@ function ManageHostsPage() {
                           </td>
                           <td className="px-6 py-4">
                             <span className="text-sm font-medium text-gray-900">
-                              ${host.totalPayments?.toLocaleString() || "0"}
+                              ${Number(host.totalPayments).toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              })}
                             </span>
+                            {host.totalBookings > 0 && (
+                              <div className="text-xs text-gray-500">
+                                {host.totalBookings} bookings
+                                <br/>
+                                Avg: ${host.averageBookingValue}
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             <StatusToggle

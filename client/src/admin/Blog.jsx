@@ -175,10 +175,10 @@ export default function ManageBlogPage() {
                 resetForm();
                 setShowForm(true);
               }}
-              className="px-6 py-2 bg-white/10 backdrop-blur-sm text-white rounded-xl hover:bg-white/20 transition-colors flex items-center gap-2"
+              className="px-6 max-w-44 py-2 bg-white/10 backdrop-blur-sm text-white rounded-xl hover:bg-white/20 transition-colors flex items-center gap-2"
             >
               <FaPlus />
-              New Post
+             Add New Post
             </button>
           )}
         </div>

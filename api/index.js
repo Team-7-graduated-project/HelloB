@@ -3408,64 +3408,71 @@ app.get(
   authorizeRole("admin"),
   async (req, res) => {
     try {
-      const hosts = await User.aggregate([
-        {
-          $match: { role: "host" },
-        },
-        {
-          $lookup: {
-            from: "places",
-            localField: "_id",
-            foreignField: "owner",
-            as: "properties",
-          },
-        },
-        {
-          $lookup: {
-            from: "bookings",
-            let: { hostProperties: "$properties._id" },
-            pipeline: [
-              {
-                $match: {
-                  $expr: { $in: ["$place", "$$hostProperties"] },
-                  status: "confirmed",
-                  paymentStatus: "paid",
-                },
-              },
-              {
-                $group: {
-                  _id: null,
-                  totalPayments: { $sum: "$price" },
-                },
-              },
-            ],
-            as: "bookings",
-          },
-        },
-        {
-          $project: {
-            _id: 1,
-            name: 1,
-            email: 1,
-            phone: 1,
-            password: 1,
-            isActive: 1,
-            properties: {
-              _id: 1,
-              title: 1,
-              status: 1,
-            },
-            totalPayments: {
-              $ifNull: [{ $arrayElemAt: ["$bookings.totalPayments", 0] }, 0],
-            },
-          },
-        },
-      ]);
+      // First get all hosts
+      const hosts = await User.find({ role: "host" }).select("-password");
 
-      res.json(hosts);
+      // Get detailed data for each host using aggregation
+      const hostsWithDetails = await Promise.all(
+        hosts.map(async (host) => {
+          // Get all properties for this host
+          const properties = await Place.find({ 
+            owner: host._id,
+            isActive: true,
+            isDeleted: false 
+          });
+
+          // Get all completed bookings for host's properties
+          const bookings = await Booking.aggregate([
+            {
+              $match: {
+                place: { $in: properties.map(p => p._id) },
+                status: "completed",
+                paymentStatus: "paid"
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                totalPayments: { $sum: "$price" },
+                totalBookings: { $sum: 1 }
+              }
+            }
+          ]);
+
+          // Calculate total revenue
+          const totalPayments = bookings.length > 0 ? bookings[0].totalPayments : 0;
+          const totalBookings = bookings.length > 0 ? bookings[0].totalBookings : 0;
+
+          // Return host data with additional details
+          return {
+            _id: host._id,
+            name: host.name,
+            email: host.email,
+            phone: host.phone,
+            isActive: host.isActive,
+            createdAt: host.createdAt,
+            properties: properties.map(p => ({
+              _id: p._id,
+              title: p.title,
+              status: p.status,
+              isActive: p.isActive
+            })),
+            totalPayments,
+            totalBookings,
+            averageBookingValue: totalBookings > 0 ? 
+              (totalPayments / totalBookings).toFixed(2) : 0
+          };
+        })
+      );
+
+      res.json(hostsWithDetails);
+
     } catch (error) {
       console.error("Error fetching hosts with properties:", error);
-      res.status(500).json({ error: "Failed to retrieve hosts data" });
+      res.status(500).json({ 
+        error: "Failed to fetch hosts data",
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
   }
 );
@@ -4844,7 +4851,6 @@ wss.on("connection", (ws, req) => {
       }
     }
   });
-});
 
 app.post("/send-host-email", authenticateToken, async (req, res) => {
   try {
@@ -6413,5 +6419,4 @@ app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (r
     res.status(500).json({ error: "Failed to update voucher" });
   }
 });
-
-// Add this somewhere in your initialization code
+})
