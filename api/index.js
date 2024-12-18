@@ -5578,82 +5578,102 @@ const autoCompleteBookings = async () => {
       status: "confirmed",
       check_out: { $lte: oneDayAgo }
     })
-    .populate("place")
+    .populate({
+      path: "place",
+      select: "title owner",
+      populate: {
+        path: "owner",
+        select: "_id name email"
+      }
+    })
     .populate("user", "name email");
 
     for (const booking of bookingsToComplete) {
-      // Update booking status
-      booking.status = "completed";
-      await booking.save();
-
-      // Get admin user for notifications
-      const admin = await User.findOne({ role: "admin" });
-      if (!admin) {
-        console.error("No admin user found for notifications");
-        continue;
-      }
-
-      // Create notifications for all parties
       try {
-        // Notify host
-        await sendNotification(
-          "booking",
-          "Booking Auto-Completed",
-          `Booking #${booking._id} has been automatically completed`,
-          `/host/bookings/${booking._id}`,
-          booking.place.owner,
-          {
-            priority: "normal",
-            category: "booking",
-            metadata: {
-              bookingId: booking._id,
-              placeId: booking.place._id,
-              userId: booking.user._id,
-              autoCompleted: true
-            }
-          }
-        );
+        // Make sure we have the place and owner information
+        if (!booking.place || !booking.place.owner) {
+          console.warn(`Skipping booking ${booking._id} - missing place or owner information`);
+          continue;
+        }
 
-        // Notify guest
-        await sendNotification(
-          "booking",
-          "Booking Completed",
-          `Your stay at ${booking.place.title} has been completed`,
-          `/account/bookings/${booking._id}`,
-          booking.user._id,
-          {
-            priority: "normal",
-            category: "booking",
-            metadata: {
-              bookingId: booking._id,
-              placeId: booking.place._id,
-              autoCompleted: true
-            }
-          }
-        );
+        // Set the owner from the place's owner
+        booking.owner = booking.place.owner._id;
+        booking.status = "completed";
+        await booking.save();
 
-        // Notify admin
-        await sendNotification(
-          "booking",
-          "Booking Auto-Completed",
-          `System auto-completed booking #${booking._id}`,
-          `/admin/bookings/${booking._id}`,
-          admin._id,
-          {
-            priority: "low",
-            category: "system",
-            metadata: {
-              bookingId: booking._id,
-              placeId: booking.place._id,
-              userId: booking.user._id,
-              autoCompleted: true
-            }
-          }
-        );
+        // Get admin user for notifications
+        const admin = await User.findOne({ role: "admin" });
+        if (!admin) {
+          console.warn("No admin user found for notifications");
+          continue;
+        }
 
-      } catch (notificationError) {
-        console.error("Failed to create notifications:", notificationError);
-        // Continue processing other bookings even if notifications fail
+        // Create notifications for all parties
+        try {
+          // Notify host
+          await sendNotification(
+            "booking",
+            "Booking Auto-Completed",
+            `Booking #${booking._id} has been automatically completed`,
+            `/host/bookings/${booking._id}`,
+            booking.place.owner._id,
+            {
+              priority: "normal",
+              category: "booking",
+              metadata: {
+                bookingId: booking._id,
+                placeId: booking.place._id,
+                userId: booking.user._id,
+                autoCompleted: true
+              }
+            }
+          );
+
+          // Notify guest
+          await sendNotification(
+            "booking",
+            "Booking Completed",
+            `Your stay at ${booking.place.title} has been completed`,
+            `/account/bookings/${booking._id}`,
+            booking.user._id,
+            {
+              priority: "normal",
+              category: "booking",
+              metadata: {
+                bookingId: booking._id,
+                placeId: booking.place._id,
+                autoCompleted: true
+              }
+            }
+          );
+
+          // Notify admin
+          await sendNotification(
+            "booking",
+            "Booking Auto-Completed",
+            `System auto-completed booking #${booking._id}`,
+            `/admin/bookings/${booking._id}`,
+            admin._id,
+            {
+              priority: "low",
+              category: "system",
+              metadata: {
+                bookingId: booking._id,
+                placeId: booking.place._id,
+                userId: booking.user._id,
+                autoCompleted: true
+              }
+            }
+          );
+
+        } catch (notificationError) {
+          console.error(`Failed to create notifications for booking ${booking._id}:`, notificationError);
+          // Continue processing other bookings even if notifications fail
+        }
+      } catch (bookingError) {
+        console.error(`Failed to auto-complete booking ${booking._id}:`, bookingError);
+        // Continue with next booking
+        continue;
       }
     }
 
@@ -5662,7 +5682,7 @@ const autoCompleteBookings = async () => {
   } catch (error) {
     console.error("Auto-completion error:", error);
   }
-}; // Add this closing brace
+};
 
 // Remove both intervals and replace with one
 setInterval(async () => {
