@@ -2,12 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import PlaceImg from "../PlaceImg";
 import ErrorBoundary from "../components/ErrorBoundary";
-import {
-  FaSpinner,
-  FaSearch,
-  FaMapMarkerAlt,
-  FaCalendarAlt,
-} from "react-icons/fa";
+import { FaSpinner, FaSearch, FaCalendarAlt } from "react-icons/fa";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 
 function PlacesList() {
@@ -127,7 +122,9 @@ function PlacesList() {
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold mb-2">Property Management</h1>
-            <p className="text-white/80">Manage and monitor all listed properties</p>
+            <p className="text-white/80">
+              Manage and monitor all listed properties
+            </p>
           </div>
           <div className="relative flex-1 max-w-md">
             <input

@@ -311,6 +311,9 @@ export default function PlacePage() {
                 Please{" "}
                 <Link
                   to="/login"
+                  onClick={() => {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
                   className="text-red-600 font-bold hover:underline"
                 >
                   login
@@ -704,7 +707,7 @@ export default function PlacePage() {
                     clipRule="evenodd"
                   />
                 </svg>
-                Check-in after {place.check_in|| "3:00 PM"}
+                Check-in after {place.check_in || "3:00 PM"}
               </li>
               <li className="flex items-center gap-2">
                 <svg
@@ -1049,11 +1052,11 @@ export default function PlacePage() {
                               <div className="flex items-center gap-2 text-sm text-gray-500">
                                 <FaClock className="text-gray-400" />
                                 {new Date(review.created_at).toLocaleDateString(
-                                  'en-US',
+                                  "en-US",
                                   {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
                                   }
                                 )}
                               </div>

@@ -3,15 +3,15 @@ import axios from "axios";
 import StatusToggle from "./StatusToggle";
 import { FaSearch, FaSpinner, FaUserTie, FaEdit } from "react-icons/fa";
 const maskPassword = (password) => {
-  if (!password) return '';
-  if (password.length <= 8) return '••••••';
-  return password.slice(0, 2) + '••••' + password.slice(-2);
+  if (!password) return "";
+  if (password.length <= 8) return "••••••";
+  return password.slice(0, 2) + "••••" + password.slice(-2);
 };
 
 function ManageHostsPage() {
   const [hosts, setHosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredHosts, setFilteredHosts] = useState([]);
   const [visibleHosts, setVisibleHosts] = useState(10);
@@ -62,26 +62,6 @@ function ManageHostsPage() {
     setVisibleHosts(10);
   };
 
-  const confirmDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this host?")) {
-      setDeletingId(id);
-      axios
-        .delete(`/admin/hosts/${id}`)
-        .then(() => {
-          setHosts((prev) => prev.filter((host) => host._id !== id));
-          setFilteredHosts((prev) => prev.filter((host) => host._id !== id));
-          alert("Host deleted successfully");
-        })
-        .catch((error) => {
-          console.error("Failed to delete host:", error);
-          alert("Failed to delete host");
-        })
-        .finally(() => {
-          setDeletingId(null);
-        });
-    }
-  };
-
   const handleEdit = async (host) => {
     try {
       const response = await axios.put(`/admin/hosts/${host._id}`, {
@@ -110,7 +90,9 @@ function ManageHostsPage() {
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
               <div>
                 <h1 className="text-3xl font-bold mb-2">Host Management</h1>
-                <p className="text-white/80">Manage and monitor host accounts</p>
+                <p className="text-white/80">
+                  Manage and monitor host accounts
+                </p>
               </div>
               <div className="relative flex-1 max-w-md">
                 <input
@@ -157,22 +139,33 @@ function ManageHostsPage() {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {filteredHosts.slice(0, visibleHosts).map((host) => (
-                        <tr key={host._id} className="hover:bg-gray-50 transition-colors">
+                        <tr
+                          key={host._id}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
                           <td className="px-6 py-4">
                             <div className="flex items-center space-x-3">
                               <div className="flex-shrink-0">
                                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                  <FaUserTie className="text-primary" /> 
+                                  <FaUserTie className="text-primary" />
                                 </div>
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-900">{host.name}</span>
-                                <span className="text-sm text-gray-500">{host.email}</span>
+                                <span className="text-sm font-medium text-gray-900">
+                                  {host.name}
+                                </span>
+                                <span className="text-sm text-gray-500">
+                                  {host.email}
+                                </span>
                                 {host.phone && (
-                                  <span className="text-xs text-gray-400">{host.phone}</span>
+                                  <span className="text-xs text-gray-400">
+                                    {host.phone}
+                                  </span>
                                 )}
                                 {host.password && (
-                                  <span className="text-xs text-gray-400">{maskPassword(host.password)}</span>
+                                  <span className="text-xs text-gray-400">
+                                    {maskPassword(host.password)}
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -185,14 +178,19 @@ function ManageHostsPage() {
                           <td className="px-6 py-4">
                             <div className="flex flex-col">
                               <span className="text-sm font-semibold text-gray-900">
-                                ${Number(host.totalPayments).toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                })}
+                                $
+                                {Number(host.totalPayments).toLocaleString(
+                                  undefined,
+                                  {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  }
+                                )}
                               </span>
                               {host.totalBookings > 0 && (
                                 <div className="text-xs text-gray-500">
-                                  {host.totalBookings} bookings · Avg: ${host.averageBookingValue}
+                                  {host.totalBookings} bookings · Avg: $
+                                  {host.averageBookingValue}
                                 </div>
                               )}
                             </div>
@@ -202,7 +200,9 @@ function ManageHostsPage() {
                               user={host}
                               onStatusChange={(id, newStatus, reason) => {
                                 const updatedHosts = hosts.map((h) =>
-                                  h._id === id ? { ...h, isActive: newStatus, reason } : h
+                                  h._id === id
+                                    ? { ...h, isActive: newStatus, reason }
+                                    : h
                                 );
                                 setHosts(updatedHosts);
                                 setFilteredHosts(updatedHosts);
@@ -213,24 +213,10 @@ function ManageHostsPage() {
                             <div className="flex space-x-2">
                               <button
                                 onClick={() => setEditingHost(host)}
-                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                className="inline-flex  items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-yellow-500 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                               >
                                 <FaEdit className="mr-1.5" />
                                 Edit
-                              </button>
-                              <button
-                                onClick={() => confirmDelete(host._id)}
-                                disabled={deletingId === host._id}
-                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                              >
-                                {deletingId === host._id ? (
-                                  <>
-                                    <FaSpinner className="animate-spin mr-1.5" />
-                                    Deleting...
-                                  </>
-                                ) : (
-                                  "Delete"
-                                )}
                               </button>
                             </div>
                           </td>
@@ -246,7 +232,7 @@ function ManageHostsPage() {
                 <div className="flex justify-center mt-6">
                   <button
                     onClick={() => setVisibleHosts((prev) => prev + 10)}
-            className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
+                    className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
                   >
                     Load More
                   </button>

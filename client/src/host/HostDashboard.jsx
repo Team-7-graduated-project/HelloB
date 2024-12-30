@@ -20,7 +20,6 @@ import AnnouncementForm from "../pages/AnnouncementForm";
 import "./Index.css";
 import BookingDetail from "./BookingDetail";
 
-
 function HostDashboard() {
   const location = useLocation();
   const [transitionClass, setTransitionClass] = useState(

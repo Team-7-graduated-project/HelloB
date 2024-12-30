@@ -27,6 +27,10 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     if (user.role === "host") {
       return <Navigate to="/host" replace />;
     } else if (user.role === "admin") {
+      // Admin can access both admin and host dashboards
+      if (requiredRole === "host") {
+        return children; // Allow admin to view host pages
+      }
       return <Navigate to="/admin" replace />;
     } else {
       return <Navigate to="/" replace />;

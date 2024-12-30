@@ -105,8 +105,10 @@ export default function BookingWidget({ place }) {
 
   const fetchUnavailableDates = useCallback(async () => {
     try {
-      const response = await axios.get(`/bookings/unavailable-dates/${place._id}`);
-      
+      const response = await axios.get(
+        `/bookings/unavailable-dates/${place._id}`
+      );
+
       if (Array.isArray(response.data)) {
         const bookedDates = response.data.map((booking) => ({
           check_in: new Date(booking.check_in),
@@ -179,16 +181,6 @@ export default function BookingWidget({ place }) {
     }
   };
 
-  const isBookingAllowed = () => {
-    if (!user) return false;
-
-    if (user.role === "admin" || user.role === "host") return false;
-
-    if (place.owner?._id === user._id) return false;
-
-    return true;
-  };
-
   if (redirect) {
     return <Navigate to={redirect} />;
   }
@@ -232,27 +224,6 @@ export default function BookingWidget({ place }) {
             </Link>
           </div>
         </div>
-      ) : !isBookingAllowed() ? (
-        <div className="bg-gray-50 p-4 rounded-xl text-center">
-          {place.owner?._id === user._id ? (
-            <div>
-              <p className="text-red-600 font-bold">This is your property</p>
-              <p className="text-gray-700 italic">
-                You cannot make a booking on your own property
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-red-600 font-bold">
-                {user.role === "admin" ? "Administrators" : "Hosts"} cannot make
-                bookings
-              </p>
-              <p className="text-gray-700 italic">
-                If you wanna booking this place, please contact the host
-              </p>
-            </div>
-          )}
-        </div>
       ) : (
         <div className="space-y-6">
           {/* Dates Selection */}
@@ -267,12 +238,16 @@ export default function BookingWidget({ place }) {
                 onChange={handleCheckInChange}
                 min={format(new Date(), "yyyy-MM-dd")}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent
-                  ${isDateUnavailable(check_in) 
-                    ? "border-red-500 bg-red-50" 
-                    : "border-gray-300"}`}
+                  ${
+                    isDateUnavailable(check_in)
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300"
+                  }`}
               />
               {isDateUnavailable(check_in) && (
-                <p className="text-red-500 text-sm mt-1">This date is not available</p>
+                <p className="text-red-500 text-sm mt-1">
+                  This date is not available
+                </p>
               )}
             </div>
             <div>
@@ -285,12 +260,16 @@ export default function BookingWidget({ place }) {
                 onChange={handleCheckOutChange}
                 min={check_in || format(new Date(), "yyyy-MM-dd")}
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent
-                  ${isDateUnavailable(check_out) 
-                    ? "border-red-500 bg-red-50" 
-                    : "border-gray-300"}`}
+                  ${
+                    isDateUnavailable(check_out)
+                      ? "border-red-500 bg-red-50"
+                      : "border-gray-300"
+                  }`}
               />
               {isDateUnavailable(check_out) && (
-                <p className="text-red-500 text-sm mt-1">This date is not available</p>
+                <p className="text-red-500 text-sm mt-1">
+                  This date is not available
+                </p>
               )}
             </div>
           </div>
@@ -394,14 +373,18 @@ export default function BookingWidget({ place }) {
               bookThisPlace();
             }}
             disabled={
-              !isFormValid() || 
-              loading || 
-              isDateUnavailable(check_in) || 
+              !isFormValid() ||
+              loading ||
+              isDateUnavailable(check_in) ||
               isDateUnavailable(check_out) ||
               !hasValidDates
             }
             className={`w-full py-3 px-4 rounded-lg text-white font-medium transition-colors ${
-              isFormValid() && !loading && !isDateUnavailable(check_in) && !isDateUnavailable(check_out) && hasValidDates
+              isFormValid() &&
+              !loading &&
+              !isDateUnavailable(check_in) &&
+              !isDateUnavailable(check_out) &&
+              hasValidDates
                 ? "bg-primary hover:bg-primary-dark"
                 : "bg-gray-300 cursor-not-allowed"
             }`}
@@ -425,10 +408,14 @@ export default function BookingWidget({ place }) {
                 </svg>
                 Processing...
               </div>
-            ) : !hasValidDates || isDateUnavailable(check_in) || isDateUnavailable(check_out) ? (
+            ) : !hasValidDates ||
+              isDateUnavailable(check_in) ||
+              isDateUnavailable(check_out) ? (
               "Selected dates are not available"
             ) : (
-              `Book Now ${numberOfNights > 0 ? `• $${numberOfNights * place.price}` : ""}`
+              `Book Now ${
+                numberOfNights > 0 ? `• $${numberOfNights * place.price}` : ""
+              }`
             )}
           </button>
         </div>

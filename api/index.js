@@ -20,7 +20,8 @@ const nodemailer = require("nodemailer");
 // Add after other imports
 const WebSocket = require("ws");
 const url = require("url");
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'your-refresh-secret';
+const JWT_REFRESH_SECRET =
+  process.env.JWT_REFRESH_SECRET || "your-refresh-secret";
 // Add this import at the top with other imports
 const momoPayment = require("./services/momoPayment");
 
@@ -89,12 +90,12 @@ app.use(
       "https://hello-b.onrender.com",
       "https://hellob-be.onrender.com",
       "https://accounts.google.com",
-      "https://hello-b-two.vercel.app"
+      "https://hello-b-two.vercel.app",
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], // Fixed: DELETE as string
     allowedHeaders: ["Content-Type", "Authorization"],
-    exposedHeaders: ["Set-Cookie"]
+    exposedHeaders: ["Set-Cookie"],
   })
 );
 
@@ -106,9 +107,9 @@ cloudinary.config({
 
 // Add security headers middleware
 app.use((req, res, next) => {
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
   next();
 });
 
@@ -124,85 +125,85 @@ mongoose
     process.exit(1);
   });
 
-  const authenticateToken = async (req, res, next) => {
-    const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
-  
-    if (!token) {
-      return res.status(401).json({ error: "Access denied. No token provided." });
+const authenticateToken = async (req, res, next) => {
+  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Access denied. No token provided." });
+  }
+
+  try {
+    const verified = jwt.verify(token, jwtSecret);
+    if (!verified || !verified.id) {
+      throw new Error("Invalid token structure");
     }
-  
-    try {
-      const verified = jwt.verify(token, jwtSecret);
-      if (!verified || !verified.id) {
-        throw new Error("Invalid token structure");
-      }
-      req.userData = verified;
-      next();
-    } catch (error) {
-      if (error.name === 'TokenExpiredError') {
-        // Try to refresh the token
-        const refreshToken = req.cookies.refreshToken;
-        if (!refreshToken) {
-          return res.status(401).json({ 
-            error: "Token expired. Please log in again.",
-            code: "TOKEN_EXPIRED"
-          });
-        }
-  
-        try {
-          const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
-          const user = await User.findById(decoded.id);
-  
-          if (!user) {
-            return res.status(401).json({ error: "User not found" });
-          }
-  
-          if (!user.isActive) {
-            return res.status(401).json({
-              error: "Account is deactivated",
-              isActive: false,
-              reason: user.deactivationReason
-            });
-          }
-  
-          // Create new access token
-          const newToken = jwt.sign(
-            {
-              id: user._id,
-              email: user.email,
-              name: user.name,
-              role: user.role,
-            },
-            jwtSecret,
-            { expiresIn: '24h' }
-          );
-  
-          // Set new token in cookie
-          res.cookie('token', newToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'none',
-            maxAge: 24 * 60 * 60 * 1000
-          });
-  
-          // Attach user data and continue
-          req.userData = jwt.verify(newToken, jwtSecret);
-          next();
-        } catch (refreshError) {
-          console.error('Token refresh error:', refreshError);
-          return res.status(401).json({ 
-            error: "Invalid refresh token. Please log in again.",
-            code: "REFRESH_FAILED"
-          });
-        }
-      } else {
-        return res.status(401).json({ 
-          error: "Invalid token",
-          details: error.message
+    req.userData = verified;
+    next();
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      // Try to refresh the token
+      const refreshToken = req.cookies.refreshToken;
+      if (!refreshToken) {
+        return res.status(401).json({
+          error: "Token expired. Please log in again.",
+          code: "TOKEN_EXPIRED",
         });
       }
+
+      try {
+        const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+        const user = await User.findById(decoded.id);
+
+        if (!user) {
+          return res.status(401).json({ error: "User not found" });
+        }
+
+        if (!user.isActive) {
+          return res.status(401).json({
+            error: "Account is deactivated",
+            isActive: false,
+            reason: user.deactivationReason,
+          });
+        }
+
+        // Create new access token
+        const newToken = jwt.sign(
+          {
+            id: user._id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+          },
+          jwtSecret,
+          { expiresIn: "24h" }
+        );
+
+        // Set new token in cookie
+        res.cookie("token", newToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "none",
+          maxAge: 24 * 60 * 60 * 1000,
+        });
+
+        // Attach user data and continue
+        req.userData = jwt.verify(newToken, jwtSecret);
+        next();
+      } catch (refreshError) {
+        console.error("Token refresh error:", refreshError);
+        return res.status(401).json({
+          error: "Invalid refresh token. Please log in again.",
+          code: "REFRESH_FAILED",
+        });
+      }
+    } else {
+      return res.status(401).json({
+        error: "Invalid token",
+        details: error.message,
+      });
     }
-  };
+  }
+};
 
 // Role-based authorization middleware
 function authorizeRole(...allowedRoles) {
@@ -223,27 +224,41 @@ function authorizeRole(...allowedRoles) {
 // Add these helper functions after your imports and before your routes
 const getAdminUserId = async () => {
   try {
-    const admin = await User.findOne({ role: 'admin' });
+    const admin = await User.findOne({ role: "admin" });
     if (!admin) {
-      throw new Error('No admin user found');
+      throw new Error("No admin user found");
     }
     return admin._id;
   } catch (error) {
-    console.error('Error finding admin user:', error);
+    console.error("Error finding admin user:", error);
     throw error;
   }
 };
 
 // Helper function for notifications
-const sendNotification = async (type, title, message, link, recipientId, options = {}) => {
+const sendNotification = async (
+  type,
+  title,
+  message,
+  link,
+  recipientId,
+  options = {}
+) => {
   try {
     if (!recipientId) {
-      console.error('No recipient ID provided for notification');
+      console.error("No recipient ID provided for notification");
       return null;
     }
 
     // Validate notification type
-    const validTypes = ['user', 'booking', 'property', 'report', 'security', 'system'];
+    const validTypes = [
+      "user",
+      "booking",
+      "property",
+      "report",
+      "security",
+      "system",
+    ];
     if (!validTypes.includes(type)) {
       console.error(`Invalid notification type: ${type}`);
       return null;
@@ -251,14 +266,14 @@ const sendNotification = async (type, title, message, link, recipientId, options
 
     // Validate title and message
     if (!title?.trim() || !message?.trim()) {
-      console.error('Title and message are required');
+      console.error("Title and message are required");
       return null;
     }
 
     // Validate recipient exists
     const recipientExists = await User.findById(recipientId);
     if (!recipientExists) {
-      console.error('Recipient user not found');
+      console.error("Recipient user not found");
       return null;
     }
 
@@ -268,14 +283,14 @@ const sendNotification = async (type, title, message, link, recipientId, options
       message,
       link,
       recipient: recipientId,
-      priority: options.priority || 'normal',
-      category: options.category || 'system',
-      metadata: options.metadata || {}
+      priority: options.priority || "normal",
+      category: options.category || "system",
+      metadata: options.metadata || {},
     });
 
     return notification;
   } catch (error) {
-    console.error('Error sending notification:', error);
+    console.error("Error sending notification:", error);
     return null;
   }
 };
@@ -290,18 +305,17 @@ const cleanupOldNotifications = async () => {
     // Delete read notifications older than 30 days
     await Notification.deleteMany({
       createdAt: { $lt: thirtyDaysAgo },
-      read: true
+      read: true,
     });
 
     // Delete read system notifications older than 7 days
     await Notification.deleteMany({
       createdAt: { $lt: sevenDaysAgo },
-      type: 'system',
-      read: true
+      type: "system",
+      read: true,
     });
-
   } catch (error) {
-    console.error('Failed to cleanup notifications:', error);
+    console.error("Failed to cleanup notifications:", error);
   }
 };
 
@@ -309,7 +323,6 @@ const cleanupOldNotifications = async () => {
 setInterval(cleanupOldNotifications, 24 * 60 * 60 * 1000);
 
 // Get user notifications
-
 
 // Test route
 app.get("/test", (req, res) => {
@@ -375,27 +388,27 @@ app.post("/register", async (req, res) => {
     try {
       const adminId = await getAdminUserId();
       if (!adminId) {
-        console.error('No admin user found for notification');
+        console.error("No admin user found for notification");
         return;
       }
       await sendNotification(
-        'user',
-        'New User Registration',
+        "user",
+        "New User Registration",
         `New user registered: ${userDoc.name} (${userDoc.email})`,
         `/admin/users/${userDoc._id}`,
         adminId,
         {
-          priority: 'normal',
-          category: 'registration',
+          priority: "normal",
+          category: "registration",
           metadata: {
             userId: userDoc._id,
             userRole: userDoc.role,
-            registrationDate: new Date()
-          }
+            registrationDate: new Date(),
+          },
         }
       );
     } catch (notificationError) {
-      console.error('Registration notification failed:', notificationError);
+      console.error("Registration notification failed:", notificationError);
       // Continue with registration process
     }
 
@@ -487,35 +500,33 @@ app.post("/login", async (req, res) => {
         role: userDoc.role,
       },
       jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: "24h" }
     );
 
     // Create refresh token (long-lived)
-    const refreshToken = jwt.sign(
-      { id: userDoc._id },
-      JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
-    );
+    const refreshToken = jwt.sign({ id: userDoc._id }, JWT_REFRESH_SECRET, {
+      expiresIn: "7d",
+    });
 
     res
       .cookie("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "none",
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
       })
       .cookie("refreshToken", refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "none",
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       })
       .json({
         user: {
           ...userDoc.toObject(),
-          password: undefined
+          password: undefined,
         },
-        token
+        token,
       });
   } catch (err) {
     console.error("Login error:", err);
@@ -524,13 +535,13 @@ app.post("/login", async (req, res) => {
 });
 
 // Add refresh token endpoint
-app.post('/refresh-token', async (req, res) => {
+app.post("/refresh-token", async (req, res) => {
   const refreshToken = req.cookies.refreshToken;
-  
+
   if (!refreshToken) {
-    return res.status(401).json({ 
-      error: 'No refresh token provided',
-      code: 'TOKEN_EXPIRED'
+    return res.status(401).json({
+      error: "No refresh token provided",
+      code: "TOKEN_EXPIRED",
     });
   }
 
@@ -539,14 +550,14 @@ app.post('/refresh-token', async (req, res) => {
     const user = await User.findById(decoded.id);
 
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
     if (!user.isActive) {
       return res.status(401).json({
         error: "Account is deactivated",
         isActive: false,
-        reason: user.deactivationReason
+        reason: user.deactivationReason,
       });
     }
 
@@ -559,26 +570,25 @@ app.post('/refresh-token', async (req, res) => {
         role: user.role,
       },
       jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: "24h" }
     );
 
     res
-      .cookie('token', newToken, {
+      .cookie("token", newToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'none',
-        maxAge: 24 * 60 * 60 * 1000
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "none",
+        maxAge: 24 * 60 * 60 * 1000,
       })
       .json({
         success: true,
-        token: newToken
+        token: newToken,
       });
-
   } catch (error) {
-    console.error('Refresh token error:', error);
-    return res.status(401).json({ 
-      error: 'Invalid refresh token',
-      code: 'REFRESH_FAILED'
+    console.error("Refresh token error:", error);
+    return res.status(401).json({
+      error: "Invalid refresh token",
+      code: "REFRESH_FAILED",
     });
   }
 });
@@ -1239,7 +1249,7 @@ app.post("/vouchers/:id/claim", authenticateToken, async (req, res) => {
 app.post(
   "/host/vouchers",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const { code, discount, description, expirationDate, applicablePlaces } =
@@ -1304,7 +1314,7 @@ app.get("/host/vouchers", authenticateToken, async (req, res) => {
 app.delete(
   "/host/vouchers/:id",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const voucher = await Voucher.findOneAndDelete({
@@ -1448,7 +1458,7 @@ function fillMissingDates(data, startDate, endDate, timeFrame) {
 app.post(
   "/host/places",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const {
@@ -1505,36 +1515,36 @@ app.post(
       // Notify admin about new place
       const adminId = await getAdminUserId();
       await sendNotification(
-        'property',
-        'New Property Listed',
+        "property",
+        "New Property Listed",
         `${req.userData.name} has listed a new property: ${place.title}`,
         `/admin/places/${place._id}`,
         adminId,
         {
-          priority: 'high',
-          category: 'property',
+          priority: "high",
+          category: "property",
           metadata: {
             placeId: place._id,
             hostId: req.userData.id,
-            propertyType: place.property_type
-          }
+            propertyType: place.property_type,
+          },
         }
       );
 
       // Notify host about successful listing
       await sendNotification(
-        'property',
-        'Property Listing Submitted',
+        "property",
+        "Property Listing Submitted",
         `Your property "${place.title}" has been successfully listed and is pending review.`,
         `/host/places/${place._id}`,
         req.userData.id,
         {
-          priority: 'normal',
-          category: 'property',
+          priority: "normal",
+          category: "property",
           metadata: {
             placeId: place._id,
-            propertyType: place.property_type
-          }
+            propertyType: place.property_type,
+          },
         }
       );
 
@@ -1553,7 +1563,7 @@ app.post(
 app.put(
   "/host/places/:id",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -1638,7 +1648,7 @@ app.put(
 app.get(
   "/host/places/:id",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -1669,7 +1679,7 @@ app.get(
 app.get(
   "/host/places",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const places = await Place.find({ owner: req.userData.id });
@@ -1808,9 +1818,9 @@ app.post(
       res.json(placeDoc);
     } catch (error) {
       console.error("Error creating place:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to create place",
-        message: error.message 
+        message: error.message,
       });
     }
   }
@@ -1822,25 +1832,27 @@ app.put("/host/places/:id", authenticateToken, async (req, res) => {
 
   try {
     const placeDoc = await Place.findById(id);
-    
+
     if (!placeDoc) {
       return res.status(404).json({ error: "Place not found" });
     }
 
     if (req.userData.id !== placeDoc.owner.toString()) {
-      return res.status(403).json({ error: "Unauthorized to update this place" });
+      return res
+        .status(403)
+        .json({ error: "Unauthorized to update this place" });
     }
 
     // Update all fields from request body
     Object.assign(placeDoc, req.body);
-    
+
     await placeDoc.save();
     res.json(placeDoc);
   } catch (error) {
     console.error("Error updating place:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to update place",
-      message: error.message 
+      message: error.message,
     });
   }
 });
@@ -1882,7 +1894,8 @@ app.get("/places/:id/bookings", authenticateToken, async (req, res) => {
 // Modify your booking creation endpoint
 app.post("/bookings", authenticateToken, async (req, res) => {
   try {
-    const { check_in, check_out, name, phone, place, price, max_guests } = req.body;
+    const { check_in, check_out, name, phone, place, price, max_guests } =
+      req.body;
 
     // Get the place details first
     const placeDoc = await Place.findById(place);
@@ -1910,37 +1923,37 @@ app.post("/bookings", authenticateToken, async (req, res) => {
 
       // Notify admin about new booking
       await sendNotification(
-        'booking',
-        'New Booking Created',
+        "booking",
+        "New Booking Created",
         `New booking received for ${placeDoc.title}`,
         `/admin/bookings/${booking._id}`,
         adminId,
         {
-          priority: 'normal',
-          category: 'booking',
+          priority: "normal",
+          category: "booking",
           metadata: {
             bookingId: booking._id,
             amount: price,
-            userId: req.userData.id
-          }
+            userId: req.userData.id,
+          },
         }
       );
 
       // Notify host about new booking
       await sendNotification(
-        'booking',
-        'New Booking Request',
+        "booking",
+        "New Booking Request",
         `You have a new booking request for ${placeDoc.title}`,
         `/host/bookings/${booking._id}`,
         placeDoc.owner,
         {
-          priority: 'high',
-          category: 'booking',
+          priority: "high",
+          category: "booking",
           metadata: {
             bookingId: booking._id,
             placeId: place,
-            amount: price
-          }
+            amount: price,
+          },
         }
       );
     } catch (notificationError) {
@@ -2182,7 +2195,7 @@ app.get(
 app.get(
   "/host/places",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const places = await Place.find({ owner: req.userData.id });
@@ -2195,7 +2208,7 @@ app.get(
 app.get(
   "/host/bookings/:id",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const booking = await Booking.findById(req.params.id)
@@ -2232,7 +2245,7 @@ app.get(
 app.get(
   "/host/users",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const users = await User.find({ role: "user" });
@@ -2278,7 +2291,7 @@ app.get("/api/reviews/top", async (req, res) => {
       })
       .populate({
         path: "place",
-       select: "title photos address",
+        select: "title photos address",
         match: { isActive: true },
       })
       .sort({
@@ -2363,25 +2376,25 @@ app.post("/host/register", async (req, res) => {
       const adminId = await getAdminUserId();
       if (adminId) {
         await sendNotification(
-          'user',
-          'New Host Registration',
+          "user",
+          "New Host Registration",
           `New host registered: ${userDoc.name} (${userDoc.email})`,
           `/admin/hosts/${userDoc._id}`,
           adminId,
           {
-            priority: 'normal',
-            category: 'host',
+            priority: "normal",
+            category: "host",
             metadata: {
               userId: userDoc._id,
               userRole: userDoc.role,
-              registrationDate: new Date()
-            }
+              registrationDate: new Date(),
+            },
           }
         );
       }
     } catch (notificationError) {
       // Log but don't fail registration if notification fails
-      console.error('Error creating notification:', notificationError);
+      console.error("Error creating notification:", notificationError);
     }
 
     res.json({ success: true, message: "Host registration successful" });
@@ -2431,30 +2444,38 @@ app.get("/places/:id/host-places", async (req, res) => {
   }
 });
 
-
 // Update the payment-options endpoint
 app.post("/payment-options", authenticateToken, async (req, res) => {
   try {
-    const { bookingId, userId, amount, paymentMethod, selectedOption, voucherCode, discountAmount } = req.body;
+    const {
+      bookingId,
+      userId,
+      amount,
+      paymentMethod,
+      selectedOption,
+      voucherCode,
+      discountAmount,
+    } = req.body;
 
     // Enhanced validation
     if (!bookingId || !userId || !amount || !selectedOption) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: bookingId, userId, amount, or selectedOption"
+        message:
+          "Missing required fields: bookingId, userId, amount, or selectedOption",
       });
     }
 
     // Validate the booking exists and belongs to the user
-    const booking = await Booking.findOne({ 
+    const booking = await Booking.findOne({
       _id: bookingId,
-      user: userId 
+      user: userId,
     });
-    
+
     if (!booking) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        message: "Booking not found or unauthorized" 
+        message: "Booking not found or unauthorized",
       });
     }
 
@@ -2467,7 +2488,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
       if (!paymentMethod) {
         return res.status(400).json({
           success: false,
-          message: "Payment method is required for pay now option"
+          message: "Payment method is required for pay now option",
         });
       }
 
@@ -2478,14 +2499,14 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
             const momoResponse = await momoPayment.createPayment({
               amount: amount,
               bookingId: bookingId,
-              userId: userId
+              userId: userId,
             });
 
             if (momoResponse.payUrl) {
               booking.paymentStatus = "pending";
               booking.paymentMethod = "momo";
               booking.status = "pending";
-              
+
               return res.json({
                 success: true,
                 paymentUrl: momoResponse.payUrl,
@@ -2493,8 +2514,8 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
                   paymentStatus: booking.paymentStatus,
                   paymentMethod: booking.paymentMethod,
                   amount: amount,
-                  status: booking.status
-                }
+                  status: booking.status,
+                },
               });
             }
           } catch (momoError) {
@@ -2502,7 +2523,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
             return res.status(400).json({
               success: false,
               message: "Failed to create MoMo payment",
-              error: momoError.message
+              error: momoError.message,
             });
           }
           break;
@@ -2517,7 +2538,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
         default:
           return res.status(400).json({
             success: false,
-            message: "Invalid payment method"
+            message: "Invalid payment method",
           });
       }
     }
@@ -2528,7 +2549,7 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
       if (!voucher) {
         return res.status(400).json({
           success: false,
-          message: "Invalid voucher code"
+          message: "Invalid voucher code",
         });
       }
       booking.voucherCode = voucherCode;
@@ -2545,16 +2566,15 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
         paymentStatus: booking.paymentStatus,
         paymentMethod: booking.paymentMethod,
         amount: booking.paymentAmount,
-        status: booking.status
-      }
+        status: booking.status,
+      },
     });
-
   } catch (error) {
     console.error("Payment processing error:", error);
     res.status(500).json({
       success: false,
       message: "An unexpected error occurred while processing the payment",
-      error: error.message
+      error: error.message,
     });
   }
 });
@@ -2563,10 +2583,10 @@ app.post("/payment-options", authenticateToken, async (req, res) => {
 async function processCardPayment(cardDetails, amount) {
   try {
     if (!cardDetails) return false;
-    
+
     // Add proper validation
     const { cardNumber, cardHolder, expiryDate, cvv } = cardDetails;
-    
+
     if (!cardNumber || !cardHolder || !expiryDate || !cvv) {
       return false;
     }
@@ -2580,7 +2600,7 @@ async function processCardPayment(cardDetails, amount) {
     // Validate expiry date
     const [month, year] = expiryDate.split("/");
     if (!month || !year) return false;
-    
+
     const now = new Date();
     const expiry = new Date(2000 + parseInt(year), parseInt(month) - 1);
     if (expiry < now) {
@@ -2603,7 +2623,7 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
     if (!bookingId || !userId || !amount) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields"
+        message: "Missing required fields",
       });
     }
 
@@ -2611,7 +2631,7 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
     const momoResponse = await momoPayment.createPayment({
       amount: amount,
       bookingId: bookingId,
-      userId: userId
+      userId: userId,
     });
 
     if (!momoResponse || !momoResponse.payUrl) {
@@ -2625,19 +2645,18 @@ app.post("/payment-options/momo", authenticateToken, async (req, res) => {
       method: "momo",
       amount: amount,
       status: "pending",
-      orderId: momoResponse.orderId || momoResponse.requestId
+      orderId: momoResponse.orderId || momoResponse.requestId,
     });
 
     res.json({
       success: true,
-      data: momoResponse.payUrl
+      data: momoResponse.payUrl,
     });
-
   } catch (error) {
     console.error("MoMo payment error:", error);
     res.status(400).json({
       success: false,
-      message: error.message || "Failed to process MoMo payment"
+      message: error.message || "Failed to process MoMo payment",
     });
   }
 });
@@ -2653,7 +2672,7 @@ app.post("/payment/momo/notify/:bookingId", async (req, res) => {
       await Booking.findByIdAndUpdate(bookingId, {
         paymentStatus: "paid",
         status: "confirmed",
-        paymentId: transId
+        paymentId: transId,
       });
 
       await PaymentOption.findOneAndUpdate(
@@ -2661,12 +2680,14 @@ app.post("/payment/momo/notify/:bookingId", async (req, res) => {
         { status: "completed" }
       );
 
-      res.redirect(`${process.env.CLIENT_URL}/account/bookings/${bookingId}?payment=success`);
+      res.redirect(
+        `${process.env.CLIENT_URL}/account/bookings/${bookingId}?payment=success`
+      );
     } else {
       // Payment failed
       await Booking.findByIdAndUpdate(bookingId, {
         paymentStatus: "failed",
-        status: "pending"
+        status: "pending",
       });
 
       await PaymentOption.findOneAndUpdate(
@@ -2674,7 +2695,9 @@ app.post("/payment/momo/notify/:bookingId", async (req, res) => {
         { status: "failed" }
       );
 
-      res.redirect(`${process.env.CLIENT_URL}/account/bookings/${bookingId}?payment=failed`);
+      res.redirect(
+        `${process.env.CLIENT_URL}/account/bookings/${bookingId}?payment=failed`
+      );
     }
   } catch (error) {
     console.error("MoMo notification error:", error);
@@ -2929,9 +2952,9 @@ app.get("/api/places/search", async (req, res) => {
       limit = 12,
     } = req.query;
 
-    let query = { 
+    let query = {
       isActive: true,
-      isDeleted: false
+      isDeleted: false,
     };
 
     if (type && type !== "all") {
@@ -2949,16 +2972,16 @@ app.get("/api/places/search", async (req, res) => {
     // Add date range check if provided
     if (checkIn && checkOut) {
       query.$and = [
-        { 
-          "bookings.check_in": { 
-            $not: { 
-              $elemMatch: { 
-                $gte: new Date(checkIn), 
-                $lt: new Date(checkOut) 
-              } 
-            } 
-          } 
-        } 
+        {
+          "bookings.check_in": {
+            $not: {
+              $elemMatch: {
+                $gte: new Date(checkIn),
+                $lt: new Date(checkOut),
+              },
+            },
+          },
+        },
       ];
     }
 
@@ -3062,27 +3085,23 @@ app.get("/api/places/:id", async (req, res) => {
 // MoMo Payment Route
 
 // Get notifications
-app.get(
-  "/notifications",
-  authenticateToken,
-  async (req, res) => {
-    try {
-      const notifications = await Notification.find({
-        recipient: req.userData.id
-      })
+app.get("/notifications", authenticateToken, async (req, res) => {
+  try {
+    const notifications = await Notification.find({
+      recipient: req.userData.id,
+    })
       .sort({ createdAt: -1 })
       .limit(50);
 
-      res.json(notifications);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      res.status(500).json({ 
-        success: false,
-        error: "Failed to fetch notifications" 
-      });
-    }
+    res.json(notifications);
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch notifications",
+    });
   }
-);
+});
 
 // Mark notification as read
 app.put("/notifications/:id/read", authenticateToken, async (req, res) => {
@@ -3416,33 +3435,35 @@ app.get(
       const hostsWithDetails = await Promise.all(
         hosts.map(async (host) => {
           // Get all properties for this host
-          const properties = await Place.find({ 
+          const properties = await Place.find({
             owner: host._id,
             isActive: true,
-            isDeleted: false 
+            isDeleted: false,
           });
 
           // Get all completed bookings for host's properties
           const bookings = await Booking.aggregate([
             {
               $match: {
-                place: { $in: properties.map(p => p._id) },
+                place: { $in: properties.map((p) => p._id) },
                 status: "completed",
-                paymentStatus: "paid"
-              }
+                paymentStatus: "paid",
+              },
             },
             {
               $group: {
                 _id: null,
                 totalPayments: { $sum: "$price" },
-                totalBookings: { $sum: 1 }
-              }
-            }
+                totalBookings: { $sum: 1 },
+              },
+            },
           ]);
 
           // Calculate total revenue
-          const totalPayments = bookings.length > 0 ? bookings[0].totalPayments : 0;
-          const totalBookings = bookings.length > 0 ? bookings[0].totalBookings : 0;
+          const totalPayments =
+            bookings.length > 0 ? bookings[0].totalPayments : 0;
+          const totalBookings =
+            bookings.length > 0 ? bookings[0].totalBookings : 0;
 
           // Return host data with additional details
           return {
@@ -3452,27 +3473,29 @@ app.get(
             phone: host.phone,
             isActive: host.isActive,
             createdAt: host.createdAt,
-            properties: properties.map(p => ({
+            properties: properties.map((p) => ({
               _id: p._id,
               title: p.title,
               status: p.status,
-              isActive: p.isActive
+              isActive: p.isActive,
             })),
             totalPayments,
             totalBookings,
-            averageBookingValue: totalBookings > 0 ? 
-              (totalPayments / totalBookings).toFixed(2) : 0
+            averageBookingValue:
+              totalBookings > 0
+                ? (totalPayments / totalBookings).toFixed(2)
+                : 0,
           };
         })
       );
 
       res.json(hostsWithDetails);
-
     } catch (error) {
       console.error("Error fetching hosts with properties:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         error: "Failed to fetch hosts data",
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }
@@ -3911,7 +3934,6 @@ app.get("/bookings/unavailable-dates/:placeId", async (req, res) => {
   }
 });
 
-
 // Add this new endpoint to get all bookings for a user
 app.get("/bookings", authenticateToken, async (req, res) => {
   try {
@@ -3997,11 +4019,11 @@ const verifyGoogleToken = async (token) => {
   try {
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
     return ticket.getPayload();
   } catch (error) {
-    console.error('Google token verification error:', error);
+    console.error("Google token verification error:", error);
     throw error;
   }
 };
@@ -4009,17 +4031,17 @@ const verifyGoogleToken = async (token) => {
 app.post("/auth/google", async (req, res) => {
   try {
     const { credential } = req.body;
-    
+
     if (!credential) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: "No credential provided" 
+        error: "No credential provided",
       });
     }
 
     const payload = await verifyGoogleToken(credential);
     let user = await User.findOne({ email: payload.email });
-    
+
     if (!user) {
       // Create new user if doesn't exist
       user = await User.create({
@@ -4027,9 +4049,9 @@ app.post("/auth/google", async (req, res) => {
         email: payload.email,
         picture: payload.picture,
         googleId: payload.sub,
-        authProvider: 'google',
+        authProvider: "google",
         emailVerified: true,
-        isActive: true
+        isActive: true,
       });
     } else {
       // Check if user is active
@@ -4038,7 +4060,7 @@ app.post("/auth/google", async (req, res) => {
           success: false,
           error: "Account is deactivated",
           isActive: false,
-          reason: user.reason || "Account has been deactivated"
+          reason: user.reason || "Account has been deactivated",
         });
       }
     }
@@ -4048,32 +4070,34 @@ app.post("/auth/google", async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
-        role: user.role
+        role: user.role,
       },
       jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: "24h" }
     );
 
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none',
-      maxAge: 24 * 60 * 60 * 1000
-    }).json({
-      success: true,
-      user: {
-        ...user.toObject(),
-        password: undefined
-      },
-      token
-    });
-
+    res
+      .cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "none",
+        maxAge: 24 * 60 * 60 * 1000,
+      })
+      .json({
+        success: true,
+        user: {
+          ...user.toObject(),
+          password: undefined,
+        },
+        token,
+      });
   } catch (error) {
-    console.error('Google auth error:', error);
+    console.error("Google auth error:", error);
     res.status(500).json({
       success: false,
-      error: 'Authentication failed',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: "Authentication failed",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -4163,15 +4187,17 @@ app.post("/host/login", async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    if (userDoc.role !== 'host') {
-      return res.status(403).json({ error: "This account is not registered as a host" });
+    if (userDoc.role !== "host") {
+      return res
+        .status(403)
+        .json({ error: "This account is not registered as a host" });
     }
 
     if (!userDoc.isActive) {
       return res.status(401).json({
         error: "Account is deactivated",
         isActive: false,
-        reason: userDoc.deactivationReason || "Account has been deactivated"
+        reason: userDoc.deactivationReason || "Account has been deactivated",
       });
     }
 
@@ -4189,34 +4215,32 @@ app.post("/host/login", async (req, res) => {
         role: userDoc.role,
       },
       jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: "24h" }
     );
 
-    const refreshToken = jwt.sign(
-      { id: userDoc._id },
-      JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
-    );
+    const refreshToken = jwt.sign({ id: userDoc._id }, JWT_REFRESH_SECRET, {
+      expiresIn: "7d",
+    });
 
     res
       .cookie("token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "none",
-        maxAge: 24 * 60 * 60 * 1000
+        maxAge: 24 * 60 * 60 * 1000,
       })
       .cookie("refreshToken", refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "none",
-        maxAge: 7 * 24 * 60 * 60 * 1000
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       })
       .json({
         user: {
           ...userDoc.toObject(),
-          password: undefined
+          password: undefined,
         },
-        token
+        token,
       });
   } catch (err) {
     console.error("Login error:", err);
@@ -4271,7 +4295,7 @@ app.put("/change-password", authenticateToken, async (req, res) => {
 app.put(
   "/host/places/:id/status",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const { id } = req.params;
@@ -4313,7 +4337,6 @@ app.put(
   }
 );
 
-
 app.get(
   "/api/admin/reports",
   authenticateToken,
@@ -4328,23 +4351,23 @@ app.get(
         .lean(); // Convert to plain JavaScript objects
 
       // Transform the data to ensure consistent structure
-      const formattedReports = reports.map(report => ({
+      const formattedReports = reports.map((report) => ({
         ...report,
-        reportedBy: report.reportedBy || { name: 'Unknown User' },
-        place: report.place || { title: 'Deleted Place' }
+        reportedBy: report.reportedBy || { name: "Unknown User" },
+        place: report.place || { title: "Deleted Place" },
       }));
 
       res.json({
         success: true,
-        reports: formattedReports
+        reports: formattedReports,
       });
-
     } catch (error) {
       console.error("Error fetching reports:", error);
       res.status(500).json({
         success: false,
         error: "Failed to fetch reports",
-        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       });
     }
   }
@@ -4359,12 +4382,15 @@ app.put(
       const { adminNotes, status } = req.body;
 
       // Find report and populate reportedBy
-      const report = await Report.findById(id).populate("reportedBy", "name email");
-      
+      const report = await Report.findById(id).populate(
+        "reportedBy",
+        "name email"
+      );
+
       if (!report) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          error: "Report not found" 
+          error: "Report not found",
         });
       }
 
@@ -4377,20 +4403,20 @@ app.put(
       // Create notification for the user who reported
       if (report.reportedBy) {
         await sendNotification(
-          'report', // Using valid enum value
-          'Report Updated',
+          "report", // Using valid enum value
+          "Report Updated",
           `An admin has added notes to your report`,
           `/reports/${report._id}`,
           report.reportedBy._id,
           {
-            priority: 'normal',
-            category: 'general',
+            priority: "normal",
+            category: "general",
             metadata: {
               reportId: report._id,
               updatedBy: req.userData.id,
               hasNotes: true,
-              status: status
-            }
+              status: status,
+            },
           }
         );
       }
@@ -4403,15 +4429,14 @@ app.put(
       res.json({
         success: true,
         report: updatedReport,
-        message: "Report updated successfully"
+        message: "Report updated successfully",
       });
-
     } catch (error) {
       console.error("Error updating report:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
         error: "Failed to update report",
-        message: error.message 
+        message: error.message,
       });
     }
   }
@@ -4436,19 +4461,19 @@ app.post("/api/reports", authenticateToken, async (req, res) => {
       type,
       place: placeId,
       reportedBy,
-      status: 'pending'
+      status: "pending",
     });
 
     // Get admin user for notification
-    const admin = await User.findOne({ role: 'admin' });
+    const admin = await User.findOne({ role: "admin" });
     if (!admin) {
-      throw new Error('No admin user found');
+      throw new Error("No admin user found");
     }
 
     // Create notification for admin
     await sendNotification(
-      'report', // Using valid enum value
-      'New Report Submitted',
+      "report", // Using valid enum value
+      "New Report Submitted",
       `A new report has been submitted for ${place.title}`,
       `/admin/reports/${report._id}`,
       admin._id, // Set the admin as recipient
@@ -4456,21 +4481,21 @@ app.post("/api/reports", authenticateToken, async (req, res) => {
         reportId: report._id,
         placeId: placeId,
         reportType: type,
-        reportedBy: reportedBy
+        reportedBy: reportedBy,
       }
     );
 
     res.status(201).json({
       success: true,
       message: "Report submitted successfully",
-      report
+      report,
     });
-
   } catch (error) {
     console.error("Error creating report:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: "Failed to submit report",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 });
@@ -5141,31 +5166,31 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
         select: "title owner",
         populate: {
           path: "owner",
-          select: "_id"
-        }
+          select: "_id",
+        },
       })
       .populate("user", "name email");
 
     if (!booking) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
-        error: "Booking not found" 
+        error: "Booking not found",
       });
     }
 
     // Verify user owns this booking
     if (booking.user._id.toString() !== req.userData.id) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         success: false,
-        error: "Not authorized" 
+        error: "Not authorized",
       });
     }
 
     // Check if booking is in valid state for checkout
     if (booking.status !== "confirmed") {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: "Booking must be confirmed before checkout" 
+        error: "Booking must be confirmed before checkout",
       });
     }
 
@@ -5206,8 +5231,8 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
               placeId: booking.place._id,
               userId: booking.user._id,
               earlyCheckout: !!earlyCheckout,
-              earlyCheckoutFee: earlyCheckoutFee || 0
-            }
+              earlyCheckoutFee: earlyCheckoutFee || 0,
+            },
           }
         );
       }
@@ -5226,11 +5251,10 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
             bookingId: booking._id,
             placeId: booking.place._id,
             earlyCheckout: !!earlyCheckout,
-            earlyCheckoutFee: earlyCheckoutFee || 0
-          }
+            earlyCheckoutFee: earlyCheckoutFee || 0,
+          },
         }
       );
-
     } catch (notificationError) {
       console.error("Failed to create notifications:", notificationError);
       // Continue execution even if notifications fail
@@ -5243,16 +5267,18 @@ app.post("/bookings/:id/checkout", authenticateToken, async (req, res) => {
       booking: {
         ...booking.toObject(),
         earlyCheckoutFee: booking.earlyCheckoutFee || 0,
-        totalAmount: booking.totalAmount || booking.price
-      }
+        totalAmount: booking.totalAmount || booking.price,
+      },
     });
-
   } catch (error) {
     console.error("Checkout error:", error);
     res.status(500).json({
       success: false,
       error: "Failed to process checkout",
-      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      details:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Internal server error",
     });
   }
 });
@@ -5261,15 +5287,15 @@ app.get("/notifications", authenticateToken, async (req, res) => {
   try {
     const notifications = await Notification.find({
       recipient: req.userData.id,
-      read: false
+      read: false,
     })
-    .sort({ createdAt: -1 })
-    .limit(50);
+      .sort({ createdAt: -1 })
+      .limit(50);
 
     res.json(notifications);
   } catch (error) {
-    console.error('Error fetching notifications:', error);
-    res.status(500).json({ error: 'Failed to fetch notifications' });
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ error: "Failed to fetch notifications" });
   }
 });
 
@@ -5279,20 +5305,20 @@ app.put("/notifications/:id/read", authenticateToken, async (req, res) => {
     const notification = await Notification.findOneAndUpdate(
       {
         _id: req.params.id,
-        recipient: req.userData.id
+        recipient: req.userData.id,
       },
       { read: true },
       { new: true }
     );
 
     if (!notification) {
-      return res.status(404).json({ error: 'Notification not found' });
+      return res.status(404).json({ error: "Notification not found" });
     }
 
     res.json(notification);
   } catch (error) {
-    console.error('Error marking notification as read:', error);
-    res.status(500).json({ error: 'Failed to update notification' });
+    console.error("Error marking notification as read:", error);
+    res.status(500).json({ error: "Failed to update notification" });
   }
 });
 
@@ -5301,13 +5327,13 @@ app.get("/notifications/count", authenticateToken, async (req, res) => {
   try {
     const count = await Notification.countDocuments({
       recipient: req.userData.id,
-      read: false
+      read: false,
     });
-    
+
     res.json({ count });
   } catch (error) {
-    console.error('Error getting notification count:', error);
-    res.status(500).json({ error: 'Failed to get notification count' });
+    console.error("Error getting notification count:", error);
+    res.status(500).json({ error: "Failed to get notification count" });
   }
 });
 
@@ -5317,7 +5343,7 @@ app.put("/notifications/read-all", authenticateToken, async (req, res) => {
     await Notification.updateMany(
       {
         recipient: req.userData.id,
-        read: false
+        read: false,
       },
       { read: true }
     );
@@ -5457,35 +5483,35 @@ app.put(
         {
           adminNotes,
           status,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
         { new: true }
       ).populate("reportedBy", "name email");
 
       if (!report) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          error: "Report not found" 
+          error: "Report not found",
         });
       }
 
       // Create notification for the user who reported
       if (report.reportedBy) {
         await sendNotification(
-          'report', // Using valid enum value from Notification model
-          'Report Updated',
+          "report", // Using valid enum value from Notification model
+          "Report Updated",
           `Your report has been updated with admin notes`,
           `/reports/${report._id}`,
           report.reportedBy._id, // Set the reporter as recipient
           {
-            priority: 'normal',
-            category: 'general',
+            priority: "normal",
+            category: "general",
             metadata: {
               reportId: report._id,
               updatedBy: req.userData.id,
               hasNotes: !!adminNotes,
-              status: status
-            }
+              status: status,
+            },
           }
         );
       }
@@ -5493,15 +5519,14 @@ app.put(
       res.json({
         success: true,
         report,
-        message: "Report updated successfully"
+        message: "Report updated successfully",
       });
-
     } catch (error) {
       console.error("Error updating report:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
         error: "Failed to update report",
-        message: error.message 
+        message: error.message,
       });
     }
   }
@@ -5524,29 +5549,29 @@ app.put(
       ).populate("reportedBy", "name email");
 
       if (!report) {
-        return res.status(404).json({ 
+        return res.status(404).json({
           success: false,
-          error: "Report not found" 
+          error: "Report not found",
         });
       }
 
       // Create notification for the user who reported
       if (report.reportedBy) {
         await sendNotification(
-          'report', // Using valid enum value
-          'Report Status Updated',
+          "report", // Using valid enum value
+          "Report Status Updated",
           `Your report status has been updated to: ${status}`,
           `/reports/${report._id}`,
           report.reportedBy._id,
           {
-            priority: status === 'resolved' ? 'high' : 'normal',
-            category: 'general',
+            priority: status === "resolved" ? "high" : "normal",
+            category: "general",
             metadata: {
               reportId: report._id,
               oldStatus: report.status,
               newStatus: status,
-              updatedBy: req.userData.id
-            }
+              updatedBy: req.userData.id,
+            },
           }
         );
       }
@@ -5554,15 +5579,14 @@ app.put(
       res.json({
         success: true,
         report,
-        message: `Report successfully marked as ${status}`
+        message: `Report successfully marked as ${status}`,
       });
-
     } catch (error) {
       console.error("Error updating report status:", error);
-      res.status(500).json({ 
+      res.status(500).json({
         success: false,
         error: "Failed to update report status",
-        message: error.message 
+        message: error.message,
       });
     }
   }
@@ -5576,23 +5600,25 @@ const autoCompleteBookings = async () => {
     // Find bookings that need auto-completion
     const bookingsToComplete = await Booking.find({
       status: "confirmed",
-      check_out: { $lte: oneDayAgo }
+      check_out: { $lte: oneDayAgo },
     })
-    .populate({
-      path: "place",
-      select: "title owner",
-      populate: {
-        path: "owner",
-        select: "_id name email"
-      }
-    })
-    .populate("user", "name email");
+      .populate({
+        path: "place",
+        select: "title owner",
+        populate: {
+          path: "owner",
+          select: "_id name email",
+        },
+      })
+      .populate("user", "name email");
 
     for (const booking of bookingsToComplete) {
       try {
         // Make sure we have the place and owner information
         if (!booking.place || !booking.place.owner) {
-          console.warn(`Skipping booking ${booking._id} - missing place or owner information`);
+          console.warn(
+            `Skipping booking ${booking._id} - missing place or owner information`
+          );
           continue;
         }
 
@@ -5624,8 +5650,8 @@ const autoCompleteBookings = async () => {
                 bookingId: booking._id,
                 placeId: booking.place._id,
                 userId: booking.user._id,
-                autoCompleted: true
-              }
+                autoCompleted: true,
+              },
             }
           );
 
@@ -5642,8 +5668,8 @@ const autoCompleteBookings = async () => {
               metadata: {
                 bookingId: booking._id,
                 placeId: booking.place._id,
-                autoCompleted: true
-              }
+                autoCompleted: true,
+              },
             }
           );
 
@@ -5661,24 +5687,28 @@ const autoCompleteBookings = async () => {
                 bookingId: booking._id,
                 placeId: booking.place._id,
                 userId: booking.user._id,
-                autoCompleted: true
-              }
+                autoCompleted: true,
+              },
             }
           );
-
         } catch (notificationError) {
-          console.error(`Failed to create notifications for booking ${booking._id}:`, notificationError);
+          console.error(
+            `Failed to create notifications for booking ${booking._id}:`,
+            notificationError
+          );
           // Continue processing other bookings even if notifications fail
         }
       } catch (bookingError) {
-        console.error(`Failed to auto-complete booking ${booking._id}:`, bookingError);
+        console.error(
+          `Failed to auto-complete booking ${booking._id}:`,
+          bookingError
+        );
         // Continue with next booking
         continue;
       }
     }
 
     console.log(`Auto-completed ${bookingsToComplete.length} bookings`);
-
   } catch (error) {
     console.error("Auto-completion error:", error);
   }
@@ -5871,7 +5901,7 @@ function validateCardDetails(cardDetails) {
 app.post(
   "/api/host/announcements",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const { type, period, message } = req.body;
@@ -5988,7 +6018,7 @@ app.post(
 app.get(
   "/api/host/announcements",
   authenticateToken,
-  authorizeRole("host"),
+  authorizeRole("host", "admin"),
   async (req, res) => {
     try {
       const announcements = await Announcement.find({ host: req.userData.id })
@@ -6058,7 +6088,7 @@ function isValidLuhn(number) {
   let isEven = false;
 
   // Loop through values starting from the rightmost side
-  for (let i = number.length - 1; i >=0; i--) {
+  for (let i = number.length - 1; i >= 0; i--) {
     let digit = parseInt(number.charAt(i));
 
     if (isEven) {
@@ -6349,90 +6379,99 @@ app.get("/api/blog/:id", async (req, res) => {
 // Add these routes for voucher management
 
 // Get single voucher
-app.get("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
-  try {
-    const voucher = await Voucher.findOne({
-      _id: req.params.id,
-      owner: req.userData.id
-    }).populate('applicablePlaces');
-    
-    if (!voucher) {
-      return res.status(404).json({ error: "Voucher not found" });
+app.get(
+  "/host/vouchers/:id",
+  authenticateToken,
+  authorizeRole("host", "admin"),
+  async (req, res) => {
+    try {
+      const voucher = await Voucher.findOne({
+        _id: req.params.id,
+        owner: req.userData.id,
+      }).populate("applicablePlaces");
+
+      if (!voucher) {
+        return res.status(404).json({ error: "Voucher not found" });
+      }
+
+      res.json(voucher);
+    } catch (error) {
+      console.error("Error fetching voucher:", error);
+      res.status(500).json({ error: "Failed to fetch voucher" });
     }
-    
-    res.json(voucher);
-  } catch (error) {
-    console.error("Error fetching voucher:", error);
-    res.status(500).json({ error: "Failed to fetch voucher" });
   }
-});
+);
 
 // Update voucher
-app.put("/host/vouchers/:id", authenticateToken, authorizeRole("host"), async (req, res) => {
-  try {
-    const voucher = await Voucher.findOne({
-      _id: req.params.id,
-      owner: req.userData.id
-    });
-
-    if (!voucher) {
-      return res.status(404).json({ error: "Voucher not found" });
-    }
-
-    // Check if code is being changed and if it's already in use
-    if (req.body.code !== voucher.code) {
-      const existingVoucher = await Voucher.findOne({ 
-        code: req.body.code,
+app.put(
+  "/host/vouchers/:id",
+  authenticateToken,
+  authorizeRole("host", "admin"),
+  async (req, res) => {
+    try {
+      const voucher = await Voucher.findOne({
+        _id: req.params.id,
         owner: req.userData.id,
-        _id: { $ne: req.params.id }
       });
-      
-      if (existingVoucher) {
-        return res.status(400).json({ error: "Voucher code already exists" });
+
+      if (!voucher) {
+        return res.status(404).json({ error: "Voucher not found" });
       }
-    }
 
-    // Update voucher
-    const updatedVoucher = await Voucher.findByIdAndUpdate(
-      req.params.id,
-      {
-        code: req.body.code,
-        discount: req.body.discount,
-        description: req.body.description,
-        expirationDate: req.body.expirationDate,
-        usageLimit: req.body.usageLimit,
-        applicablePlaces: req.body.applicablePlaces,
-        active: true
-      },
-      { new: true }
-    ).populate('applicablePlaces');
+      // Check if code is being changed and if it's already in use
+      if (req.body.code !== voucher.code) {
+        const existingVoucher = await Voucher.findOne({
+          code: req.body.code,
+          owner: req.userData.id,
+          _id: { $ne: req.params.id },
+        });
 
-    // Notify admin about voucher update
-    const adminId = await getAdminUserId();
-    await sendNotification(
-      'system',
-      'Voucher Updated',
-      `Host ${req.userData.name} has updated voucher: ${updatedVoucher.code}`,
-      `/admin/vouchers/${updatedVoucher._id}`,
-      adminId,
-      {
-        priority: 'normal',
-        category: 'general',
-        metadata: {
-          voucherId: updatedVoucher._id,
-          hostId: req.userData.id,
-          changes: req.body
+        if (existingVoucher) {
+          return res.status(400).json({ error: "Voucher code already exists" });
         }
       }
-    );
 
-    res.json(updatedVoucher);
-  } catch (error) {
-    console.error("Error updating voucher:", error);
-    res.status(500).json({ error: "Failed to update voucher" });
+      // Update voucher
+      const updatedVoucher = await Voucher.findByIdAndUpdate(
+        req.params.id,
+        {
+          code: req.body.code,
+          discount: req.body.discount,
+          description: req.body.description,
+          expirationDate: req.body.expirationDate,
+          usageLimit: req.body.usageLimit,
+          applicablePlaces: req.body.applicablePlaces,
+          active: true,
+        },
+        { new: true }
+      ).populate("applicablePlaces");
+
+      // Notify admin about voucher update
+      const adminId = await getAdminUserId();
+      await sendNotification(
+        "system",
+        "Voucher Updated",
+        `Host ${req.userData.name} has updated voucher: ${updatedVoucher.code}`,
+        `/admin/vouchers/${updatedVoucher._id}`,
+        adminId,
+        {
+          priority: "normal",
+          category: "general",
+          metadata: {
+            voucherId: updatedVoucher._id,
+            hostId: req.userData.id,
+            changes: req.body,
+          },
+        }
+      );
+
+      res.json(updatedVoucher);
+    } catch (error) {
+      console.error("Error updating voucher:", error);
+      res.status(500).json({ error: "Failed to update voucher" });
+    }
   }
-});
-
+);
 
 app.listen(3000, () => {
   console.log("Server is running on http://localhost:3000");

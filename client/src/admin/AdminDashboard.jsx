@@ -28,7 +28,6 @@ import ManageBlogPage from "./Blog";
 import Announcement from "./Announcement";
 import axiosInstance from "../axiosConfig";
 
-
 const StatCard = ({ title, value, icon, trend }) => {
   return (
     <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100">
@@ -37,10 +36,15 @@ const StatCard = ({ title, value, icon, trend }) => {
           {React.cloneElement(icon, { className: "text-2xl text-primary" })}
         </div>
         {trend && (
-          <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-            trend > 0 ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
-          }`}>
-            {trend > 0 ? "+" : ""}{trend}%
+          <span
+            className={`text-sm font-medium px-3 py-1 rounded-full ${
+              trend > 0
+                ? "bg-green-100 text-green-600"
+                : "bg-red-100 text-red-600"
+            }`}
+          >
+            {trend > 0 ? "+" : ""}
+            {trend}%
           </span>
         )}
       </div>
@@ -143,9 +147,9 @@ function AdminDashboard() {
       const response = await axiosInstance.get("/notifications", {
         withCredentials: true,
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
       });
       setNotifications(response.data);
     } catch (error) {
@@ -242,23 +246,33 @@ function AdminDashboard() {
     <div className="flex flex-col md:flex-row min-h-screen">
       {/* Mobile Header */}
       <div className="md:hidden bg-white p-4 flex  justify-between items-center shadow-md">
-        <button 
+        <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           className="text-gray-600 hover:text-gray-900"
         >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
           </svg>
         </button>
         <span className="text-lg  font-semibold">Admin Dashboard</span>
-        <button 
+        <button
           onClick={() => setShowNotifications(!showNotifications)}
           className="relative max-w-9  text-gray-600 hover:text-gray-900"
         >
           <FaBell className="w-6 h-6 " />
-          {notifications.filter(n => n.status === "unread").length > 0 && (
+          {notifications.filter((n) => n.status === "unread").length > 0 && (
             <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
-              {notifications.filter(n => n.status === "unread").length}
+              {notifications.filter((n) => n.status === "unread").length}
             </span>
           )}
         </button>
@@ -485,8 +499,7 @@ function AdminDashboard() {
               </div>
             )}
           </div>
-
-       </nav>
+        </nav>
         {/* Notifications */}
       </aside>
 
@@ -498,7 +511,10 @@ function AdminDashboard() {
               <Link to="/admin" className="text-xl font-semibold text-gray-800">
                 Admin Dashboard
               </Link>
-              <button className="max-w-9" onClick={() => setMobileMenuOpen(false)}>
+              <button
+                className="max-w-9"
+                onClick={() => setMobileMenuOpen(false)}
+              >
                 <FaTimesCircle className="w-6 h-6  text-gray-600" />
               </button>
             </div>
@@ -717,8 +733,7 @@ function AdminDashboard() {
                   </div>
                 )}
               </div>
-
-           </nav>
+            </nav>
           </div>
         </div>
       )}
@@ -742,8 +757,12 @@ function AdminDashboard() {
             <div className="bg-gradient-to-r from-primary to-primary-dark rounded-2xl p-8 text-white">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                  <h1 className="text-3xl font-bold mb-2">Dashboard Overview</h1>
-                  <p className="text-white/80">Real-time statistics and platform metrics</p>
+                  <h1 className="text-3xl font-bold mb-2">
+                    Dashboard Overview
+                  </h1>
+                  <p className="text-white/80">
+                    Real-time statistics and platform metrics
+                  </p>
                 </div>
                 <button
                   onClick={() => setShowNotifications(!showNotifications)}
@@ -835,15 +854,15 @@ function AdminDashboard() {
               <div className="flex items-center gap-4">
                 <span>Version 1.0.0</span>
                 <span>•</span>
-                <Link 
-                  to="/admin/support" 
+                <Link
+                  to="/admin/support"
                   className="hover:text-primary transition-colors"
                 >
                   Support
                 </Link>
                 <span>•</span>
-                <Link 
-                  to="/admin/docs" 
+                <Link
+                  to="/admin/docs"
                   className="hover:text-primary transition-colors"
                 >
                   Documentation
@@ -872,14 +891,14 @@ function AdminDashboard() {
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-blue-600 max-w-32 hover:text-blue-800"
                   >
                     Mark all as read
                   </button>
                 )}
                 <button
                   onClick={() => setShowNotifications(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-500 max-w-6 hover:text-gray-700"
                 >
                   <FaTimesCircle className="text-2xl" />
                 </button>
@@ -897,7 +916,7 @@ function AdminDashboard() {
                   <li
                     key={notification._id}
                     className={`p-4 rounded-lg ${
-                      !notification.read 
+                      !notification.read
                         ? "bg-blue-50 border-l-4 border-blue-500"
                         : "bg-gray-50"
                     }`}
@@ -906,7 +925,7 @@ function AdminDashboard() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-medium">{notification.title}</h3>
-                          {notification.priority === 'high' && (
+                          {notification.priority === "high" && (
                             <span className="px-2 py-1 text-xs bg-red-100 text-red-800 rounded-full">
                               High Priority
                             </span>
@@ -915,7 +934,10 @@ function AdminDashboard() {
                         <p className="text-gray-600">{notification.message}</p>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="text-xs text-gray-500">
-                            {format(new Date(notification.createdAt), "MMM d, yyyy HH:mm")}
+                            {format(
+                              new Date(notification.createdAt),
+                              "MMM d, yyyy HH:mm"
+                            )}
                           </span>
                           <span className="text-xs px-2 py-1 bg-gray-100 rounded-full">
                             {notification.category}

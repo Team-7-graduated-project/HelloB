@@ -229,25 +229,46 @@ export default function Header() {
                         </Menu.Item>
 
                         {user.role === "admin" && (
-                          <Menu.Item>
-                            {({ active }) => (
-                              <Link
-                                to="/admin"
-                                onClick={() => {
-                                  window.scrollTo({
-                                    top: 0,
-                                    behavior: "smooth",
-                                  });
-                                }}
-                                className={`flex items-center gap-3 px-4 py-3 text-sm ${
-                                  active ? "bg-gray-50" : ""
-                                } text-gray-700`}
-                              >
-                                <FaCog className="text-primary" />
-                                Admin Dashboard
-                              </Link>
-                            )}
-                          </Menu.Item>
+                          <div>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <Link
+                                  to="/admin"
+                                  onClick={() => {
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: "smooth",
+                                    });
+                                  }}
+                                  className={`flex items-center gap-3 px-4 py-3 text-sm ${
+                                    active ? "bg-gray-50" : ""
+                                  } text-gray-700`}
+                                >
+                                  <FaCog className="text-primary" />
+                                  Admin Dashboard
+                                </Link>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <Link
+                                  to="/host"
+                                  onClick={() => {
+                                    window.scrollTo({
+                                      top: 0,
+                                      behavior: "smooth",
+                                    });
+                                  }}
+                                  className={`flex items-center gap-3 px-4 py-3 text-sm ${
+                                    active ? "bg-gray-50" : ""
+                                  } text-gray-700`}
+                                >
+                                  <FaHotel className="text-primary" />
+                                  Your Properties
+                                </Link>
+                              )}
+                            </Menu.Item>
+                          </div>
                         )}
 
                         {user.role === "host" && (
