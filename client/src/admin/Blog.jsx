@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { FaTrash, FaImage, FaPlus, FaTimes, FaUpload, FaSearch, FaSpinner } from "react-icons/fa";
+import {
+  FaTrash,
+  FaImage,
+  FaPlus,
+  FaTimes,
+  FaUpload,
+  FaSearch,
+} from "react-icons/fa";
 
 export default function ManageBlogPage() {
   const [posts, setPosts] = useState([]);
@@ -100,20 +107,20 @@ export default function ManageBlogPage() {
     const files = e.target.files;
     const data = new FormData();
     for (let i = 0; i < files.length; i++) {
-      data.append('photos', files[i]);
+      data.append("photos", files[i]);
     }
     try {
-      const response = await axios.post('/uploads', data, {
+      const response = await axios.post("/uploads", data, {
         withCredentials: true,
-        headers: { 'Content-type': 'multipart/form-data' }
+        headers: { "Content-type": "multipart/form-data" },
       });
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        image: response.data[0] // Set the first uploaded image as the main image
+        image: response.data[0], // Set the first uploaded image as the main image
       }));
-      setUploadedFiles(prev => [...prev, ...response.data]);
+      setUploadedFiles((prev) => [...prev, ...response.data]);
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error("Upload error:", error);
     }
   };
 
@@ -122,17 +129,21 @@ export default function ManageBlogPage() {
     const imageUrl = formData.image;
     if (!imageUrl) return;
     try {
-      const response = await axios.post('/upload-by-link', { 
-        link: imageUrl 
-      }, {
-        withCredentials: true
-      });
-      setFormData(prev => ({
+      const response = await axios.post(
+        "/upload-by-link",
+        {
+          link: imageUrl,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+      setFormData((prev) => ({
         ...prev,
-        image: response.data
+        image: response.data,
       }));
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error("Upload error:", error);
     }
   };
 
@@ -178,7 +189,7 @@ export default function ManageBlogPage() {
               className="px-6 max-w-44 py-2 bg-white/10 backdrop-blur-sm text-white rounded-xl hover:bg-white/20 transition-colors flex items-center gap-2"
             >
               <FaPlus />
-             Add New Post
+              Add New Post
             </button>
           )}
         </div>
@@ -194,7 +205,6 @@ export default function ManageBlogPage() {
         <FaSearch className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
       </div>
       {/* Search Bar */}
-     
 
       {/* Form */}
       {showForm && (
@@ -269,8 +279,13 @@ export default function ManageBlogPage() {
                         accept="image/*"
                       />
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary transition-colors duration-200">
-                        <FaUpload className="mx-auto text-gray-400 mb-2" size={24} />
-                        <span className="text-gray-600">Click to upload images</span>
+                        <FaUpload
+                          className="mx-auto text-gray-400 mb-2"
+                          size={24}
+                        />
+                        <span className="text-gray-600">
+                          Click to upload images
+                        </span>
                       </div>
                     </label>
                   </div>
@@ -287,11 +302,13 @@ export default function ManageBlogPage() {
                           />
                           <button
                             onClick={() => {
-                              setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+                              setUploadedFiles((prev) =>
+                                prev.filter((_, i) => i !== index)
+                              );
                             }}
                             className="absolute max-w-6 top-1 right-1 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                           >
-                            <FaTimes size={12} />
+                            <FaTimes size={15} />
                           </button>
                         </div>
                       ))}
@@ -425,7 +442,7 @@ export default function ManageBlogPage() {
             <div className="flex justify-center mt-6">
               <button
                 onClick={handleLoadMore}
-            className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
+                className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
               >
                 Load More
               </button>
@@ -435,4 +452,4 @@ export default function ManageBlogPage() {
       )}
     </div>
   );
-} 
+}

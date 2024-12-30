@@ -70,7 +70,9 @@ export default function PlacePage() {
 
   const canReport = useCallback(() => {
     if (!user) return false;
-    return user.role === "user"; // Only allow regular users to report
+    return (
+      user.role === "user" || user.role === "admin" || user.role === "host"
+    ); // Only allow regular users to report
   }, [user]);
 
   useEffect(() => {
@@ -1176,7 +1178,7 @@ export default function PlacePage() {
               Report this listing
             </button>
           ) : (
-            user && (
+            !user && (
               <div className="text-red-600 font-bold italic">
                 Only registered users can report listings
               </div>

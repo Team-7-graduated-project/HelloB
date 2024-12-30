@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import PlaceImg from "../PlaceImg";
-import ErrorBoundary from "../components/ErrorBoundary";
 import { FaSpinner, FaSearch, FaCalendarAlt } from "react-icons/fa";
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 
@@ -12,6 +11,9 @@ function PlacesList() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filteredPlaces, setFilteredPlaces] = useState([]);
   const [visiblePlaces, setVisiblePlaces] = useState(10);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [placeToDelete, setPlaceToDelete] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false); // Add state for success modal
 
   useEffect(() => {
     fetchPlaces();
@@ -52,7 +54,7 @@ function PlacesList() {
       setFilteredPlaces((prevPlaces) =>
         prevPlaces.filter((place) => place._id !== id)
       );
-      alert("Place deleted successfully");
+      setShowSuccessModal(true); // Show the success modal after successful deletion
     } catch (error) {
       console.error("Failed to delete place:", error);
       if (error.response?.status === 401 || error.response?.status === 403) {
@@ -65,16 +67,13 @@ function PlacesList() {
       }
     } finally {
       setDeletingId(null);
+      setShowDeleteModal(false);
     }
   };
 
   const confirmDelete = (id) => {
-    const confirmDelete = window.confirm(
-      "Are you sure you want to delete this place?"
-    );
-    if (confirmDelete) {
-      deletePlace(id);
-    }
+    setPlaceToDelete(id);
+    setShowDeleteModal(true);
   };
 
   const handleSearchChange = (e) => {
@@ -138,6 +137,71 @@ function PlacesList() {
           </div>
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4 flex text-inline  ">
+              {" "}
+              <div className="text-green-500">
+                <svg
+                  className="w-5 h-5 mr-2"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
+              Property Deleted Success
+            </h2>
+            <p className="mb-4">The property has been deleted successfully.</p>
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold mb-4">
+              ⚠️ Warning: Permanent Deletion
+            </h2>
+            <p className="mb-4">
+              You are about to permanently delete this property.
+            </p>
+            <ul className="list-disc pl-5 mb-4 text-gray-600">
+              <li>All associated data will be permanently removed</li>
+              <li>This action cannot be undone</li>
+              <li>Booking history will be erased</li>
+            </ul>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deletePlace(placeToDelete)}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center items-center py-8">
@@ -239,9 +303,9 @@ function PlacesList() {
         <div className="flex justify-center mt-6">
           <button
             onClick={handleWatchMore}
-            className="bg-black max-w-40 text-white px-6 py-2 rounded-lg   transition-colors  flex items-center gap-2"
+            className="bg-black max-w-40 text-white px-6 py-2 rounded-lg"
           >
-            Load More Places
+            Load More
           </button>
         </div>
       )}
@@ -249,12 +313,4 @@ function PlacesList() {
   );
 }
 
-function ManagePlacesPage() {
-  return (
-    <ErrorBoundary>
-      <PlacesList />
-    </ErrorBoundary>
-  );
-}
-
-export default ManagePlacesPage;
+export default PlacesList;

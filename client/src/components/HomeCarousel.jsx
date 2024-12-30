@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FaChevronLeft, FaChevronRight, FaStar } from "react-icons/fa";
 import PropTypes from "prop-types";
 
@@ -20,41 +20,55 @@ export default function HomeCarousel({ places }) {
   // Initialize and update randomized places every 24 hours
   useEffect(() => {
     const initializeRandomPlaces = () => {
-      const lastShuffleTime = localStorage.getItem('lastShuffleTime');
-      const savedRandomPlaces = JSON.parse(localStorage.getItem('randomizedPlaces'));
-      
+      const lastShuffleTime = localStorage.getItem("lastShuffleTime");
+      const savedRandomPlaces = localStorage.getItem("randomizedPlaces");
+
       const now = new Date().getTime();
       const twentyFourHours = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
-      if (!lastShuffleTime || !savedRandomPlaces || 
-          now - parseInt(lastShuffleTime) > twentyFourHours || 
-          savedRandomPlaces.length !== places.length) {
+      if (
+        !savedRandomPlaces ||
+        !places.length ||
+        now - parseInt(lastShuffleTime) > twentyFourHours
+      ) {
         // Shuffle places and save to localStorage
         const shuffled = shuffleArray(places);
-        localStorage.setItem('randomizedPlaces', JSON.stringify(shuffled));
-        localStorage.setItem('lastShuffleTime', now.toString());
+        localStorage.setItem("randomizedPlaces", JSON.stringify(shuffled));
+        localStorage.setItem("lastShuffleTime", now.toString());
         setRandomizedPlaces(shuffled);
       } else {
-        // Use saved randomized places
-        setRandomizedPlaces(savedRandomPlaces);
+        try {
+          const parsedPlaces = JSON.parse(savedRandomPlaces);
+          setRandomizedPlaces(parsedPlaces);
+        } catch (error) {
+          console.error(
+            "Error parsing randomizedPlaces from localStorage",
+            error
+          );
+        }
       }
     };
 
-    initializeRandomPlaces();
+    if (places.length > 0) {
+      initializeRandomPlaces();
+    }
   }, [places]);
 
-  const nextSlide = () => {
+  // Memoize nextSlide function to prevent re-creating on every render
+  const nextSlide = useCallback(() => {
     if (!isAnimating && randomizedPlaces.length > 0) {
       setIsAnimating(true);
       setCurrentSlide((prev) => (prev + 1) % randomizedPlaces.length);
       setTimeout(() => setIsAnimating(false), 500);
     }
-  };
+  }, [isAnimating, randomizedPlaces]);
 
   const prevSlide = () => {
     if (!isAnimating && randomizedPlaces.length > 0) {
       setIsAnimating(true);
-      setCurrentSlide((prev) => (prev - 1 + randomizedPlaces.length) % randomizedPlaces.length);
+      setCurrentSlide(
+        (prev) => (prev - 1 + randomizedPlaces.length) % randomizedPlaces.length
+      );
       setTimeout(() => setIsAnimating(false), 500);
     }
   };
@@ -62,7 +76,7 @@ export default function HomeCarousel({ places }) {
   useEffect(() => {
     const timer = setInterval(nextSlide, 5000);
     return () => clearInterval(timer);
-  }, [randomizedPlaces]);
+  }, [nextSlide]); // Dependency on the memoized nextSlide function
 
   if (!randomizedPlaces || randomizedPlaces.length === 0) return null;
 
@@ -73,14 +87,13 @@ export default function HomeCarousel({ places }) {
         <div
           key={place._id}
           className={`absolute inset-0 transition-all duration-700 ease-in-out ${
-            currentSlide === index 
-              ? "opacity-100 translate-x-0" 
-              : index > currentSlide 
-                ? "opacity-0 translate-x-full" 
-                : "opacity-0 -translate-x-full"
+            currentSlide === index
+              ? "opacity-100 translate-x-0"
+              : index > currentSlide
+              ? "opacity-0 translate-x-full"
+              : "opacity-0 -translate-x-full"
           }`}
         >
-          {/* Rest of the slide content remains the same, just change 'places' to 'randomizedPlaces' */}
           <img
             src={place.photos[0]}
             alt={place.title}
@@ -108,9 +121,10 @@ export default function HomeCarousel({ places }) {
                     <span>{place.address}</span>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right flex ">
                   <div className="text-2xl font-bold">${place.price}</div>
-                  <div className="text-sm opacity-75">per night</div>
+                  <div className="text-xl ">/</div>
+                  <div className="text-xl opacity-75"> per night</div>
                 </div>
               </div>
             </div>
@@ -152,7 +166,6 @@ export default function HomeCarousel({ places }) {
   );
 }
 
-// PropTypes remain the same
 HomeCarousel.propTypes = {
   places: PropTypes.arrayOf(
     PropTypes.shape({
@@ -165,4 +178,4 @@ HomeCarousel.propTypes = {
       address: PropTypes.string.isRequired,
     })
   ).isRequired,
-}; 
+};
